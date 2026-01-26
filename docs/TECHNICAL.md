@@ -63,7 +63,14 @@ sequenceDiagram
     end
 ```
 
-### 3. Runtime Management (`pkg/runtime`)
+### 3. Process Hygiene (`pkg/proc`)
+
+Ensures that child processes do not outlive the parent (preventing "Zombies"), essential for managing Language Servers or background tools.
+
+* **Linux**: Uses `SysProcAttr.Pdeathsig` to signal the child when the parent thread dies.
+* **Windows**: Uses **Job Objects** (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) to ensure the OS terminates the child tree when the parent handle is closed.
+
+### 4. Runtime Management (`pkg/runtime`)
 
 Ensures process lifecycle is deterministic.
 
