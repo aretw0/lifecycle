@@ -50,19 +50,16 @@ func IsInterrupted(err error) bool {
 	if err == nil {
 		return false
 	}
+	// errors.Is already unwraps the error chain
 	if errors.Is(err, ErrInterrupted) || errors.Is(err, context.Canceled) {
-		return true
-	}
-	// "input error: interrupted" handled by string check if wrapped weirdly, but try to avoid string checks.
-	if err.Error() == "interrupted" { // Fallback
 		return true
 	}
 	if errors.Is(err, io.EOF) {
 		return true
 	}
-	// Unwrap and check
-	if u := errors.Unwrap(err); u != nil {
-		return IsInterrupted(u)
+	// Fallback for string-based errors (only shallow check)
+	if err.Error() == "interrupted" {
+		return true
 	}
 	return false
 }

@@ -42,3 +42,4 @@ Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Ar
 ## Technical Debt
 
 - **Test Coverage**: (Promoted to v1.1) `pkg/termio` relies heavily on manual verification for the "blocking read" scenarios.
+- [x] **Refactoring**: Simplified `IsInterrupted` in `pkg/termio` to remove O(N^2) recursion and rely on standard `errors.Is`.
