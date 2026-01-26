@@ -21,7 +21,7 @@ Centralizar a lógica delicada de interrupção de processos (Graceful Shutdown)
 
 ## Próximos Passos
 
-* [ ] Inicializar Go Module (`go mod init github.com/aretw0/lifecycle`).
-* [ ] Criar pacote `signal` e portar `SignalContext`.
-* [ ] Criar pacote `io` (ou `term`) e implementar `NewTerminalReader` e `InterruptibleReader`.
-* [ ] Adicionar testes unitários robustos (concorrência é difícil de testar).
+* [x] Inicializar Go Module (`go mod init github.com/aretw0/lifecycle`).
+* [x] Criar pacote `signal` e portar `SignalContext`.
+* [x] Criar pacote `termio` (decidido usar `termio`) e implementar `NewTerminalReader` (Open) e `InterruptibleReader`.
+* [x] Adicionar testes unitários robustos (concorrência é difícil de testar).
