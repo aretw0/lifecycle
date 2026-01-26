@@ -15,16 +15,17 @@
 
 ### v1.1: Stewardship & Robustness
 
-Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro (limpeza de recursos e processos).
+Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro.
 
+- [ ] **Windows CI**: Enable `windows-latest` runner in GitHub Actions to verify `CONIN$` support. (Critical)
 - [ ] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis).
 - [ ] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
 - [ ] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
-- [ ] **TermIO Automation**: Investigate and implement automated tests for blocking read scenarios (reducing reliance on manual verification).
+- [ ] **TermIO Automation Spike**: Design a specific plan/POC for testing blocking reads (complex scenario). Requires dedicated focus.
 
 ### v1.2: Ecosystem Convergence (The Supervisor Pattern)
 
-Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Clawd-like).
+Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Arbour-like).
 
 - [ ] **Supervisor**: Implementação de um padrão Supervisor para gerenciar grupos de `exec.Cmd` (Restart policies, Group Shutdown).
 - [ ] **Container Interface**: Definição de interfaces para orquestração de containers (sem dependência direta de Docker SDK).
