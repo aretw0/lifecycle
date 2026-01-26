@@ -8,6 +8,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/aretw0/lifecycle/pkg/log"
 	"golang.org/x/sys/windows"
 )
 
@@ -73,26 +74,20 @@ func start(cmd *exec.Cmd) error {
 		pid,
 	)
 	if err != nil {
-		// If the process died immediately, we might fail to open it.
-		// That's fine, it's not a zombie.
-		// To be safe, we can check if it's still running, but usually OpenProcess fails if PID is gone?
-		// Actually Windows reuses PIDs, so let's be careful.
-		// But cmd.Start just returned, so it's unlikely reused *that* fast unless heavily loaded system.
-		// For now, return error, but maybe log it?
-		// The requirement is "Start(cmd) error", so returning error is correct behavior if we can't guarantee safety.
-		// However, leaving the process running (if we allocated it) but failing to assign logic
-		// means we have a potential zombie. Ideally we should kill it if we fail to assign?
+		// If we can't open the process to manage it, we must kill it to avoid zombies (fail-closed).
+		log.Error("failed to open process for job assignment", "pid", pid, "error", err)
 		_ = cmd.Process.Kill()
-		return fmt.Errorf("open process for job assignment: %w", err)
+		return fmt.Errorf("open process: %w", err)
 	}
 	defer windows.CloseHandle(procHandle)
 
 	if err := windows.AssignProcessToJobObject(jobHandle, procHandle); err != nil {
-		// If assignment fails, we should kill the process to ensure we don't leak it
-		// (fail closed).
+		// Fail-closed: kill process if we can't guarantee hygiene.
+		log.Error("failed to assign process to job object", "pid", pid, "error", err)
 		_ = cmd.Process.Kill()
 		return fmt.Errorf("assign process to job: %w", err)
 	}
 
+	log.Debug("assigned process to job object", "pid", pid)
 	return nil
 }
