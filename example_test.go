@@ -51,3 +51,26 @@ func ExampleOpenTerminal() {
 	// Output:
 	// Terminal opened successfully
 }
+
+// ExampleBlockWithTimeout demonstrates how to enforce a deadline on shutdown cleanup.
+func ExampleBlockWithTimeout() {
+	done := make(chan struct{})
+
+	// Simulate a cleanup task
+	go func() {
+		defer close(done)
+		// Simulate fast cleanup
+		time.Sleep(10 * time.Millisecond)
+	}()
+
+	// Wait for cleanup, but give up after 1 second
+	err := lifecycle.BlockWithTimeout(done, 1*time.Second)
+	if err != nil {
+		fmt.Println("Cleanup timed out!")
+	} else {
+		fmt.Println("Cleanup finished successfully")
+	}
+
+	// Output:
+	// Cleanup finished successfully
+}

@@ -16,6 +16,13 @@
 // and `NewInterruptibleReader` to ensure I/O operations respect `context.Context` cancellation
 // and signals are handled gracefully without premature termination.
 //
+// # Shutdown Timeouts
+//
+// Graceful shutdown often involves waiting for background goroutines to finish (e.g., closing database
+// connections, flushing logs). To prevent the application from hanging indefinitely if a cleanup
+// operation stalls, `lifecycle` provides `BlockWithTimeout`. This ensures the process exits
+// deterministically even if some components are stuck.
+//
 // # Usage
 //
 //	ctx := lifecycle.NewSignalContext(context.Background())

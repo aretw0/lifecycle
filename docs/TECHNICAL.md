@@ -63,7 +63,13 @@ sequenceDiagram
     end
 ```
 
-### 3. Upgrade Terminal
+### 3. Runtime Management (`pkg/runtime`)
+
+Ensures process lifecycle is deterministic.
+
+* **Timeouts**: `BlockWithTimeout` enforces deadlines on Shutdown phases. This prevents "Cleanup Zombie" states where a CLI hangs forever waiting for a database close or log flush.
+
+### 4. Upgrade Terminal
 
 We expose `UpgradeTerminal(io.Reader)` to allow arbitrary readers (e.g. from `os.Stdin` in a CLI framework) to be checked and "upgraded" to a platform-safe reader if they represent a terminal.
 
