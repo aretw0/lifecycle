@@ -1,5 +1,5 @@
 // Package lifecycle provides a centralized library for managing application lifecycles
-// and interactive I/O within the aretw0 ecosystem (Trellis, Tobot, Fiscus).
+// and interactive I/O.
 //
 // # Dual Signal Context
 //

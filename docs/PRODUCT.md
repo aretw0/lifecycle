@@ -2,7 +2,7 @@
 
 ## Mission
 
-To be the **standard foundation** for CLI application lifecycle management in the `aretw0` ecosystem, abstracting away the pain of OS-specific signal handling and blocking I/O.
+To be the **standard foundation** for CLI application lifecycle management, abstracting away the pain of OS-specific signal handling and blocking I/O.
 
 ## The Problem
 
@@ -18,7 +18,7 @@ Writing robust CLI tools in Go is deceptive. Handling `Ctrl+C` correctly implies
 
 * **Dual-Signal Context**: A standard pattern to differentiate "Soft Interrupt" vs "Hard Kill".
 * **Safety Wrapper**: `pkg/termio` guarantees that I/O operations respect `context.Context`, implementing "Abandon Ship" logic for blocking reads.
-* **Uniformity**: Ensures `Trellis`, `Tobot`, and `Fiscus` behave identically when the user tries to stop them.
+* **Uniformity**: Ensures tools behave identically when the user tries to stop them.
 
 ## Target Audience
 

@@ -5,11 +5,11 @@
 [![License](https://img.shields.io/github/license/aretw0/lifecycle.svg?color=red)](LICENSE.txt)
 [![Release](https://img.shields.io/github/release/aretw0/lifecycle.svg?branch=main)](https://github.com/aretw0/lifecycle/releases)
 
-**lifecycle** is a Go library for managing application shutdown signals and interactive terminal I/O robustly. It centralizes the "Dual Signal" logic and "Interruptible I/O" patterns used in the [Trellis](https://github.com/aretw0/trellis) ecosystem.
+**lifecycle** is a Go library for managing application shutdown signals and interactive terminal I/O robustly. It centralizes the "Dual Signal" logic and "Interruptible I/O" patterns originally extracted from [Trellis](https://github.com/aretw0/trellis) and designed for any tool needing robust signal handling.
 
 ## Vision
 
-To provide a standard, leak-free way to handle CLI interruptions (Ctrl+C) and graceful shutdowns across all `aretw0` tools, handling OS idiosyncrasies (especially Windows `CONIN$`) transparently.
+To provide a standard, leak-free way to handle CLI interruptions (Ctrl+C) and graceful shutdowns across Go CLI applications, handling OS idiosyncrasies (especially Windows `CONIN$`) transparently.
 
 ## Installation
 
