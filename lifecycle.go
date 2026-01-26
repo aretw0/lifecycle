@@ -3,7 +3,9 @@ package lifecycle
 import (
 	"context"
 	"io"
+	"time"
 
+	"github.com/aretw0/lifecycle/pkg/runtime"
 	"github.com/aretw0/lifecycle/pkg/signal"
 	"github.com/aretw0/lifecycle/pkg/termio"
 )
@@ -36,4 +38,10 @@ func IsInterrupted(err error) bool {
 // If not a terminal, returns the original reader.
 func UpgradeTerminal(r io.Reader) (io.Reader, error) {
 	return termio.Upgrade(r)
+}
+
+// BlockWithTimeout blocks until the done channel is closed or the timeout expires.
+// Alias for pkg/runtime.BlockWithTimeout.
+func BlockWithTimeout(done <-chan struct{}, timeout time.Duration) error {
+	return runtime.BlockWithTimeout(done, timeout)
 }
