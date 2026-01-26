@@ -9,9 +9,12 @@
 - [x] **Testing**: Unit tests for core logic.
 - [x] **Release Automation**: GoReleaser configuration.
 
-### v1.0: Stability
+### v1.0: Stability (Release Candidate)
 
-- [ ] **Integration**: Adopted by `trellis` v0.8+.
+- [x] **Integration**: Adopted by `trellis` v0.8+.
+
+### v1.1: Refinements
+
 - [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior on other Unixes.
 - [ ] **Timeout Logic**: Add helpers for `Shutdown(ctx, timeout)`.
 
