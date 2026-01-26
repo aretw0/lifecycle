@@ -24,7 +24,9 @@ go get github.com/aretw0/lifecycle
   * **SIGTERM**: Cancels context immediately (standard graceful shutdown).
 * **TermIO**:
   * **InterruptibleReader**: Wraps `io.Reader` to allow `Read()` calls to be abandoned when a context is cancelled (avoids goroutine leaks).
-  * **Platform Aware**: Automatically uses `CONIN$` on Windows to ensure signals are received during blocking reads.
+  * **Platform Aware**: Automatically uses `CONIN$` on Windows.
+    * **Why?** On Windows, standard `os.Stdin` closes immediately upon receiving a signal (like Ctrl+C), causing a fatal `EOF` before the application can gracefully handle the signal. `lifecycle` switches to `CONIN$`, which keeps the handle open, allowing the `SignalContext` to process the event.
+  * **UpgradeTerminal**: Helper to upgrade an arbitrary existing `io.Reader` (if it identifies as a terminal) to the safe platform-specific reader.
 
 ## Usage
 

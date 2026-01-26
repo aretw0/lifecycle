@@ -11,8 +11,10 @@
 // # Interruptible I/O
 //
 // On many systems (especially Windows), reading from `os.Stdin` blocks the goroutine indefinitely,
-// preventing clean cancellation. `lifecycle` provides `OpenTerminal` (using `CONIN$`) and
-// `NewInterruptibleReader` to ensure I/O operations respect `context.Context` cancellation.
+// preventing clean cancellation. Furthermore, on Windows, receiving a signal can close the standard
+// input handle, causing an unexpected EOF. `lifecycle` provides `OpenTerminal` (using `CONIN$`)
+// and `NewInterruptibleReader` to ensure I/O operations respect `context.Context` cancellation
+// and signals are handled gracefully without premature termination.
 //
 // # Usage
 //
