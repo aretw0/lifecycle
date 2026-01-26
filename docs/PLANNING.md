@@ -17,7 +17,7 @@
 
 Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro.
 
-- [ ] **Windows CI**: Enable `windows-latest` runner in GitHub Actions to verify `CONIN$` support. (Critical)
+- [x] **Windows CI**: Enable `windows-latest` runner in GitHub Actions to verify `CONIN$` support. (Critical)
 - [ ] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis).
 - [ ] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
 - [ ] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
