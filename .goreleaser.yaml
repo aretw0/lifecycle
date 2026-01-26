@@ -1,0 +1,20 @@
+version: 2
+
+project_name: lifecycle
+
+builds:
+  - skip: true # We are a library, no binaries needed
+
+release:
+  github:
+    owner: aretw0
+    name: lifecycle
+  draft: true
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
