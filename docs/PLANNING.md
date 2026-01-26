@@ -7,7 +7,7 @@
 - [x] **Signal Layer**: `pkg/signal` with `SignalContext` (Dual Signal support).
 - [x] **I/O Layer**: `pkg/termio` with `InterruptibleReader` and Windows `CONIN$` support.
 - [x] **Testing**: Unit tests for core logic.
-- [ ] **Release Automation**: GoReleaser configuration.
+- [x] **Release Automation**: GoReleaser configuration.
 
 ### v1.0: Stability
 

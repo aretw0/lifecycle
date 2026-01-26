@@ -63,6 +63,10 @@ sequenceDiagram
     end
 ```
 
+### 3. Upgrade Terminal
+
+We expose `UpgradeTerminal(io.Reader)` to allow arbitrary readers (e.g. from `os.Stdin` in a CLI framework) to be checked and "upgraded" to a platform-safe reader if they represent a terminal.
+
 ## Windows `CONIN$`
 
 On **Windows**, `os.Stdin` is a wrapper around a Handle. If that Handle is in a blocking Read, standard Windows signals might not propagate correctly to the Go runtime in console applications.
