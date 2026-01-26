@@ -17,9 +17,9 @@
 
 ## Backlog
 
-* **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects? (Currently out of scope, aiming for minimalism).
+- **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects? (Currently out of scope, aiming for minimalism).
 - **Hook System**: A standard `OnShutdown(func())` registry?
 
 ## Technical Debt
 
-* **Test Coverage**: `pkg/termio` relies heavily on manual verification for the "blocking read" scenarios due to lack of PTY in unit tests.
+- **Test Coverage**: `pkg/termio` relies heavily on manual verification for the "blocking read" scenarios due to lack of PTY in unit tests.

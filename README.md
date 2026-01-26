@@ -36,12 +36,12 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/aretw0/lifecycle/pkg/signal"
+    "github.com/aretw0/lifecycle"
 )
 
 func main() {
     // captures SIGINT/SIGTERM
-    ctx := signal.NewContext(context.Background())
+    ctx := lifecycle.NewSignalContext(context.Background())
     defer ctx.Cancel() 
 
     <-ctx.Done()
@@ -61,25 +61,25 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/aretw0/lifecycle/pkg/termio"
+    "github.com/aretw0/lifecycle"
 )
 
 func main() {
     ctx := context.Background() // or SignalContext
     
     // Smart Open (handles Windows CONIN$)
-    reader, _ := termio.Open()
+    reader, _ := lifecycle.OpenTerminal()
     
     // Wrap to respect context cancellation
-    r := termio.NewInterruptibleReader(reader, ctx.Done())
+    r := lifecycle.NewInterruptibleReader(reader, ctx.Done())
 
     buf := make([]byte, 1024)
     n, err := r.Read(buf)
-    if termio.IsInterrupted(err) {
+    if lifecycle.IsInterrupted(err) {
         fmt.Println("Read cancelled!")
         return
     }
-    fmt.Printf("Red: %s\n", buf[:n])
+    fmt.Printf("Read: %s\n", buf[:n])
 }
 ```
 
