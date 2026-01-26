@@ -3,8 +3,13 @@ package lifecycle
 import (
 	"context"
 	"io"
+	"os/exec"
 	"time"
 
+	"log/slog"
+
+	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/proc"
 	"github.com/aretw0/lifecycle/pkg/runtime"
 	"github.com/aretw0/lifecycle/pkg/signal"
 	"github.com/aretw0/lifecycle/pkg/termio"
@@ -44,4 +49,22 @@ func UpgradeTerminal(r io.Reader) (io.Reader, error) {
 // Alias for pkg/runtime.BlockWithTimeout.
 func BlockWithTimeout(done <-chan struct{}, timeout time.Duration) error {
 	return runtime.BlockWithTimeout(done, timeout)
+}
+
+// StartProcess starts the specified command with process hygiene (auto-kill on parent exit).
+// Alias for pkg/proc.Start.
+func StartProcess(cmd *exec.Cmd) error {
+	return proc.Start(cmd)
+}
+
+// SetStrictMode sets whether to block on unsupported platforms for process hygiene.
+// Alias for pkg/proc.StrictMode.
+func SetStrictMode(strict bool) {
+	proc.StrictMode = strict
+}
+
+// SetLogger overrides the global logger used by the library.
+// Alias for pkg/log.SetLogger.
+func SetLogger(l *slog.Logger) {
+	log.SetLogger(l)
 }
