@@ -13,16 +13,31 @@
 
 - [x] **Integration**: Adopted by `trellis` v0.8+.
 
-### v1.1: Refinements
+### v1.1: Stewardship & Robustness
+
+Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro (limpeza de recursos e processos).
+
+- [ ] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis).
+- [ ] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
+- [ ] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
+- [ ] **TermIO Automation**: Investigate and implement automated tests for blocking read scenarios (reducing reliance on manual verification).
+
+### v1.2: Ecosystem Convergence (The Supervisor Pattern)
+
+Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Clawd-like).
+
+- [ ] **Supervisor**: Implementação de um padrão Supervisor para gerenciar grupos de `exec.Cmd` (Restart policies, Group Shutdown).
+- [ ] **Container Interface**: Definição de interfaces para orquestração de containers (sem dependência direta de Docker SDK).
+
+### v1.3: Portability
 
 - [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior on other Unixes.
-- [ ] **Timeout Logic**: Add helpers for `Shutdown(ctx, timeout)`.
 
 ## Backlog
 
-- **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects? (Currently out of scope, aiming for minimalism).
-- **Hook System**: A standard `OnShutdown(func())` registry?
+- **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
+- **Observability Hooks**: Tracing/Logging interfaces for lifecycle events.
 
 ## Technical Debt
 
-- **Test Coverage**: `pkg/termio` relies heavily on manual verification for the "blocking read" scenarios due to lack of PTY in unit tests.
+- **Test Coverage**: (Promoted to v1.1) `pkg/termio` relies heavily on manual verification for the "blocking read" scenarios.
