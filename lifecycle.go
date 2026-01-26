@@ -31,3 +31,9 @@ func NewInterruptibleReader(base io.Reader, cancel <-chan struct{}) *termio.Inte
 func IsInterrupted(err error) bool {
 	return termio.IsInterrupted(err)
 }
+
+// UpgradeTerminal checks if the provided reader is a terminal and returns a safe reader (e.g. CONIN$ on Windows).
+// If not a terminal, returns the original reader.
+func UpgradeTerminal(r io.Reader) (io.Reader, error) {
+	return termio.Upgrade(r)
+}
