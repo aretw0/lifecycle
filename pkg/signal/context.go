@@ -6,6 +6,8 @@ import (
 	ossignal "os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/aretw0/lifecycle/pkg/log"
 )
 
 // Context wraps a context and captures the signal that cancelled it.
@@ -50,6 +52,7 @@ func NewContext(parent context.Context) *Context {
 		go func() {
 			select {
 			case sig := <-sc.sigCh:
+				log.Debug("received signal", "signal", sig.String())
 				sc.mu.Lock()
 				sc.sigVal = sig
 				sc.mu.Unlock()

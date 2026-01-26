@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/aretw0/lifecycle/pkg/log"
 	"golang.org/x/term"
 )
 
@@ -16,6 +17,7 @@ func Upgrade(r io.Reader) (io.Reader, error) {
 		// Attempt to "re-open" it using the safe platform-specific Open() method.
 		// On Windows, this swaps os.Stdin for CONIN$.
 		// On POSIX, it just returns os.Stdin (or similar) effectively doing nothing but safe.
+		log.Debug("upgrading terminal to raw/conin handle", "fd", f.Fd())
 		return Open() // Open returns (io.ReadCloser, error)
 	}
 	return r, nil
