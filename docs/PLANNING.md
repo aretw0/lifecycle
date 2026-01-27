@@ -17,11 +17,11 @@
 
 Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro.
 
-- [x] **Windows CI**: Enable `windows-latest` runner in GitHub Actions to verify `CONIN$` support. (Critical)
-- [ ] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis).
+- [x] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis - "Fail-Closed").
 - [x] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
+- [x] **Observability**: `SetLogger` e `MetricsProvider` para monitoramento do ciclo de vida sem dependências externas.
 - [ ] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
-- [ ] **TermIO Automation Spike**: Design a specific plan/POC for testing blocking reads (complex scenario). Requires dedicated focus.
+- [ ] **TermIO Automation Spike**: Design a specific plan/POC for testing blocking reads (complex scenario).
 
 ### v1.2: Ecosystem Convergence (The Supervisor Pattern)
 
@@ -36,10 +36,10 @@ Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Ar
 
 ## Backlog
 
+- **Non-destructive I/O**: Research a "Buffered Peek" for `InterruptibleReader` to avoid data loss when context is cancelled during a read.
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
-- **Observability Hooks**: Tracing/Logging interfaces for lifecycle events.
 
 ## Technical Debt
 
-- **Test Coverage**: (Promoted to v1.1) `pkg/termio` relies heavily on manual verification for the "blocking read" scenarios.
-- [x] **Refactoring**: Simplified `IsInterrupted` in `pkg/termio` to remove O(N^2) recursion and rely on standard `errors.Is`.
+- [x] **Test Coverage**: Cobertura robusta para `pkg/signal` e `pkg/metrics` usando mocks internos.
+- [x] **Refactoring**: Simplified `IsInterrupted` em `pkg/termio` e refatoração "Sober" de `pkg/signal` para legibilidade.
