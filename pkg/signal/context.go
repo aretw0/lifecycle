@@ -20,53 +20,103 @@ type Context struct {
 	sigCh  chan os.Signal
 	sigVal os.Signal
 	mu     sync.Mutex
+	opts   options
 }
 
-// NewContext creates a context that is cancelled on SIGTERM (standard termination).
-// It captures SIGINT (Interrupt) separately to allow the state machine to handle it.
-//
-// Usage:
-//
-//	ctx := signal.NewContext(context.Background())
-//	defer ctx.Cancel()
-//
-//	select {
-//	case <-ctx.Done():
-//	    // Check if it was a signal or just a cancel
-//	    if sig := ctx.Signal(); sig != nil {
-//	        fmt.Println("Received signal:", sig)
-//	    }
-//	}
-func NewContext(parent context.Context) *Context {
+type options struct {
+	interruptCancel    bool
+	forceExitThreshold int
+}
+
+// Option is a functional option for configuring signal behavior.
+type Option func(*options)
+
+// WithInterrupt configures whether SIGINT (Ctrl+C) should cancel the context.
+// Default is true.
+func WithInterrupt(cancel bool) Option {
+	return func(o *options) {
+		o.interruptCancel = cancel
+	}
+}
+
+// WithForceExit configures the threshold of signals required to trigger an immediate os.Exit(1).
+// Set to 0 to disable forced exit. Default is 2.
+func WithForceExit(threshold int) Option {
+	return func(o *options) {
+		o.forceExitThreshold = threshold
+	}
+}
+
+// Stop stops the signal monitoring and restores default behavior.
+func (sc *Context) Stop() {
+	sc.stop.Do(func() {
+		ossignal.Stop(sc.sigCh)
+	})
+}
+
+// NewContext creates a context that is cancelled on SIGTERM or SIGINT (standard termination).
+// On the first signal received, it cancels the context to initiate graceful shutdown (if configured).
+// If a second signal is received before the program exits, it performs an immediate os.Exit(1) (if configured).
+func NewContext(parent context.Context, opts ...Option) *Context {
+	o := options{
+		interruptCancel:    true,
+		forceExitThreshold: 2,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	ctx, cancel := context.WithCancel(parent)
 	sc := &Context{
 		Context: ctx,
 		Cancel:  cancel,
 		sigCh:   make(chan os.Signal, 1),
+		opts:    o,
 	}
 
 	sc.start.Do(func() {
-		// We only cancel the context on SIGTERM.
-		// SIGINT is captured but DOES NOT automatically cancel the context here,
-		// because we usually want the application to handle it gracefully (e.g. "Do you want to quit?").
+		// Capture standard termination signals.
 		ossignal.Notify(sc.sigCh, os.Interrupt, syscall.SIGTERM)
 		go func() {
-			select {
-			case sig := <-sc.sigCh:
-				log.Debug("received signal", "signal", sig.String())
-				metrics.GetProvider().IncSignalReceived(sig.String())
-				sc.mu.Lock()
-				sc.sigVal = sig
-				sc.mu.Unlock()
-				if sig == syscall.SIGTERM {
-					sc.Cancel()
+			count := 0
+			for {
+				select {
+				case sig, ok := <-sc.sigCh:
+					if !ok {
+						return
+					}
+					count++
+					sc.mu.Lock()
+					isFirst := sc.sigVal == nil
+					sc.sigVal = sig
+					sc.mu.Unlock()
+
+					log.Debug("received signal", "signal", sig.String(), "count", count, "first", isFirst)
+					metrics.GetProvider().IncSignalReceived(sig.String())
+
+					// Determine if we should cancel the context
+					shouldCancel := false
+					if sig == syscall.SIGTERM {
+						shouldCancel = true
+					} else if sig == os.Interrupt && sc.opts.interruptCancel {
+						shouldCancel = true
+					}
+
+					if isFirst && shouldCancel {
+						sc.Cancel()
+					}
+
+					// Check for Force Exit threshold
+					if sc.opts.forceExitThreshold > 0 && count >= sc.opts.forceExitThreshold {
+						log.Warn("force exit threshold reached, exiting immediately",
+							"signal", sig.String(),
+							"count", count)
+						os.Exit(1)
+					}
+				case <-sc.Context.Done():
+					// We continue looping even after Done() to catch the force exit signals during cleanup.
 				}
-			case <-sc.Context.Done():
-				// Context cancelled elsewhere
 			}
-			sc.stop.Do(func() {
-				ossignal.Stop(sc.sigCh)
-			})
 		}()
 	})
 

@@ -16,10 +16,24 @@ import (
 	"github.com/aretw0/lifecycle/pkg/termio"
 )
 
-// NewSignalContext creates a context that cancels on SIGTERM but captures SIGINT.
+// NewSignalContext creates a context that cancels on SIGTERM/SIGINT.
+// On the first signal, context is cancelled. On the second, it force exits.
+// Behavior can be customized via functional options.
 // Alias for pkg/signal.NewContext.
-func NewSignalContext(parent context.Context) *signal.Context {
-	return signal.NewContext(parent)
+func NewSignalContext(parent context.Context, opts ...signal.Option) *signal.Context {
+	return signal.NewContext(parent, opts...)
+}
+
+// WithInterrupt configures whether SIGINT (Ctrl+C) should cancel the context.
+// Alias for pkg/signal.WithInterrupt.
+func WithInterrupt(cancel bool) signal.Option {
+	return signal.WithInterrupt(cancel)
+}
+
+// WithForceExit configures the threshold of signals required to trigger an immediate os.Exit(1).
+// Set to 0 to disable forced exit. Alias for pkg/signal.WithForceExit.
+func WithForceExit(threshold int) signal.Option {
+	return signal.WithForceExit(threshold)
 }
 
 // OpenTerminal checks for text input capability and returns a Reader.

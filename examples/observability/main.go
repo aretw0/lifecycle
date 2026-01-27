@@ -13,27 +13,30 @@ import (
 
 func main() {
 	// 1. Setup Structured Logging (slog)
-	// Output to Stdout in JSON format for production-like feel
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 	lifecycle.SetLogger(logger)
 
 	// 2. Setup Metrics Provider
-	// We use the LogProvider for development to see metrics in logs
 	lifecycle.SetMetricsProvider(lifecycle.NewLogMetricsProvider())
 
-	fmt.Println("--- Observability Demo ---")
-	fmt.Println("Check the JSON logs below to see observability in action.")
-	fmt.Println("Press Ctrl+C to trigger signal metrics.")
-	fmt.Println("The app will start a dummy process to trigger process metrics.")
+	fmt.Println("--- Observability & Signal Demo ---")
+	fmt.Println("This demo shows opinionated defaults with high flexibility.")
+	fmt.Println("1. First Ctrl+C starts graceful shutdown.")
+	fmt.Println("2. Second Ctrl+C forces an immediate exit.")
 
-	// 3. Signal Context with metrics
-	ctx := lifecycle.NewSignalContext(context.Background())
+	// 3. Signal Context with functional options
+	// Here we use the defaults, but we could do:
+	// lifecycle.NewSignalContext(context.Background(), lifecycle.WithForceExit(3))
+	ctx := lifecycle.NewSignalContext(context.Background(),
+		lifecycle.WithInterrupt(true), // Default: Ctrl+C cancels
+		lifecycle.WithForceExit(2),    // Default: 2nd signal force exits
+	)
+	defer ctx.Stop()
 
-	// 4. Start a process with metrics
-	// We'll use 'ping' or 'timeout' as a dummy process
-	cmd := exec.Command("ping", "127.0.0.1", "-n", "5")
+	// 4. Start a dummy process
+	cmd := exec.Command("ping", "127.0.0.1", "-n", "10")
 	if err := lifecycle.StartProcess(cmd); err != nil {
 		fmt.Printf("Failed to start process: %v\n", err)
 	}
@@ -42,22 +45,25 @@ func main() {
 	select {
 	case <-ctx.Done():
 		if sig := ctx.Signal(); sig != nil {
-			fmt.Printf("\nReceived signal: %v (Recorded in metrics)\n", sig)
+			fmt.Printf("\nGraceful shutdown initiated by: %v\n", sig)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(15 * time.Second):
 		fmt.Println("\nDemo finished by timeout.")
 	}
 
-	// 6. Demonstrate cleanup timeout logging
-	fmt.Println("Simulating a slow cleanup to trigger timeout log...")
+	// 6. Demonstrate cleanup phase
+	fmt.Println("\nSimulating a slow cleanup phase (3 seconds)...")
+	fmt.Println("Try hitting Ctrl+C NOW to trigger the 'Force Exit' (Second signal).")
+
 	done := make(chan struct{})
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 		close(done)
 	}()
 
-	// This should log a warning because timeout is 1s and sleep is 2s
-	_ = lifecycle.BlockWithTimeout(done, 1*time.Second)
+	// Wait with 2s timeout (shorter than sleep) to show timeout warning
+	_ = lifecycle.BlockWithTimeout(done, 2*time.Second)
 
-	fmt.Println("Demo complete.")
+	fmt.Println("\nDemo complete. Application exiting naturally.")
+	os.Exit(0)
 }
