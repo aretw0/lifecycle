@@ -7,9 +7,11 @@ import (
 	"syscall"
 
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
 func start(cmd *exec.Cmd) error {
+	p := metrics.GetProvider()
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
@@ -17,5 +19,11 @@ func start(cmd *exec.Cmd) error {
 	cmd.SysProcAttr.Pdeathsig = syscall.SIGKILL
 
 	log.Debug("starting process with Pdeathsig", "command", cmd.Path)
-	return cmd.Start()
+	err := cmd.Start()
+	if err != nil {
+		p.IncProcessFailed()
+		return err
+	}
+	p.IncProcessStarted()
+	return nil
 }

@@ -8,9 +8,11 @@ import (
 	"runtime"
 
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
 func start(cmd *exec.Cmd) error {
+	p := metrics.GetProvider()
 	// Fallback for macOS, BSD, etc. where Pdeathsig/JobObjects aren't available
 	// or implemented yet.
 	if StrictMode {
@@ -21,5 +23,11 @@ func start(cmd *exec.Cmd) error {
 		"os", runtime.GOOS,
 		"arch", runtime.GOARCH)
 
-	return cmd.Start()
+	err := cmd.Start()
+	if err != nil {
+		p.IncProcessFailed()
+		return err
+	}
+	p.IncProcessStarted()
+	return nil
 }

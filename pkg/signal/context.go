@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
 // Context wraps a context and captures the signal that cancelled it.
@@ -53,6 +54,7 @@ func NewContext(parent context.Context) *Context {
 			select {
 			case sig := <-sc.sigCh:
 				log.Debug("received signal", "signal", sig.String())
+				metrics.GetProvider().IncSignalReceived(sig.String())
 				sc.mu.Lock()
 				sc.sigVal = sig
 				sc.mu.Unlock()

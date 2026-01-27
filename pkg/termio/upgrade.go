@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 	"golang.org/x/term"
 )
 
@@ -13,12 +14,10 @@ import (
 // If it is not (e.g. pipe, file, buffer), it returns the original reader.
 func Upgrade(r io.Reader) (io.Reader, error) {
 	if f, ok := r.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		// Found a terminal file (e.g. os.Stdin).
-		// Attempt to "re-open" it using the safe platform-specific Open() method.
-		// On Windows, this swaps os.Stdin for CONIN$.
-		// On POSIX, it just returns os.Stdin (or similar) effectively doing nothing but safe.
 		log.Debug("upgrading terminal to raw/conin handle", "fd", f.Fd())
-		return Open() // Open returns (io.ReadCloser, error)
+		newR, err := Open() // Open returns (io.ReadCloser, error)
+		metrics.GetProvider().IncTerminalUpgrade(err == nil)
+		return newR, err
 	}
 	return r, nil
 }

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/proc"
 	"github.com/aretw0/lifecycle/pkg/runtime"
 	"github.com/aretw0/lifecycle/pkg/signal"
@@ -67,4 +68,18 @@ func SetStrictMode(strict bool) {
 // Alias for pkg/log.SetLogger.
 func SetLogger(l *slog.Logger) {
 	log.SetLogger(l)
+}
+
+// SetMetricsProvider overrides the global metrics provider.
+// This allowing bridging library metrics to Prometheus, OTEL, etc.
+// Alias for pkg/metrics.SetProvider.
+func SetMetricsProvider(p metrics.Provider) {
+	metrics.SetProvider(p)
+}
+
+// NewLogMetricsProvider returns a metrics provider that logs to the current logger.
+// Useful for development and local verification.
+// Alias for pkg/metrics.LogProvider.
+func NewLogMetricsProvider() metrics.Provider {
+	return &metrics.LogProvider{}
 }

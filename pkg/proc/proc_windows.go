@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 	"golang.org/x/sys/windows"
 )
 
@@ -51,13 +52,16 @@ func initJob() {
 }
 
 func start(cmd *exec.Cmd) error {
+	p := metrics.GetProvider()
 	// Ensure the job object is created
 	jobOnce.Do(initJob)
 	if jobErr != nil {
+		p.IncProcessFailed()
 		return jobErr
 	}
 
 	if err := cmd.Start(); err != nil {
+		p.IncProcessFailed()
 		return err
 	}
 
@@ -89,5 +93,6 @@ func start(cmd *exec.Cmd) error {
 	}
 
 	log.Debug("assigned process to job object", "pid", pid)
+	p.IncProcessStarted()
 	return nil
 }
