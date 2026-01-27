@@ -51,6 +51,7 @@ func WithForceExit(threshold int) Option {
 func (sc *Context) Stop() {
 	sc.stop.Do(func() {
 		ossignal.Stop(sc.sigCh)
+		close(sc.sigCh)
 	})
 }
 
@@ -75,52 +76,62 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 	}
 
 	sc.start.Do(func() {
-		// Capture standard termination signals.
 		ossignal.Notify(sc.sigCh, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			count := 0
-			for {
-				select {
-				case sig, ok := <-sc.sigCh:
-					if !ok {
-						return
-					}
-					count++
-					sc.mu.Lock()
-					isFirst := sc.sigVal == nil
-					sc.sigVal = sig
-					sc.mu.Unlock()
-
-					log.Debug("received signal", "signal", sig.String(), "count", count, "first", isFirst)
-					metrics.GetProvider().IncSignalReceived(sig.String())
-
-					// Determine if we should cancel the context
-					shouldCancel := false
-					if sig == syscall.SIGTERM {
-						shouldCancel = true
-					} else if sig == os.Interrupt && sc.opts.interruptCancel {
-						shouldCancel = true
-					}
-
-					if isFirst && shouldCancel {
-						sc.Cancel()
-					}
-
-					// Check for Force Exit threshold
-					if sc.opts.forceExitThreshold > 0 && count >= sc.opts.forceExitThreshold {
-						log.Warn("force exit threshold reached, exiting immediately",
-							"signal", sig.String(),
-							"count", count)
-						os.Exit(1)
-					}
-				case <-sc.Context.Done():
-					// We continue looping even after Done() to catch the force exit signals during cleanup.
-				}
-			}
-		}()
+		go sc.monitor()
 	})
 
 	return sc
+}
+
+// monitor runs the signal monitoring loop.
+func (sc *Context) monitor() {
+	count := 0
+	for {
+		select {
+		case sig, ok := <-sc.sigCh:
+			if !ok {
+				return
+			}
+			count++
+			sc.handleSignal(sig, count)
+
+		case <-sc.Context.Done():
+			// Keep looping after Done() to support Force Exit during cleanup.
+		}
+	}
+}
+
+// handleSignal processes a single signal.
+func (sc *Context) handleSignal(sig os.Signal, count int) {
+	sc.mu.Lock()
+	isFirst := sc.sigVal == nil
+	sc.sigVal = sig
+	sc.mu.Unlock()
+
+	log.Debug("received signal", "signal", sig.String(), "count", count, "first", isFirst)
+	metrics.GetProvider().IncSignalReceived(sig.String())
+
+	if isFirst && sc.shouldCancel(sig) {
+		sc.Cancel()
+	}
+
+	if sc.opts.forceExitThreshold > 0 && count >= sc.opts.forceExitThreshold {
+		log.Warn("force exit threshold reached, exiting immediately",
+			"signal", sig.String(),
+			"count", count)
+		os.Exit(1)
+	}
+}
+
+// shouldCancel determines if the given signal should cancel the context.
+func (sc *Context) shouldCancel(sig os.Signal) bool {
+	if sig == syscall.SIGTERM {
+		return true
+	}
+	if sig == os.Interrupt && sc.opts.interruptCancel {
+		return true
+	}
+	return false
 }
 
 // Signal returns the signal that caused the context to be cancelled/interrupted, or nil.
