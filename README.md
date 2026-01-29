@@ -99,6 +99,15 @@ func main() {
 }
 ```
 
+## Caveats
+
+### Interruptible I/O & Data Loss
+
+The `InterruptibleReader` uses a "Peek & Abandon" strategy to allow unblocking a read.
+
+* **Risk**: If data arrives from the OS *exactly* when the context is cancelled, that data is discarded to prioritize the cancellation.
+* **Impact**: This is acceptable for interactive CLIs (user hits Ctrl+C, we discard the "y" they just typed), but **NOT** suitable for critical binary streams where every byte matters.
+
 ## Documentation
 
 * [**PRODUCT**](docs/PRODUCT.md): Vision & Mission.
