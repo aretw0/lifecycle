@@ -27,8 +27,17 @@ Focus: Ensure the lifecycle is resilient, debuggable, and safe.
 
 Focus: Robust management of child processes and support for "Agents" (Trellis/Arbour-like).
 
-- [ ] **Supervisor**: Implementation of a Supervisor pattern to manage groups of `exec.Cmd` (Restart policies, Group Shutdown).
-- [ ] **Container Interface**: Definition of interfaces for container orchestration (without direct Docker SDK dependency).
+#### The Supervisor Pattern
+
+- [ ] **Worker Protocol**: Define `Worker` interface (Start, Stop, Wait, Info) for uniform management of processes and goroutines.
+- [ ] **Process Worker**: Implement `Worker` for `exec.Cmd` utilizing `pkg/proc` for hygiene (Fail-Closed).
+- [ ] **Supervisor Implementation**: Create `Supervisor` to manage a set of `Worker`s with restart policies (OneForOne, OneForAll).
+- [ ] **Tree Topology**: Verify `Supervisor` can supervise other `Supervisor`s (Tree structure).
+
+#### Ecosystem Interfaces
+
+- [ ] **Container Abstraction**: Define `Container` interface in `pkg/container` (Start, Stop, Logs) to decouple from Docker SDK.
+- [ ] **Reference Implementation**: Add a mock or shell-based implementation to validate the `Container` interface.
 
 ### v1.3: Portability
 
