@@ -36,6 +36,12 @@ func WithForceExit(threshold int) signal.Option {
 	return signal.WithForceExit(threshold)
 }
 
+// WithHookTimeout configures the duration after which a running hook produces a warning log.
+// Alias for pkg/signal.WithHookTimeout.
+func WithHookTimeout(d time.Duration) signal.Option {
+	return signal.WithHookTimeout(d)
+}
+
 // OpenTerminal checks for text input capability and returns a Reader.
 // On Windows, it tries to open CONIN$. Alias for pkg/termio.Open.
 func OpenTerminal() (io.ReadCloser, error) {
@@ -96,4 +102,14 @@ func SetMetricsProvider(p metrics.Provider) {
 // Alias for pkg/metrics.LogProvider.
 func NewLogMetricsProvider() metrics.Provider {
 	return &metrics.LogProvider{}
+}
+
+// State represents the configuration state of the SignalContext.
+// Alias for pkg/signal.State.
+type State = signal.State
+
+// Mermaid returns a Mermaid state diagram string representing the lifecycle configuration.
+// Alias for pkg/signal.Mermaid.
+func Mermaid(s State) string {
+	return signal.Mermaid(s)
 }
