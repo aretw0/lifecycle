@@ -6,16 +6,21 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
 type mockProvider struct {
 	signals []string
 }
 
-func (m *mockProvider) IncSignalReceived(sig string)    { m.signals = append(m.signals, sig) }
-func (m *mockProvider) IncProcessStarted()              {}
-func (m *mockProvider) IncProcessFailed()               {}
-func (m *mockProvider) IncTerminalUpgrade(success bool) {}
+func (m *mockProvider) IncSignalReceived(sig string)        { m.signals = append(m.signals, sig) }
+func (m *mockProvider) IncProcessStarted()                  {}
+func (m *mockProvider) IncProcessFailed()                   {}
+func (m *mockProvider) IncTerminalUpgrade(success bool)     {}
+func (m *mockProvider) IncHookExecuted()                    { m.signals = append(m.signals, "HookExecuted") }
+func (m *mockProvider) IncHookPanicked()                    {}
+func (m *mockProvider) ObserveHookDuration(d time.Duration) {}
 
 func TestSignalContext_Graceful(t *testing.T) {
 	ctx := NewContext(context.Background())
@@ -93,5 +98,149 @@ func TestShouldCancel(t *testing.T) {
 	sc.opts.interruptCancel = false
 	if sc.shouldCancel(os.Interrupt) {
 		t.Error("SIGINT should NOT cancel when interruptCancel is false")
+	}
+}
+
+func TestSignalContext_Hooks(t *testing.T) {
+	ctx := NewContext(context.Background())
+	defer ctx.Stop()
+
+	var execution []string
+	// We rely on Wait() to ensure all hooks are done.
+
+	// Hook A (First registered, Last executed)
+	ctx.OnShutdown(func() {
+		execution = append(execution, "A")
+	})
+	// Hook B
+	ctx.OnShutdown(func() {
+		execution = append(execution, "B")
+	})
+	// Hook C (Last registered, First executed)
+	ctx.OnShutdown(func() {
+		execution = append(execution, "C")
+	})
+
+	// Trigger signal
+	ctx.sigCh <- syscall.SIGTERM
+
+	// Wait for hooks
+	ctx.Wait()
+
+	if len(execution) != 3 {
+		t.Fatalf("Expected 3 hooks, got %d", len(execution))
+	}
+	if execution[0] != "C" || execution[1] != "B" || execution[2] != "A" {
+		t.Errorf("Expected order [C B A], got %v", execution)
+	}
+}
+
+func TestSignalContext_Hooks_Panic(t *testing.T) {
+	ctx := NewContext(context.Background())
+	defer ctx.Stop()
+
+	var execution []string
+
+	// Hook A (Final)
+	ctx.OnShutdown(func() {
+		execution = append(execution, "A")
+	})
+	// Hook B (Panics)
+	ctx.OnShutdown(func() {
+		panic("oops")
+	})
+	// Hook C (First)
+	ctx.OnShutdown(func() {
+		execution = append(execution, "C")
+	})
+
+	ctx.sigCh <- syscall.SIGTERM
+	ctx.Wait()
+
+	// B should have panicked but A should still run.
+	if len(execution) != 2 {
+		t.Errorf("Expected 2 successful hooks (A, C), got %v", execution)
+	}
+	if execution[0] != "C" || execution[1] != "A" {
+		t.Errorf("Expected order [C A] (skipping B), got %v", execution)
+	}
+}
+
+func TestSignalContext_DynamicHooks(t *testing.T) {
+	ctx := NewContext(context.Background())
+	defer ctx.Stop()
+
+	var execution []string
+
+	// Hook A
+	ctx.OnShutdown(func() {
+		execution = append(execution, "A")
+		// Register Hook B dynamically
+		// LIFO Logic: Since this is added *during* the loop which pops elements,
+		// it is appended to the list and becomes the next "last" element.
+		// Thus, it runs immediately after this hook returns.
+		ctx.OnShutdown(func() {
+			execution = append(execution, "B")
+		})
+	})
+
+	ctx.sigCh <- syscall.SIGTERM
+	ctx.Wait()
+
+	if len(execution) != 2 {
+		t.Fatalf("Expected 2 hooks, got %v", execution)
+	}
+	// A runs first (popped). Inside A, B is added. A finishes. Loop checks length... finds B. Pops B.
+	if execution[0] != "A" || execution[1] != "B" {
+		t.Errorf("Expected [A B], got %v", execution)
+	}
+}
+
+func TestSignalContext_HookTimeout(t *testing.T) {
+	// Set a very short timeout for testing
+	timeout := 10 * time.Millisecond
+	ctx := NewContext(context.Background(), WithHookTimeout(timeout))
+	defer ctx.Stop()
+
+	// Use a mock provider to detect if stats were emitted (indirect way to verify flow)
+	// Ideally we'd capture logs, but since we can't easily Mock slog in this setup without dependency inject changes,
+	// we will rely on the fact that stalled detection *eventually* emits metrics when it finishes.
+	// But we wait... the stall log happens on timer tick.
+	// For this test, we just want to ensure it doesn't BLOCK forever or panic.
+
+	mp := &mockProvider{}
+	metrics.SetProvider(mp)
+
+	hookDone := make(chan struct{})
+
+	ctx.OnShutdown(func() {
+		// Sleep longer than the timeout
+		time.Sleep(50 * time.Millisecond)
+		close(hookDone)
+	})
+
+	ctx.sigCh <- syscall.SIGTERM
+
+	// Wait for completion (slow hook)
+	ctx.Wait()
+
+	// Verify it actually finished
+	select {
+	case <-hookDone:
+		// success
+	default:
+		t.Error("Hook should have finished eventually")
+	}
+
+	// Verify metric was recorded (meaning the timeout logic didn't abort execution flow)
+	found := false
+	for _, s := range mp.signals {
+		if s == "HookExecuted" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected HookExecuted metric even after stall warning")
 	}
 }
