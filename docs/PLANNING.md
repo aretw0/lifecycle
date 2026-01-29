@@ -21,7 +21,7 @@ Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro.
 - [x] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
 - [x] **Observability**: `SetLogger` e `MetricsProvider` para monitoramento do ciclo de vida sem dependências externas.
 - [x] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
-- [ ] **TermIO Automation Spike**: Design a specific plan/POC for testing blocking reads (complex scenario).
+- [x] **TermIO Automation Spike**: Verified "Peek & Abandon" behavior via `pkg/termio/blocking_test.go`.
 
 ### v1.2: Ecosystem Convergence (The Supervisor Pattern)
 
