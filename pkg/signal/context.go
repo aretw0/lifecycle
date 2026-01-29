@@ -173,6 +173,22 @@ func (sc *Context) Signal() os.Signal {
 	return sc.sigVal
 }
 
+// State represents the configuration state of the SignalContext.
+type State struct {
+	InterruptCancel    bool
+	ForceExitThreshold int
+	HookTimeout        time.Duration
+}
+
+// State returns a snapshot of the current configuration.
+func (sc *Context) State() State {
+	return State{
+		InterruptCancel:    sc.opts.interruptCancel,
+		ForceExitThreshold: sc.opts.forceExitThreshold,
+		HookTimeout:        sc.opts.hookTimeout,
+	}
+}
+
 // runHooks executes registered hooks in LIFO order using a Pop-Loop strategy.
 // This allows hooks to register *new* hooks that will be executed immediately (LIFO).
 func (sc *Context) runHooks() {
