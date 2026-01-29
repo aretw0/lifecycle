@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/signal"
+	"github.com/aretw0/lifecycle"
 )
 
 func main() {
 	// 1. Create a configured SignalContext
 	// We customize it to show how it affects the diagram
-	ctx := signal.NewContext(
+	ctx := lifecycle.NewSignalContext(
 		context.Background(),
-		signal.WithInterrupt(true),            // Default
-		signal.WithForceExit(3),               // Require 3 signals to force exit
-		signal.WithHookTimeout(2*time.Second), // Short timeout
+		lifecycle.WithInterrupt(true),            // Default
+		lifecycle.WithForceExit(3),               // Require 3 signals to force exit
+		lifecycle.WithHookTimeout(2*time.Second), // Short timeout
 	)
 	defer ctx.Stop()
 
@@ -23,7 +23,7 @@ func main() {
 	state := ctx.State()
 
 	// 3. Generate diagram
-	diagram := signal.Mermaid(state)
+	diagram := lifecycle.Mermaid(state)
 
 	fmt.Println("--- Lifecycle Mermaid Diagram ---")
 	fmt.Println(diagram)
