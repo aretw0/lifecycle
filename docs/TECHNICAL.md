@@ -129,6 +129,13 @@ The library is instrumented for production visibility without external dependenc
 * **Stalled Hook Detection**: Each hook is monitored by a timer (configurable via `WithHookTimeout`). If it exceeds the threshold (default 5s), a warning is logged.
 * **Panic Recovery**: Hooks are wrapped in `recover()` to ensure a single faulty hook does not prevent others from running.
 
+### 7. Introspection & Visualization (`pkg/signal`)
+
+To support tooling and better stewardship, we adopt an **Introspection Pattern**: components expose their configuration state as immutable DTOs (Data Transfer Objects). This decouples the internal logic from external representation.
+
+* **Context State**: `SignalContext` exposes a `State()` method returning its current configuration (timeouts, thresholds, etc.).
+* **Mermaid Renderer**: A pure function `Mermaid(State)` in `pkg/signal` consumes this state to generate a Mermaid State Diagram, allowing runtime visualization of the application's lifecycle policy.
+
 ## Windows `CONIN$`
 
 On **Windows**, `os.Stdin` is a wrapper around a Handle. If that Handle is in a blocking Read, standard Windows signals might not propagate correctly to the Go runtime in console applications.

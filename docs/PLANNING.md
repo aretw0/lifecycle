@@ -27,9 +27,9 @@ Focus: Ensure the lifecycle is resilient, debuggable, and safe.
 
 Focus: runtime transparency. Allow the application to describe its own lifecycle configuration ("Introspection") to generate live documentation (Mermaid).
 
-- [ ] **Context Introspection**: Add `State() State` to `SignalContext` to expose immutable configuration (DTO pattern).
-- [ ] **Visualization**: Add `Mermaid(State) string` renderer to generation state diagrams from the introspection data.
-- [ ] **Stewardship**: Establish the "Introspection Pattern" (State DTOs) as a standard for future components (Process Workers, Supervisors).
+- [x] **Context Introspection**: Add `State() State` to `SignalContext` to expose immutable configuration (DTO pattern).
+- [x] **Visualization**: Add `Mermaid(State) string` renderer to generation state diagrams from the introspection data.
+- [x] **Stewardship**: Establish the "Introspection Pattern" (State DTOs) as a standard for future components (Process Workers, Supervisors).
 
 ### v1.3: Ecosystem Convergence (The Supervisor Pattern)
 
