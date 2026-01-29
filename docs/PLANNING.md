@@ -15,20 +15,20 @@
 
 ### v1.1: Stewardship & Robustness
 
-Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro.
+Focus: Ensure the lifecycle is resilient, debuggable, and safe.
 
-- [x] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis - "Fail-Closed").
+- [x] **Process Hygiene**: Abstraction for `PDeathSig` (Linux) and `JobObjects` (Windows) to ensure children die with the parent (prevent zombies - "Fail-Closed").
 - [x] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
-- [x] **Observability**: `SetLogger` e `MetricsProvider` para monitoramento do ciclo de vida sem dependências externas.
+- [x] **Observability**: `SetLogger` and `MetricsProvider` for lifecycle monitoring without external dependencies.
 - [x] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
 - [x] **TermIO Automation Spike**: Verified "Peek & Abandon" behavior via `pkg/termio/blocking_test.go`.
 
 ### v1.2: Ecosystem Convergence (The Supervisor Pattern)
 
-Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Arbour-like).
+Focus: Robust management of child processes and support for "Agents" (Trellis/Arbour-like).
 
-- [ ] **Supervisor**: Implementação de um padrão Supervisor para gerenciar grupos de `exec.Cmd` (Restart policies, Group Shutdown).
-- [ ] **Container Interface**: Definição de interfaces para orquestração de containers (sem dependência direta de Docker SDK).
+- [ ] **Supervisor**: Implementation of a Supervisor pattern to manage groups of `exec.Cmd` (Restart policies, Group Shutdown).
+- [ ] **Container Interface**: Definition of interfaces for container orchestration (without direct Docker SDK dependency).
 
 ### v1.3: Portability
 
@@ -42,5 +42,5 @@ Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Ar
 
 ## Technical Debt
 
-- [x] **Test Coverage**: Cobertura robusta para `pkg/signal` e `pkg/metrics` usando mocks internos.
-- [x] **Refactoring**: Simplified `IsInterrupted` em `pkg/termio` e refatoração "Sober" de `pkg/signal` para legibilidade.
+- [x] **Test Coverage**: Robust coverage for `pkg/signal` and `pkg/metrics` using internal mocks.
+- [x] **Refactoring**: Simplified `IsInterrupted` in `pkg/termio` and "Sober" refactoring of `pkg/signal` for readability.
