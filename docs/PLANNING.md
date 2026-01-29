@@ -23,7 +23,15 @@ Focus: Ensure the lifecycle is resilient, debuggable, and safe.
 - [x] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
 - [x] **TermIO Automation Spike**: Verified "Peek & Abandon" behavior via `pkg/termio/blocking_test.go`.
 
-### v1.2: Ecosystem Convergence (The Supervisor Pattern)
+### v1.2: Introspection & Visibility
+
+Focus: runtime transparency. Allow the application to describe its own lifecycle configuration ("Introspection") to generate live documentation (Mermaid).
+
+- [ ] **Context Introspection**: Add `State() State` to `SignalContext` to expose immutable configuration (DTO pattern).
+- [ ] **Visualization**: Add `Mermaid(State) string` renderer to generation state diagrams from the introspection data.
+- [ ] **Stewardship**: Establish the "Introspection Pattern" (State DTOs) as a standard for future components (Process Workers, Supervisors).
+
+### v1.3: Ecosystem Convergence (The Supervisor Pattern)
 
 Focus: Robust management of child processes and support for "Agents" (Trellis/Arbour-like).
 
@@ -39,7 +47,7 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 - [ ] **Container Abstraction**: Define `Container` interface in `pkg/container` (Start, Stop, Logs) to decouple from Docker SDK.
 - [ ] **Reference Implementation**: Add a mock or shell-based implementation to validate the `Container` interface.
 
-### v1.3: Portability
+### v1.4: Portability
 
 - [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior on other Unixes.
 
