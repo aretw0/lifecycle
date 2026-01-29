@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"sync"
+	"time"
 
 	"github.com/aretw0/lifecycle/pkg/log"
 )
@@ -13,6 +14,9 @@ type Provider interface {
 	IncProcessStarted()
 	IncProcessFailed()
 	IncTerminalUpgrade(success bool)
+	IncHookExecuted()
+	IncHookPanicked()
+	ObserveHookDuration(duration time.Duration)
 }
 
 var (
@@ -41,10 +45,13 @@ func GetProvider() Provider {
 // NoOpProvider is a metrics provider that does nothing.
 type NoOpProvider struct{}
 
-func (n *NoOpProvider) IncSignalReceived(sig string)    {}
-func (n *NoOpProvider) IncProcessStarted()              {}
-func (n *NoOpProvider) IncProcessFailed()               {}
-func (n *NoOpProvider) IncTerminalUpgrade(success bool) {}
+func (n *NoOpProvider) IncSignalReceived(sig string)        {}
+func (n *NoOpProvider) IncProcessStarted()                  {}
+func (n *NoOpProvider) IncProcessFailed()                   {}
+func (n *NoOpProvider) IncTerminalUpgrade(success bool)     {}
+func (n *NoOpProvider) IncHookExecuted()                    {}
+func (n *NoOpProvider) IncHookPanicked()                    {}
+func (n *NoOpProvider) ObserveHookDuration(d time.Duration) {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -64,4 +71,16 @@ func (l *LogProvider) IncProcessFailed() {
 
 func (l *LogProvider) IncTerminalUpgrade(success bool) {
 	log.Debug("metric incremented", "name", "lifecycle_terminal_upgrades_total", "success", success)
+}
+
+func (l *LogProvider) IncHookExecuted() {
+	log.Debug("metric incremented", "name", "lifecycle_hooks_executed_total")
+}
+
+func (l *LogProvider) IncHookPanicked() {
+	log.Debug("metric incremented", "name", "lifecycle_hooks_panicked_total")
+}
+
+func (l *LogProvider) ObserveHookDuration(d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_hook_duration_seconds", "value", d.Seconds())
 }
