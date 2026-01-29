@@ -34,6 +34,29 @@ stateDiagram-v2
 
 * **Functional Options**: Customize if `SIGINT` cancels or the number of signals for `ForceExit`.
 * **Zero Leak**: monitoring goroutine is cleaned up via `.Stop()`.
+* **Lifecycle Hooks**: Supports `OnShutdown` callbacks executed in LIFO order (defer-like) upon signal reception.
+
+#### Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant OS
+    participant SignalContext
+    participant Hook_B
+    participant Hook_A
+    participant App
+
+    OS->>SignalContext: SIGTERM
+    SignalContext->>App: Cancel Context (ctx.Done closed)
+    
+    rect rgb(30, 30, 30)
+        note right of SignalContext: Async Cleanup (LIFO)
+        SignalContext->>Hook_B: Execute()
+        Hook_B-->>SignalContext: Return
+        SignalContext->>Hook_A: Execute()
+        Hook_A-->>SignalContext: Return (or Panic recovered)
+    end
+```
 
 ### 2. Interruptible I/O (`pkg/termio`)
 
@@ -87,8 +110,24 @@ Ensures process lifecycle is deterministic.
 The library is instrumented for production visibility without external dependencies.
 
 * **Structured Logging**: Uses Go 1.21 `slog`. Users can inject custom loggers via `lifecycle.SetLogger`.
-* **Decoupled Metrics**: A `Provider` interface allows users to bridge lifecycle events (signals, process starts, terminal upgrades) to Prometheus or OTEL without the library needing to import their SDKs.
+* **Decoupled Metrics**: A `Provider` interface allows users to bridge lifecycle events to Prometheus or OTEL.
+  * **Signals**:
+    * `IncSignalReceived(signal string)`: Counter of OS signals received.
+  * **Processes** (`pkg/proc`):
+    * `IncProcessStarted()`: Counter of child processes managed.
+    * `IncProcessFailed()`: Counter of process start failures.
+  * **Terminal** (`pkg/termio`):
+    * `IncTerminalUpgrade(success bool)`: Counter of stdin upgrades (e.g. to CONIN$).
+  * **Hooks** (`pkg/signal` - *New*):
+    * `IncHookExecuted()`: Counter of successfully completed hooks.
+    * `IncHookPanicked()`: Counter of hooks that panic (and recovered).
+    * `ObserveHookDuration(duration)`: Histogram/Timer of hook execution time.
 * **LogProvider**: Special provider that redirects metrics to debug logs for local verification.
+
+### 6. Safety Mechanisms
+
+* **Stalled Hook Detection**: Each hook is monitored by a timer (configurable via `WithHookTimeout`). If it exceeds the threshold (default 5s), a warning is logged.
+* **Panic Recovery**: Hooks are wrapped in `recover()` to ensure a single faulty hook does not prevent others from running.
 
 ## Windows `CONIN$`
 

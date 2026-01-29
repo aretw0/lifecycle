@@ -20,7 +20,7 @@ Foco: Garantir que o ciclo de vida seja resiliente, debugável e seguro.
 - [x] **Process Hygiene**: Abstração para `PDeathSig` (Linux) e `JobObjects` (Windows) para garantir que filhos morram com o pai (evitar zumbis - "Fail-Closed").
 - [x] **Shutdown Timeouts**: Add helpers for `Shutdown(ctx, timeout)` to prevent hangs.
 - [x] **Observability**: `SetLogger` e `MetricsProvider` para monitoramento do ciclo de vida sem dependências externas.
-- [ ] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
+- [x] **Lifecycle Hooks**: A standard `OnShutdown(func())` registry to simplify consumer cleanup logic.
 - [ ] **TermIO Automation Spike**: Design a specific plan/POC for testing blocking reads (complex scenario).
 
 ### v1.2: Ecosystem Convergence (The Supervisor Pattern)
@@ -38,6 +38,7 @@ Foco: Gerenciamento robusto de processos filhos e suporte a "Agents" (Trellis/Ar
 
 - **Non-destructive I/O**: Research a "Buffered Peek" for `InterruptibleReader` to avoid data loss when context is cancelled during a read.
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
+- **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown scenarios (requested by user).
 
 ## Technical Debt
 

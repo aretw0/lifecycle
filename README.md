@@ -27,6 +27,9 @@ go get github.com/aretw0/lifecycle
   * **Platform Aware**: Automatically uses `CONIN$` on Windows.
     * **Why?** On Windows, standard `os.Stdin` closes immediately upon receiving a signal (like Ctrl+C), causing a fatal `EOF` before the application can gracefully handle the signal. `lifecycle` switches to `CONIN$`, which keeps the handle open, allowing the `SignalContext` to process the event.
   * **UpgradeTerminal**: Helper to upgrade an arbitrary existing `io.Reader` (if it identifies as a terminal) to the safe platform-specific reader.
+* **Observability & Safety**:
+  * **Metrics**: Built-in provider interface (`IncHookExecuted`, `ObserveHookDuration`) to track shutdown health.
+  * **Stall Detection**: Automatically detects and logs warnings if a shutdown hook is stalled (runs > 5s).
 
 ## Usage
 
@@ -46,12 +49,23 @@ func main() {
     ctx := lifecycle.NewSignalContext(context.Background())
     defer ctx.Cancel() 
 
+    // Register cleanup hooks (LIFO execution)
+    ctx.OnShutdown(func() {
+        fmt.Println("Cleanup: Database closed")
+    })
+    ctx.OnShutdown(func() {
+        fmt.Println("Cleanup: HTTP server stopped")
+    })
+
     <-ctx.Done()
     
     // Check why we stopped
     if sig := ctx.Signal(); sig != nil {
         fmt.Printf("Stopped by signal: %v\n", sig)
     }
+
+    // IMPORTANT: Wait for hooks to finish!
+    ctx.Wait()
 }
 ```
 
