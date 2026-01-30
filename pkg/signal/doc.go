@@ -20,4 +20,5 @@
 // The package implements an "Introspection Pattern". The [Context.State] method returns
 // a complete snapshot of the configuration. The [Mermaid] function can consume this
 // state to generate a visual representation of the lifecycle policy for documentation.
+// The [MermaidState] function can consume this state.
 package signal

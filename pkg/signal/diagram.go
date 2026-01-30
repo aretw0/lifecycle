@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// Mermaid returns a Mermaid state diagram string representing the lifecycle configuration.
-func Mermaid(s State) string {
+// MermaidState returns a Mermaid state diagram string representing the lifecycle configuration.
+func MermaidState(s State) string {
 	var sb strings.Builder
 
 	sb.WriteString("stateDiagram-v2\n")

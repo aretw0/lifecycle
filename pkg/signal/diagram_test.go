@@ -51,7 +51,7 @@ func TestMermaid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Mermaid(tt.state)
+			got := MermaidState(tt.state)
 			for _, substr := range tt.contains {
 				if !strings.Contains(got, substr) {
 					t.Errorf("Mermaid() output missing %q, got:\n%s", substr, got)
