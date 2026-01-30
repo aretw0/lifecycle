@@ -45,5 +45,6 @@ type State struct {
 	PID      int
 	ExitCode int
 	Error    error
+	Metadata map[string]string
 	Children []State
 }
