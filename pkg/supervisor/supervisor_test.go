@@ -202,6 +202,11 @@ func (m *mockMetrics) IncDataLost(bytes int)                              {}
 func (m *mockMetrics) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (m *mockMetrics) IncForceExitTriggered()                             {}
 
+func (m *mockMetrics) IncContainerStarted(image string)                       {}
+func (m *mockMetrics) IncContainerStopped(image string)                       {}
+func (m *mockMetrics) IncContainerFailed(image string)                        {}
+func (m *mockMetrics) ObserveContainerDuration(image string, d time.Duration) {}
+
 func TestMetrics(t *testing.T) {
 	helper := newFactoryHelper()
 	mm := &mockMetrics{

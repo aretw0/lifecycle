@@ -31,6 +31,11 @@ func (m *mockProvider) IncDataLost(bytes int)                              {}
 func (m *mockProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (m *mockProvider) IncForceExitTriggered()                             {}
 
+func (m *mockProvider) IncContainerStarted(image string)                       {}
+func (m *mockProvider) IncContainerStopped(image string)                       {}
+func (m *mockProvider) IncContainerFailed(image string)                        {}
+func (m *mockProvider) ObserveContainerDuration(image string, d time.Duration) {}
+
 func TestSignalContext_Graceful(t *testing.T) {
 	ctx := NewContext(context.Background())
 	defer ctx.Stop()

@@ -26,6 +26,12 @@ type Provider interface {
 	IncDataLost(bytes int)
 	ObserveShutdownDuration(workerType string, duration time.Duration)
 	IncForceExitTriggered()
+
+	// Container metrics
+	IncContainerStarted(image string)
+	IncContainerStopped(image string)
+	IncContainerFailed(image string)
+	ObserveContainerDuration(image string, duration time.Duration)
 }
 
 var (
@@ -70,6 +76,11 @@ func (n *NoOpProvider) IncChildRestart(s, c string)                        {}
 func (n *NoOpProvider) IncDataLost(bytes int)                              {}
 func (n *NoOpProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (n *NoOpProvider) IncForceExitTriggered()                             {}
+
+func (n *NoOpProvider) IncContainerStarted(image string)                       {}
+func (n *NoOpProvider) IncContainerStopped(image string)                       {}
+func (n *NoOpProvider) IncContainerFailed(image string)                        {}
+func (n *NoOpProvider) ObserveContainerDuration(image string, d time.Duration) {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -137,4 +148,20 @@ func (l *LogProvider) ObserveShutdownDuration(wt string, d time.Duration) {
 
 func (l *LogProvider) IncForceExitTriggered() {
 	log.Debug("metric incremented", "name", "lifecycle_force_exit_triggered_total")
+}
+
+func (l *LogProvider) IncContainerStarted(image string) {
+	log.Debug("metric incremented", "name", "lifecycle_container_started_total", "image", image)
+}
+
+func (l *LogProvider) IncContainerStopped(image string) {
+	log.Debug("metric incremented", "name", "lifecycle_container_stopped_total", "image", image)
+}
+
+func (l *LogProvider) IncContainerFailed(image string) {
+	log.Debug("metric incremented", "name", "lifecycle_container_failed_total", "image", image)
+}
+
+func (l *LogProvider) ObserveContainerDuration(image string, d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_container_duration_seconds", "image", image, "value", d.Seconds())
 }
