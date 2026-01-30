@@ -39,7 +39,7 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 
 - [x] **Worker Protocol**: Define `Worker` interface (Start, Stop, Wait, Info) for uniform management of processes and goroutines. (Implemented in `pkg/worker`)
 - [x] **Process Worker**: Implement `Worker` for `exec.Cmd` utilizing `pkg/proc` for hygiene (Fail-Closed).
-- [ ] **Supervisor Implementation**: Create `Supervisor` to manage a set of `Worker`s with restart policies (OneForOne, OneForAll).
+- [x] **Supervisor Implementation**: Create `Supervisor` to manage a set of `Worker`s with restart policies (OneForOne, OneForAll).
 - [ ] **Tree Topology**: Verify `Supervisor` can supervise other `Supervisor`s (Tree structure).
 
 #### Ecosystem Interfaces
@@ -65,6 +65,8 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
 - **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown scenarios (requested by user).
 - **Composite Introspection Dashboard**: Define a standard way (or package) to aggregate `State()` from SignalContext and Workers to render a unified system diagram (e.g. at Supervisor level).
+- **Supervisor Backoff**: Implement restart backoff policies (exponential, constant) to prevent restart loops.
+- **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never) in `Spec`.
 
 ## Technical Debt
 

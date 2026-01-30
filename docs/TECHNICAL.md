@@ -173,3 +173,22 @@ sequenceDiagram
 ```
 
 * **Process Worker**: The `Process` implementation wraps `exec.Cmd` and enforces **Fail-Closed** hygiene using `pkg/proc` (JobObjects/PDeathSig).
+
+### 9. Supervisor Pattern (`pkg/supervisor`)
+
+The Supervisor manages a set of child Workers (Processes or other Supervisors), forming a **Supervision Tree**. It is responsible for starting, monitoring, and restarting children based on failures.
+
+#### Restart Strategies
+
+* **OneForOne**: If a child dies, only that child is restarted.
+* **OneForAll**: If a child dies, all other children are stopped, and then all are restarted. (Useful for tightly coupled dependencies).
+
+```mermaid
+graph TD
+    Sup[Supervisor] -->|OneForOne| W1[Worker A]
+    Sup -->|OneForOne| W2[Worker B]
+    
+    style Sup fill:#f9f,stroke:#333
+    style W1 fill:#ccf,stroke:#333
+    style W2 fill:#ccf,stroke:#333
+```
