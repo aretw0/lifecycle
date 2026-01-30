@@ -110,6 +110,15 @@ func main() {
 	// We wait for the signal context to be done (graceful shutdown)
 	<-ctx.Done()
 
+	fmt.Println("\n--- Introspection (Recursive Tree) ---")
+	fmt.Println(worker.MermaidTree(sup.State()))
+
+	fmt.Println("\n--- Introspection (Worker FSM) ---")
+	// Using a dummy state for illustration as we don't have easy access to children instances here
+	// without creating them.
+	dummyState := worker.State{Name: "ExampleWorker", Status: worker.StatusRunning, PID: 1234}
+	fmt.Println(worker.MermaidState(dummyState))
+
 	// 6. Stop Supervisor
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

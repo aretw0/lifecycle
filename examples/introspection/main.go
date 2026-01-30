@@ -42,10 +42,13 @@ func main() {
 
 func printDiagrams(ctx *lifecycle.Context, w lifecycle.Worker) {
 	fmt.Println("\n--- Signal Context Diagram ---")
-	fmt.Println(lifecycle.SignalDiagram(ctx.State()))
+	fmt.Println(lifecycle.SignalStateDiagram(ctx.State()))
 
-	fmt.Println("\n--- Worker Diagram ---")
-	fmt.Println(lifecycle.WorkerDiagram(w.State()))
+	fmt.Println("\n--- Worker Tree Diagram ---")
+	fmt.Println(lifecycle.WorkerTreeDiagram(w.State()))
+
+	fmt.Println("\n--- Worker State Diagram ---")
+	fmt.Println(lifecycle.WorkerStateDiagram(w.State()))
 }
 
 // Helper for the worker process simulation

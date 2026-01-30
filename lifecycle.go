@@ -117,10 +117,10 @@ type SignalState = signal.State
 // State is an alias for SignalState (backward compatibility).
 type State = SignalState
 
-// SignalDiagram returns a Mermaid state diagram string representing the signal context configuration.
-// Alias for pkg/signal.Mermaid.
-func SignalDiagram(s SignalState) string {
-	return signal.Mermaid(s)
+// SignalStateDiagram returns a Mermaid state diagram string representing the signal context configuration.
+// Alias for pkg/signal.MermaidState.
+func SignalStateDiagram(s SignalState) string {
+	return signal.MermaidState(s)
 }
 
 // WorkerState represents the snapshot of a worker's state.
@@ -129,10 +129,16 @@ type WorkerState = worker.State
 // WorkerStatus represents the lifecycle state of a worker.
 type WorkerStatus = worker.Status
 
-// WorkerDiagram returns a Mermaid state diagram string representing the worker state.
-// Alias for pkg/worker.Mermaid.
-func WorkerDiagram(s WorkerState) string {
-	return worker.Mermaid(s)
+// WorkerTreeDiagram returns a Mermaid diagram string representing the worker structure (Tree).
+// Alias for pkg/worker.MermaidTree.
+func WorkerTreeDiagram(s WorkerState) string {
+	return worker.MermaidTree(s)
+}
+
+// WorkerStateDiagram returns a Mermaid state diagram string representing the worker state transitions.
+// Alias for pkg/worker.MermaidState.
+func WorkerStateDiagram(s WorkerState) string {
+	return worker.MermaidState(s)
 }
 
 // Worker defines the interface for a managed unit of work.
