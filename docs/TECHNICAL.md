@@ -144,7 +144,9 @@ To support tooling and better stewardship, we adopt an **Introspection Pattern**
   * **MermaidTree(State)**: Generates a **Toplogical/Tree** diagram (`graph TD`) of the supervision tree.
   * **MermaidState(State)**: Generates a **Lifecycle/FSM** diagram (`stateDiagram-v2`) for individual workers.
 
-These are exposed at the top-level via `lifecycle.SignalStateDiagram`, `lifecycle.WorkerTreeDiagram`, and `lifecycle.WorkerStateDiagram`.
+These are exposed at the top-level via `lifecycle.SignalStateDiagram`, `lifecycle.WorkerTreeDiagram`, `lifecycle.WorkerStateDiagram`, and the unified `lifecycle.SystemDiagram`.
+
+* **System Diagram (Synthesis)**: A specialized visualizer that joins the `SignalContext` (Control Plane) and the `Worker` Tree (Data Plane). It highlights the logical relationship where the signal handler cancels the root of the supervision tree.
 
 #### Visualization Standards
 
