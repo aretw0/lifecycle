@@ -92,6 +92,11 @@ sequenceDiagram
 * **Blocking Syscalls**: Go cannot interrupt a raw `read()` syscall. The `Reader` remains blocked in the OS until data arrives, even if the user receives `ErrInterrupted`.
 * **Buffer Inconsistency**: Sharing the underlying `io.Reader` between multiple `InterruptibleReader` instances leads to non-deterministic data theft.
 
+#### Windows `CONIN$`
+
+On **Windows**, `os.Stdin` is a wrapper around a Handle. If that Handle is in a blocking Read, standard Windows signals might not propagate correctly to the Go runtime in console applications.
+Using `CONIN$` ensures we are talking directly to the Console Input buffer, which allows `Ctrl+C` events to bypass the blocking Read and trigger the `pkg/signal` handler.
+
 ### 3. Process Hygiene (`pkg/proc`)
 
 Ensures that child processes do not outlive the parent (preventing "Zombies"), essential for managing Language Servers or background tools. We follow a **Fail-Closed** principle: if a process cannot be safely managed by the OS hygiene (e.g., job assignment failure), it is immediately killed to prevent leaks.
@@ -169,11 +174,6 @@ We use a standard bootstrap-like palette for status coloring:
 > [!TIP]
 > When implementing `State()` for new components, ensure the fields captured are sufficient to reconstruct these diagrams without needing a reference to the live object.
 
-## Windows `CONIN$`
-
-On **Windows**, `os.Stdin` is a wrapper around a Handle. If that Handle is in a blocking Read, standard Windows signals might not propagate correctly to the Go runtime in console applications.
-Using `CONIN$` ensures we are talking directly to the Console Input buffer, which allows `Ctrl+C` events to bypass the blocking Read and trigger the `pkg/signal` handler.
-
 ### 8. Worker Protocol (`pkg/worker`)
 
 To support the Supervisor pattern (v1.3), we define a uniform `Worker` interface for managed units of work (Processes, Goroutines, Containers).
@@ -211,12 +211,44 @@ The Supervisor manages a set of child Workers (Processes or other Supervisors), 
 * **OneForOne**: If a child dies, only that child is restarted.
 * **OneForAll**: If a child dies, all other children are stopped, and then all are restarted. (Useful for tightly coupled dependencies).
 
+#### Handover Protocol
+
+The Supervisor maintains a persistent **Resume ID** for each worker spec. This ID remains constant across restarts, allowing the worker to identify its session in durable storage or logs.
+
+When a worker is restarted due to failure, the Supervisor injects the following via the `EnvInjector` (typically environment variables):
+
+* **`LIFECYCLE_RESUME_ID`**: The stable UUID for the worker.
+* **`LIFECYCLE_PREV_EXIT`**: The exit code (or `-1` on crash) of the previous execution.
+
+```mermaid
+sequenceDiagram
+    participant Sup as Supervisor
+    participant W as Worker (Instance 1)
+    participant W2 as Worker (Instance 2)
+    
+    Sup->>W: Start (Injected: RESUME_ID=ABC, PREV_EXIT=0)
+    W-->>Sup: Crash!
+    
+    note over Sup: Strategy OneForOne
+    
+    Sup->>W2: Start (Injected: RESUME_ID=ABC, PREV_EXIT=-1)
+    note right of W2: Worker resumes work for session 'ABC'
+```
+
+### 10. Ecosystem Interfaces & Containers (`pkg/container`)
+
+To support broader infrastructure management, `lifecycle` provides a generic `Container` interface. This allows the Supervisor to manage containerized workloads (Docker, Podman, Mock) without a direct compile-time dependency on third-party SDKs.
+
+* **Decoupling**: Applications depend on `container.Container`, and the concrete implementation is injected at runtime.
+* **ContainerWorker**: A bridge worker that adapts the `Container` interface to the standard `Worker` contract.
+
 ```mermaid
 graph TD
-    Sup[Supervisor] -->|OneForOne| W1[Worker A]
-    Sup -->|OneForOne| W2[Worker B]
+    Sup[Supervisor] --> CW[ContainerWorker]
+    CW --> C["Container (Interface)"]
+    C --> D[Docker Impl]
+    C --> M[Mock/Shell Impl]
     
-    style Sup fill:#f9f,stroke:#333
-    style W1 fill:#ccf,stroke:#333
-    style W2 fill:#ccf,stroke:#333
+    style CW fill:#ccf,stroke:#333
+    style C fill:#f9f,stroke:#333
 ```

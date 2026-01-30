@@ -23,6 +23,12 @@
 // operation stalls, `lifecycle` provides `BlockWithTimeout`. This ensures the process exits
 // deterministically even if some components are stuck.
 //
+// # Worker Protocol & Supervision (v1.3)
+//
+// For complex applications, `lifecycle` provides a `Worker` interface and a `Supervisor`.
+// This allows managing hierarchies of processes, goroutines, and containers with
+// automatic restarts, session persistence (Handover Protocol), and unified introspection.
+//
 // # Usage
 //
 //	ctx := lifecycle.NewSignalContext(context.Background())

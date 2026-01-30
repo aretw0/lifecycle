@@ -47,9 +47,9 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 
 #### Ecosystem Interfaces
 
-- [ ] **Container Abstraction**: Define `Container` interface in `pkg/container` (Start, Stop, Logs) to decouple from Docker SDK.
-- [ ] **Reference Implementation**: Add a mock or shell-based implementation to validate the `Container` interface.
-- [ ] **Handover Protocol**: Standardize env vars (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) for Supervisors to pass context to restarted Workers.
+- [x] **Container Abstraction**: Define `Container` interface in `pkg/container` (Start, Stop, Logs) to decouple from Docker SDK.
+- [x] **Reference Implementation**: Add a mock or shell-based implementation to validate the `Container` interface.
+- [x] **Handover Protocol**: Standardize env vars (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) for Supervisors to pass context to restarted Workers.
 
 ### v1.4: Durable Primitives (The Reliability Layer)
 

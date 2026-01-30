@@ -8,6 +8,7 @@ import (
 
 	"log/slog"
 
+	"github.com/aretw0/lifecycle/pkg/container"
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/proc"
@@ -150,3 +151,25 @@ type Worker = worker.Worker
 func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
 	return worker.NewProcess(name, nameCmd, args...)
 }
+
+// Container represents a generic container interface.
+// Alias for container.Container.
+type Container = container.Container
+
+// ContainerStatus represents the lifecycle state of a container.
+// Alias for container.Status.
+type ContainerStatus = container.Status
+
+// NewContainerWorker creates a new Worker from a Container interface.
+// Alias for pkg/worker.NewContainerWorker.
+func NewContainerWorker(name string, c Container) Worker {
+	return worker.NewContainerWorker(name, c)
+}
+
+// Handover Constants
+const (
+	// EnvResumeID is the unique session identifier for a worker.
+	EnvResumeID = worker.EnvResumeID
+	// EnvPrevExit is the exit code of the previous execution of this worker.
+	EnvPrevExit = worker.EnvPrevExit
+)

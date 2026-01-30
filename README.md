@@ -32,9 +32,11 @@ go get github.com/aretw0/lifecycle
   * **Rich Metrics**: Built-in providers for tracking shutdown health, data loss, and shutdown latency.
   * **Stall Detection**: Automatically detects and warns if a shutdown hook is stalled (runs > 5s).
 * **Worker & Supervisor** (v1.3):
-  * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes and Goroutines.
+  * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes, Goroutines, and Containers.
   * **Supervision Tree**: `Supervisor` manages hierarchical worker clusters with restart policies (`OneForOne`, `OneForAll`).
   * **Process Hygiene**: Automatic cleanup of child processes if the parent dies (Job Objects/PDeathSig).
+  * **Handover Protocol**: Standardized environment variables (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) to pass context across restarts.
+  * **Container Abstraction**: Generic interface to manage containerized workloads without direct SDK dependencies.
 
 ## Usage
 
@@ -106,7 +108,7 @@ func main() {
 
 ### Worker Protocol (v1.3)
 
-Manage long-running processes (or goroutines) with a uniform interface and hygiene.
+Manage long-running processes, containers, or goroutines with a uniform interface, hygiene, and handover support.
 
 ```go
 package main
@@ -121,8 +123,11 @@ func main() {
     ctx := lifecycle.NewSignalContext(context.Background())
     defer ctx.Stop()
 
-    // Create a worker (Fail-Closed hygiene automatically applied)
+    // 1. Process Worker (Fail-Closed hygiene automatically applied)
     worker := lifecycle.NewProcessWorker("pinger", "ping", "127.0.0.1")
+
+    // 2. Handover Protocol (Access resume info in child process via env)
+    // resumeID := os.Getenv(lifecycle.EnvResumeID)
 
     // Async Start
     worker.Start(ctx)
