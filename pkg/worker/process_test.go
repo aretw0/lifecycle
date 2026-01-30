@@ -49,9 +49,21 @@ func TestProcess_StartStop(t *testing.T) {
 	os.Setenv(HelperProcess, "1")
 	defer os.Unsetenv(HelperProcess)
 
+	// Verify initial state
+	initialState := w.State()
+	if initialState.Status != worker.StatusPending {
+		t.Errorf("Expected Pending status, got %s", initialState.Status)
+	}
+
 	ctx := context.Background()
 	if err := w.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Verify running state
+	runningState := w.State()
+	if runningState.Status != worker.StatusRunning {
+		t.Errorf("Expected Running status, got %s", runningState.Status)
 	}
 
 	// Verify it's running (Wait channel shouldn't be closed immediately)
@@ -84,6 +96,12 @@ func TestProcess_StartStop(t *testing.T) {
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Wait blocked after Stop")
+	}
+
+	// Verify stopped state
+	finalState := w.State()
+	if finalState.Status != worker.StatusStopped && finalState.Status != worker.StatusFailed {
+		t.Errorf("Expected Stopped or Failed status, got %s", finalState.Status)
 	}
 }
 

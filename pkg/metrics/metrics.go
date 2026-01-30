@@ -17,6 +17,10 @@ type Provider interface {
 	IncHookExecuted()
 	IncHookPanicked()
 	ObserveHookDuration(duration time.Duration)
+	IncWorkerStarted(workerType string)
+	IncWorkerStopped(workerType string)
+	IncWorkerFailed(workerType string)
+	ObserveWorkerDuration(workerType string, duration time.Duration)
 }
 
 var (
@@ -45,13 +49,17 @@ func GetProvider() Provider {
 // NoOpProvider is a metrics provider that does nothing.
 type NoOpProvider struct{}
 
-func (n *NoOpProvider) IncSignalReceived(sig string)        {}
-func (n *NoOpProvider) IncProcessStarted()                  {}
-func (n *NoOpProvider) IncProcessFailed()                   {}
-func (n *NoOpProvider) IncTerminalUpgrade(success bool)     {}
-func (n *NoOpProvider) IncHookExecuted()                    {}
-func (n *NoOpProvider) IncHookPanicked()                    {}
-func (n *NoOpProvider) ObserveHookDuration(d time.Duration) {}
+func (n *NoOpProvider) IncSignalReceived(sig string)                     {}
+func (n *NoOpProvider) IncProcessStarted()                               {}
+func (n *NoOpProvider) IncProcessFailed()                                {}
+func (n *NoOpProvider) IncTerminalUpgrade(success bool)                  {}
+func (n *NoOpProvider) IncHookExecuted()                                 {}
+func (n *NoOpProvider) IncHookPanicked()                                 {}
+func (n *NoOpProvider) ObserveHookDuration(d time.Duration)              {}
+func (n *NoOpProvider) IncWorkerStarted(wt string)                       {}
+func (n *NoOpProvider) IncWorkerStopped(wt string)                       {}
+func (n *NoOpProvider) IncWorkerFailed(wt string)                        {}
+func (n *NoOpProvider) ObserveWorkerDuration(wt string, d time.Duration) {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -83,4 +91,20 @@ func (l *LogProvider) IncHookPanicked() {
 
 func (l *LogProvider) ObserveHookDuration(d time.Duration) {
 	log.Debug("metric observed", "name", "lifecycle_hook_duration_seconds", "value", d.Seconds())
+}
+
+func (l *LogProvider) IncWorkerStarted(wt string) {
+	log.Debug("metric incremented", "name", "lifecycle_workers_started_total", "type", wt)
+}
+
+func (l *LogProvider) IncWorkerStopped(wt string) {
+	log.Debug("metric incremented", "name", "lifecycle_workers_stopped_total", "type", wt)
+}
+
+func (l *LogProvider) IncWorkerFailed(wt string) {
+	log.Debug("metric incremented", "name", "lifecycle_workers_failed_total", "type", wt)
+}
+
+func (l *LogProvider) ObserveWorkerDuration(wt string, d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_worker_duration_seconds", "type", wt, "value", d.Seconds())
 }

@@ -23,4 +23,26 @@ type Worker interface {
 
 	// String returns a human-readable description/ID of the worker.
 	String() string
+
+	// State returns the current state of the worker for introspection.
+	State() State
+}
+
+// Status represents the lifecycle state of a worker.
+type Status string
+
+const (
+	StatusPending Status = "Pending"
+	StatusRunning Status = "Running"
+	StatusStopped Status = "Stopped"
+	StatusFailed  Status = "Failed"
+)
+
+// State represents a snapshot of the worker's status.
+type State struct {
+	Name     string
+	Status   Status
+	PID      int
+	ExitCode int
+	Error    error
 }
