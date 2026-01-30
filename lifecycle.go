@@ -105,19 +105,33 @@ func NewLogMetricsProvider() metrics.Provider {
 	return &metrics.LogProvider{}
 }
 
-// State represents the configuration state of the SignalContext.
-// Alias for pkg/signal.State.
-type State = signal.State
+// Context represents the signal context.
+type Context = signal.Context
+
+// Option is a functional option for signal configuration.
+type Option = signal.Option
+
+// SignalState represents the configuration state of the SignalContext.
+type SignalState = signal.State
+
+// State is an alias for SignalState (backward compatibility).
+type State = SignalState
 
 // SignalDiagram returns a Mermaid state diagram string representing the signal context configuration.
 // Alias for pkg/signal.Mermaid.
-func SignalDiagram(s State) string {
+func SignalDiagram(s SignalState) string {
 	return signal.Mermaid(s)
 }
 
+// WorkerState represents the snapshot of a worker's state.
+type WorkerState = worker.State
+
+// WorkerStatus represents the lifecycle state of a worker.
+type WorkerStatus = worker.Status
+
 // WorkerDiagram returns a Mermaid state diagram string representing the worker state.
 // Alias for pkg/worker.Mermaid.
-func WorkerDiagram(s worker.State) string {
+func WorkerDiagram(s WorkerState) string {
 	return worker.Mermaid(s)
 }
 
