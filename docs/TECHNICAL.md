@@ -118,10 +118,15 @@ The library is instrumented for production visibility without external dependenc
     * `IncProcessFailed()`: Counter of process start failures.
   * **Terminal** (`pkg/termio`):
     * `IncTerminalUpgrade(success bool)`: Counter of stdin upgrades (e.g. to CONIN$).
-  * **Hooks** (`pkg/signal` - *New*):
+  * **Hooks** (`pkg/signal`):
     * `IncHookExecuted()`: Counter of successfully completed hooks.
     * `IncHookPanicked()`: Counter of hooks that panic (and recovered).
     * `ObserveHookDuration(duration)`: Histogram/Timer of hook execution time.
+  * **Workers** (`pkg/worker`):
+    * `IncWorkerStarted(type)`: Counter of workers started.
+    * `IncWorkerStopped(type)`: Counter of workers stopped gracefully.
+    * `IncWorkerFailed(type)`: Counter of worker failures.
+    * `ObserveWorkerDuration(type, duration)`: Histogram of worker lifespan.
 * **LogProvider**: Special provider that redirects metrics to debug logs for local verification.
 
 ### 6. Safety Mechanisms

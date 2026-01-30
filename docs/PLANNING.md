@@ -56,6 +56,7 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 - **Non-destructive I/O**: Research a "Buffered Peek" for `InterruptibleReader` to avoid data loss when context is cancelled during a read.
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
 - **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown scenarios (requested by user).
+- **Composite Introspection Dashboard**: Define a standard way (or package) to aggregate `State()` from SignalContext and Workers to render a unified system diagram (e.g. at Supervisor level).
 
 ## Technical Debt
 
