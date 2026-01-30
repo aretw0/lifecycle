@@ -6,17 +6,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/signal"
-	"github.com/aretw0/lifecycle/pkg/worker"
+	"github.com/aretw0/lifecycle"
 )
 
 func main() {
 	// 1. Create a Signal Context (Stateful)
-	ctx := signal.NewContext(context.Background())
+	ctx := lifecycle.NewSignalContext(context.Background())
 	defer ctx.Stop()
 
 	// 2. Create a Worker (Stateful)
-	w := worker.NewProcess("demo-worker", os.Args[0], "sleep")
+	w := lifecycle.NewProcessWorker("demo-worker", os.Args[0], "sleep")
 	// Inject helper env to make strict sleep mock
 	os.Setenv("GO_HELPER_PROCESS", "1")
 	defer os.Unsetenv("GO_HELPER_PROCESS")
@@ -41,12 +40,12 @@ func main() {
 	printDiagrams(ctx, w)
 }
 
-func printDiagrams(ctx *signal.Context, w worker.Worker) {
+func printDiagrams(ctx *lifecycle.Context, w lifecycle.Worker) {
 	fmt.Println("\n--- Signal Context Diagram ---")
-	fmt.Println(signal.Mermaid(ctx.State()))
+	fmt.Println(lifecycle.SignalDiagram(ctx.State()))
 
 	fmt.Println("\n--- Worker Diagram ---")
-	fmt.Println(worker.Mermaid(w.State()))
+	fmt.Println(lifecycle.WorkerDiagram(w.State()))
 }
 
 // Helper for the worker process simulation

@@ -6,14 +6,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/signal"
-	"github.com/aretw0/lifecycle/pkg/worker"
+	"github.com/aretw0/lifecycle"
 )
 
 func main() {
 	// 1. Create a SignalContext
 	// This will handle SIGINT/SIGTERM and provide a context that cancels on shutdown.
-	ctx := signal.NewContext(context.Background())
+	ctx := lifecycle.NewSignalContext(context.Background())
 	defer ctx.Stop()
 
 	// 2. Define our worker
@@ -34,7 +33,7 @@ func main() {
 	}
 
 	fmt.Printf("Initializing Process Worker: %s %v\n", cmdName, args)
-	procWorker := worker.NewProcess("pinger", cmdName, args...)
+	procWorker := lifecycle.NewProcessWorker("pinger", cmdName, args...)
 
 	// 3. Start the worker
 	if err := procWorker.Start(ctx); err != nil {
