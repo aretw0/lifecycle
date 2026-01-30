@@ -5,26 +5,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/container"
-	"github.com/aretw0/lifecycle/pkg/supervisor"
-	"github.com/aretw0/lifecycle/pkg/worker"
+	"github.com/aretw0/lifecycle"
 )
 
 func main() {
 	fmt.Println("=== Lifecycle v1.3: Ecosystem Interfaces & Handover Example ===")
 
 	// 1. Create a Mock Container
-	mock := container.NewMockContainer("redis-mock")
+	mock := lifecycle.NewMockContainer("redis-mock")
 
 	// 2. Wrap it in a ContainerWorker
-	redisWorker := worker.NewContainerWorker("redis", mock)
+	redisWorker := lifecycle.NewContainerWorker("redis", mock)
 
 	// 3. Define a Supervisor with a restart strategy
 	// We use StrategyOneForOne to demonstrate the Handover Protocol on restart.
-	sup := supervisor.New("main-supervisor", supervisor.StrategyOneForOne,
-		supervisor.Spec{
+	sup := lifecycle.NewSupervisor("main-supervisor", lifecycle.StrategyOneForOne,
+		lifecycle.SupervisorSpec{
 			Name: "redis",
-			Factory: func() (worker.Worker, error) {
+			Factory: func() (lifecycle.Worker, error) {
 				return redisWorker, nil
 			},
 		},

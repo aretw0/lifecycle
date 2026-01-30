@@ -171,8 +171,32 @@ We use a standard bootstrap-like palette for status coloring:
 * 🟢 **Stopped**: `#d4edda` (Green) - Successfully terminated (Exit 0).
 * 🔴 **Failed**: `#f8d7da` (Red) - Terminated with error or crashed.
 
+**Diagnostic Symbolism (v1.3.1):**
+
+To provide rapid infrastructure awareness, tree diagrams use type-specific shapes and icons based on `Metadata` detection:
+
+| Shape | Icon | Identity | Rule |
+| :--- | :--- | :--- | :--- |
+| `[[Node]]` | 📦 | **Container** | Metadata includes `image` key. |
+| `[Node]` | ⚙️ | **OS Process** | Metadata includes `path` key. |
+| `([Node])` | 🧬 | **Goroutine** | Default/Ephemeral unit of work. |
+
+Labels automatically enrich with **Diagnostic Snapshots** (e.g., 🌐 IP addresses, Ports) when detected in metadata.
+
 > [!TIP]
 > When implementing `State()` for new components, ensure the fields captured are sufficient to reconstruct these diagrams without needing a reference to the live object.
+
+#### Windows & UTF-8 Encoding
+
+If you see mangled characters in Mermaid diagrams (e.g., `ÔÜÖ´©Å` instead of `⚙️`), it is likely due to the terminal encoding. Windows terminals (CMD, PowerShell) often default to CP850.
+
+To fix this, run:
+
+```bash
+chcp 65001
+```
+
+This sets the code page to UTF-8. Using the **Windows Terminal** is also recommended as it supports UTF-8 by default.
 
 ### 8. Worker Protocol (`pkg/worker`)
 
@@ -200,7 +224,7 @@ sequenceDiagram
     deactivate Worker
 ```
 
-* **Process Worker**: The `Process` implementation wraps `exec.Cmd` and enforces **Fail-Closed** hygiene using `pkg/proc` (JobObjects/PDeathSig).
+* **Process Worker**: The `ProcessWorker` implementation wraps `exec.Cmd` and enforces **Fail-Closed** hygiene using `pkg/proc` (JobObjects/PDeathSig).
 
 ### 9. Supervisor Pattern (`pkg/supervisor`)
 

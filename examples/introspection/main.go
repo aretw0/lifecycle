@@ -14,35 +14,45 @@ func main() {
 	ctx := lifecycle.NewSignalContext(context.Background())
 	defer ctx.Stop()
 
-	// 2. Create a Worker (Stateful)
-	w := lifecycle.NewProcessWorker("demo-worker", os.Args[0], "sleep")
-	// Inject helper env to make strict sleep mock
-	os.Setenv("GO_HELPER_PROCESS", "1")
-	defer os.Unsetenv("GO_HELPER_PROCESS")
+	// 2. Create Workers (Stateful)
+	p := lifecycle.NewProcessWorker("demo-process", os.Args[0], "worker")
 
-	fmt.Println("=== Introspection Demo ===")
+	// Create a Mock Container
+	mock := lifecycle.NewMockContainer("redis-mock")
+	c := lifecycle.NewContainerWorker("redis-container", mock)
+
+	fmt.Println("=== Introspection Demo (v1.3.1) ===")
 	fmt.Println("1. Initial States:")
-	printDiagrams(ctx, w)
+	fmt.Println("\n--- Unified System Dashboard ---")
+	fmt.Println(lifecycle.SystemDiagram(ctx.State(), p.State())) // Single worker for now
 
-	// Start Worker
-	if err := w.Start(ctx); err != nil {
+	// Start Workers
+	if err := p.Start(ctx); err != nil {
+		panic(err)
+	}
+	if err := c.Start(ctx); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("\n2. Running States:")
-	printDiagrams(ctx, w)
+	fmt.Println("\n2. Running States (Multiple Workers):")
+	// SystemDiagram currently only takes one root worker state.
+	// In a real app, you'd have a Supervisor.
+	// Let's print the Mermaid tree for a manual "composite" or just the container
+	fmt.Println("\n--- Container Diagnostic Snapshot ---")
+	fmt.Println(lifecycle.WorkerTreeDiagram(c.State()))
 
-	// Stop Worker
-	w.Stop(ctx)
-	<-w.Wait()
+	fmt.Println("\n--- Process Diagnostic Snapshot ---")
+	fmt.Println(lifecycle.WorkerTreeDiagram(p.State()))
+
+	// Stop Workers
+	p.Stop(ctx)
+	c.Stop(ctx)
+	<-p.Wait()
+	<-c.Wait()
 
 	fmt.Println("\n3. Final States:")
-	printDiagrams(ctx, w)
-}
-
-func printDiagrams(ctx *lifecycle.Context, w lifecycle.Worker) {
 	fmt.Println("\n--- Unified System Dashboard ---")
-	fmt.Println(lifecycle.SystemDiagram(ctx.State(), w.State()))
+	fmt.Println(lifecycle.SystemDiagram(ctx.State(), p.State()))
 }
 
 // Helper for the worker process simulation

@@ -72,33 +72,59 @@ func RenderTreeFragment(sb *strings.Builder, s State, rootID string) {
 }
 
 func renderNode(sb *strings.Builder, s State, id string) {
-	// Node Label
-	label := fmt.Sprintf("<b>%s</b><br/>%s", s.Name, s.Status)
-	if s.PID > 0 {
-		label += fmt.Sprintf("<br/>PID: %d", s.PID)
-	}
-	if s.Error != nil {
-		label += fmt.Sprintf("<br/>Err: %v", s.Error)
+	// 1. Determine Identity & Metadata Enrichment
+	icon := "🧬 " // Default: Goroutine/Generic
+	shapeStart, shapeEnd := "(", ")"
+	idClass := "goroutine"
+
+	if _, ok := s.Metadata["image"]; ok {
+		icon = "📦 "
+		shapeStart, shapeEnd = "[[", "]]"
+		idClass = "container"
+	} else if _, ok := s.Metadata["path"]; ok {
+		icon = "⚙️ "
+		shapeStart, shapeEnd = "[", "]"
+		idClass = "process"
 	}
 
-	// Determine shape/style based on status
-	// StatusPending -> rect
-	// StatusRunning -> rounded rect
-	// StatusStopped -> cylinder? or rect
-	// Check status
-	styleClass := "pending"
+	// 2. Build Label
+	var labelParts []string
+	labelParts = append(labelParts, fmt.Sprintf("<b>%s%s</b>", icon, s.Name))
+	labelParts = append(labelParts, string(s.Status))
+
+	if s.PID > 0 {
+		labelParts = append(labelParts, fmt.Sprintf("PID: %d", s.PID))
+	}
+
+	// Add significant metadata
+	if ip, ok := s.Metadata["ip"]; ok {
+		labelParts = append(labelParts, fmt.Sprintf("🌐 %s", ip))
+	}
+	if ports, ok := s.Metadata["ports"]; ok {
+		labelParts = append(labelParts, fmt.Sprintf("🔌 %s", ports))
+	}
+	if image, ok := s.Metadata["image"]; ok {
+		labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", image))
+	}
+
+	label := strings.Join(labelParts, "<br/>")
+
+	// 3. Determine Color Class
+	statusClass := "pending"
 	switch s.Status {
 	case StatusRunning:
-		styleClass = "running"
+		statusClass = "running"
 	case StatusStopped:
-		styleClass = "stopped"
+		statusClass = "stopped"
 	case StatusFailed:
-		styleClass = "failed"
+		statusClass = "failed"
 	}
 
-	// Write Node
-	// id["label"]:::styleClass
-	sb.WriteString(fmt.Sprintf("    %s[\"%s\"]:::%s\n", id, label, styleClass))
+	// 4. Write Node and Class Assignment
+	// We use the 'class ID className' syntax to avoid generating too many colons in a single line,
+	// which ensures better compatibility across different Mermaid renderers.
+	sb.WriteString(fmt.Sprintf("    %s%s\"%s\"%s\n", id, shapeStart, label, shapeEnd))
+	sb.WriteString(fmt.Sprintf("    class %s %s,%s\n", id, statusClass, idClass))
 
 	// Render Children
 	for i, child := range s.Children {
