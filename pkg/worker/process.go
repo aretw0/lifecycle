@@ -176,11 +176,17 @@ func (p *Process) State() State {
 		pid = p.cmd.Process.Pid
 	}
 
+	metadata := map[string]string{
+		"path": p.cmd.Path,
+		"args": fmt.Sprintf("%v", p.cmd.Args),
+	}
+
 	return State{
 		Name:     p.name,
 		Status:   p.status,
 		PID:      pid,
 		ExitCode: p.exitCode,
 		Error:    p.err,
+		Metadata: metadata,
 	}
 }
