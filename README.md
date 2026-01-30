@@ -27,12 +27,14 @@ go get github.com/aretw0/lifecycle
   * **Platform Aware**: Automatically uses `CONIN$` on Windows.
     * **Why?** On Windows, standard `os.Stdin` closes immediately upon receiving a signal (like Ctrl+C), causing a fatal `EOF` before the application can gracefully handle the signal. `lifecycle` switches to `CONIN$`, which keeps the handle open, allowing the `SignalContext` to process the event.
   * **UpgradeTerminal**: Helper to upgrade an arbitrary existing `io.Reader` (if it identifies as a terminal) to the safe platform-specific reader.
-* **Observability & Safety**:
-  * **Metrics**: Built-in provider interface (`IncHookExecuted`, `ObserveHookDuration`) to track shutdown health.
-  * **Stall Detection**: Automatically detects and logs warnings if a shutdown hook is stalled (runs > 5s).
-* **Worker Protocol** (v1.3):
+* **Observability & Introspection**:
+  * **Unified Dashboard**: `SystemDiagram` synthesizes Signal and Worker states into a single Mermaid visualization.
+  * **Rich Metrics**: Built-in providers for tracking shutdown health, data loss, and shutdown latency.
+  * **Stall Detection**: Automatically detects and warns if a shutdown hook is stalled (runs > 5s).
+* **Worker & Supervisor** (v1.3):
   * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes and Goroutines.
-  * **Process Hygiene**: `NewProcessWorker` ensures child processes are killed if the parent dies (Job Objects/PDeathSig).
+  * **Supervision Tree**: `Supervisor` manages hierarchical worker clusters with restart policies (`OneForOne`, `OneForAll`).
+  * **Process Hygiene**: Automatic cleanup of child processes if the parent dies (Job Objects/PDeathSig).
 
 ## Usage
 
@@ -134,6 +136,32 @@ func main() {
     }
 }
 ```
+
+### System Introspection (v1.3)
+
+Generate live architecture diagrams of your running application.
+
+```go
+// Get current snapshots
+sigState := ctx.State()
+workState := supervisor.State()
+
+// Generate Mermaid "Unified Dashboard"
+diagram := lifecycle.SystemDiagram(sigState, workState)
+fmt.Println(diagram)
+```
+
+> [!NOTE]
+> We use **state diagrams** (`stateDiagram-v2`) for behavior/FSM and **flowcharts** (`graph TD`) for topology/trees.
+
+## Metrics Palette
+
+The library uses a consistent color palette for all generated diagrams:
+
+* 🟡 **Pending**: Defined but not yet active.
+* 🔵 **Running**: Active and healthy.
+* 🟢 **Stopped**: Successfully terminated.
+* 🔴 **Failed**: Crashed or terminated with error.
 
 ## Caveats
 
