@@ -134,12 +134,38 @@ The library is instrumented for production visibility without external dependenc
 * **Stalled Hook Detection**: Each hook is monitored by a timer (configurable via `WithHookTimeout`). If it exceeds the threshold (default 5s), a warning is logged.
 * **Panic Recovery**: Hooks are wrapped in `recover()` to ensure a single faulty hook does not prevent others from running.
 
-### 7. Introspection & Visualization (`pkg/signal`)
+### 7. Introspection & Visualization (`pkg/signal` & `pkg/worker`)
 
 To support tooling and better stewardship, we adopt an **Introspection Pattern**: components expose their configuration state as immutable DTOs (Data Transfer Objects). This decouples the internal logic from external representation.
 
-* **Context State**: `SignalContext` exposes a `State()` method returning its current configuration (timeouts, thresholds, etc.).
-* **Mermaid Renderer**: A pure function `Mermaid(State)` in `pkg/signal` consumes this state to generate a Mermaid State Diagram, allowing runtime visualization of the application's lifecycle policy.
+* **Signal Context State**: `SignalContext` exposes a `State()` method returning its current configuration.
+  * **MermaidRenderer**: `MermaidState(State)` generates a **State Diagram** (FSM) of the lifecycle policy.
+* **Worker State**: All workers implement `State()` returning a recursive snapshot.
+  * **MermaidTree(State)**: Generates a **Toplogical/Tree** diagram (`graph TD`) of the supervision tree.
+  * **MermaidState(State)**: Generates a **Lifecycle/FSM** diagram (`stateDiagram-v2`) for individual workers.
+
+These are exposed at the top-level via `lifecycle.SignalStateDiagram`, `lifecycle.WorkerTreeDiagram`, and `lifecycle.WorkerStateDiagram`.
+
+#### Visualization Standards
+
+We maintain a consistent visual language across all generated diagrams to reduce cognitive load:
+
+| Element | Diagram Type | Intent |
+| :--- | :--- | :--- |
+| **Logic/FSM** | `stateDiagram-v2` | Show "How it behaves" (Transitions, Hooks, Timeouts). |
+| **Structure** | `graph TD` | Show "How it's built" (Parents, Children, PIDs). |
+
+**Status Color Palette:**
+
+We use a standard bootstrap-like palette for status coloring:
+
+* 🟡 **Pending**: `#fff3cd` (Yellow) - Defined, but not yet active.
+* 🔵 **Running**: `#d1ecf1` (Blue) - Active, healthy, or in-progress.
+* 🟢 **Stopped**: `#d4edda` (Green) - Successfully terminated (Exit 0).
+* 🔴 **Failed**: `#f8d7da` (Red) - Terminated with error or crashed.
+
+> [!TIP]
+> When implementing `State()` for new components, ensure the fields captured are sufficient to reconstruct these diagrams without needing a reference to the live object.
 
 ## Windows `CONIN$`
 
