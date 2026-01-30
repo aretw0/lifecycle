@@ -348,7 +348,7 @@ func TestHandoverProtocol(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Capture first run info
-	w1 := sup.children["worker-1"].(*InjectableMockWorker)
+	w1 := sup.(*supervisor).children["worker-1"].(*InjectableMockWorker)
 	resumeID = w1.envs[worker.EnvResumeID]
 	if resumeID == "" {
 		t.Fatal("LIFECYCLE_RESUME_ID should be set")
@@ -362,7 +362,7 @@ func TestHandoverProtocol(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify second run
-	w2 := sup.children["worker-1"].(*InjectableMockWorker)
+	w2 := sup.(*supervisor).children["worker-1"].(*InjectableMockWorker)
 	if w2.envs[worker.EnvResumeID] != resumeID {
 		t.Errorf("ResumeID should persist. Expected %s, got %s", resumeID, w2.envs[worker.EnvResumeID])
 	}

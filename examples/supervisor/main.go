@@ -9,8 +9,6 @@ import (
 
 	"github.com/aretw0/lifecycle"
 	"github.com/aretw0/lifecycle/pkg/log"
-	"github.com/aretw0/lifecycle/pkg/supervisor"
-	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
 // MockWorker implements worker.Worker for testing.
@@ -44,8 +42,8 @@ func (w *MockWorker) String() string {
 	return w.Name
 }
 
-func (w *MockWorker) State() worker.State {
-	return worker.State{Name: w.Name, Status: worker.StatusRunning}
+func (w *MockWorker) State() lifecycle.WorkerState {
+	return lifecycle.WorkerState{Name: w.Name, Status: lifecycle.WorkerStatusRunning}
 }
 
 func main() {
@@ -60,7 +58,7 @@ func main() {
 	// lifecycle.SetLogger(logger)
 
 	// 2. Define Worker Factories
-	tickerFactory := func() (worker.Worker, error) {
+	tickerFactory := func() (lifecycle.Worker, error) {
 		return &MockWorker{
 			Name: "Ticker",
 			Logic: func(ctx context.Context) error {
@@ -78,7 +76,7 @@ func main() {
 		}, nil
 	}
 
-	crasherFactory := func() (worker.Worker, error) {
+	crasherFactory := func() (lifecycle.Worker, error) {
 		return &MockWorker{
 			Name: "Crasher",
 			Logic: func(ctx context.Context) error {
@@ -95,9 +93,9 @@ func main() {
 	}
 
 	// 3. Create Supervisor
-	sup := supervisor.New("MainSup", supervisor.StrategyOneForOne,
-		supervisor.Spec{Name: "Ticker", Factory: tickerFactory},
-		supervisor.Spec{Name: "Crasher", Factory: crasherFactory},
+	sup := lifecycle.NewSupervisor("MainSup", lifecycle.StrategyOneForOne,
+		lifecycle.SupervisorSpec{Name: "Ticker", Factory: tickerFactory},
+		lifecycle.SupervisorSpec{Name: "Crasher", Factory: crasherFactory},
 	)
 
 	// 4. Start Supervisor
@@ -111,13 +109,13 @@ func main() {
 	<-ctx.Done()
 
 	fmt.Println("\n--- Introspection (Recursive Tree) ---")
-	fmt.Println(worker.MermaidTree(sup.State()))
+	fmt.Println(lifecycle.WorkerTreeDiagram(sup.State()))
 
 	fmt.Println("\n--- Introspection (Worker FSM) ---")
 	// Using a dummy state for illustration as we don't have easy access to children instances here
 	// without creating them.
-	dummyState := worker.State{Name: "ExampleWorker", Status: worker.StatusRunning, PID: 1234}
-	fmt.Println(worker.MermaidState(dummyState))
+	dummyState := lifecycle.WorkerState{Name: "ExampleWorker", Status: lifecycle.WorkerStatusRunning, PID: 1234}
+	fmt.Println(lifecycle.WorkerStateDiagram(dummyState))
 
 	// 6. Stop Supervisor
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

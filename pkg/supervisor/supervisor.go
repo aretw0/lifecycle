@@ -32,8 +32,8 @@ type Spec struct {
 	Factory Factory
 }
 
-// Supervisor manages a set of worker processes.
-type Supervisor struct {
+// supervisor manages a set of worker processes.
+type supervisor struct {
 	name     string
 	strategy Strategy
 	specs    []Spec
@@ -47,8 +47,8 @@ type Supervisor struct {
 }
 
 // New creates a new Supervisor.
-func New(name string, strategy Strategy, specs ...Spec) *Supervisor {
-	return &Supervisor{
+func New(name string, strategy Strategy, specs ...Spec) Supervisor {
+	return &supervisor{
 		name:      name,
 		strategy:  strategy,
 		specs:     specs,
@@ -59,7 +59,7 @@ func New(name string, strategy Strategy, specs ...Spec) *Supervisor {
 }
 
 // Start initiates the supervisor and its children.
-func (s *Supervisor) Start(ctx context.Context) error {
+func (s *supervisor) Start(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -90,7 +90,7 @@ func (s *Supervisor) Start(ctx context.Context) error {
 
 // startChildren starts a list of specs.
 // MUST hold lock.
-func (s *Supervisor) startChildren(ctx context.Context, specs []Spec) error {
+func (s *supervisor) startChildren(ctx context.Context, specs []Spec) error {
 	for _, spec := range specs {
 		if err := s.startChild(ctx, spec); err != nil {
 			return err
@@ -101,7 +101,7 @@ func (s *Supervisor) startChildren(ctx context.Context, specs []Spec) error {
 
 // startChild starts a single child from spec.
 // MUST hold lock.
-func (s *Supervisor) startChild(ctx context.Context, spec Spec) error {
+func (s *supervisor) startChild(ctx context.Context, spec Spec) error {
 	w, err := spec.Factory()
 	if err != nil {
 		return fmt.Errorf("failed to create worker %s: %w", spec.Name, err)
@@ -129,7 +129,7 @@ func (s *Supervisor) startChild(ctx context.Context, spec Spec) error {
 }
 
 // monitor runs the main supervision loop.
-func (s *Supervisor) monitor(ctx context.Context) {
+func (s *supervisor) monitor(ctx context.Context) {
 	// We need to listen to all children's Wait channels.
 	// A simple way is to spawn a "guard" goroutine for each child that forwards exit events.
 
@@ -161,14 +161,14 @@ type childExit struct {
 	err  error
 }
 
-func (s *Supervisor) guard(name string, w worker.Worker, ch chan<- childExit) {
+func (s *supervisor) guard(name string, w worker.Worker, ch chan<- childExit) {
 	// Wait for worker to exit
 	err := <-w.Wait()
 	ch <- childExit{name: name, err: err}
 }
 
 // handleExit processes a child's exit event.
-func (s *Supervisor) handleExit(ctx context.Context, exit childExit, eventChan chan<- childExit) {
+func (s *supervisor) handleExit(ctx context.Context, exit childExit, eventChan chan<- childExit) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -243,7 +243,7 @@ func (s *Supervisor) handleExit(ctx context.Context, exit childExit, eventChan c
 }
 
 // Stop stops the supervisor and all its children.
-func (s *Supervisor) Stop(ctx context.Context) error {
+func (s *supervisor) Stop(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -263,7 +263,7 @@ func (s *Supervisor) Stop(ctx context.Context) error {
 
 // stopAll terminates all children in reverse order.
 // Assumes caller holds lock.
-func (s *Supervisor) stopAll(ctx context.Context) error {
+func (s *supervisor) stopAll(ctx context.Context) error {
 	var errs []error
 
 	// Iterate specs in reverse order to respect dependencies (LIFO)
@@ -285,17 +285,17 @@ func (s *Supervisor) stopAll(ctx context.Context) error {
 }
 
 // Wait returns the channel to wait for supervisor exit.
-func (s *Supervisor) Wait() <-chan error {
+func (s *supervisor) Wait() <-chan error {
 	return s.waitChan
 }
 
 // String returns the supervisor name.
-func (s *Supervisor) String() string {
+func (s *supervisor) String() string {
 	return fmt.Sprintf("Supervisor(%s)", s.name)
 }
 
 // State returns the snapshot of the supervisor's state.
-func (s *Supervisor) State() worker.State {
+func (s *supervisor) State() worker.State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -14,6 +14,7 @@ import (
 	"github.com/aretw0/lifecycle/pkg/proc"
 	"github.com/aretw0/lifecycle/pkg/runtime"
 	"github.com/aretw0/lifecycle/pkg/signal"
+	"github.com/aretw0/lifecycle/pkg/supervisor"
 	"github.com/aretw0/lifecycle/pkg/termio"
 	"github.com/aretw0/lifecycle/pkg/worker"
 )
@@ -130,6 +131,13 @@ type WorkerState = worker.State
 // WorkerStatus represents the lifecycle state of a worker.
 type WorkerStatus = worker.Status
 
+const (
+	WorkerStatusPending = worker.StatusPending
+	WorkerStatusRunning = worker.StatusRunning
+	WorkerStatusStopped = worker.StatusStopped
+	WorkerStatusFailed  = worker.StatusFailed
+)
+
 // WorkerTreeDiagram returns a Mermaid diagram string representing the worker structure (Tree).
 // Alias for pkg/worker.MermaidTree.
 func WorkerTreeDiagram(s WorkerState) string {
@@ -147,9 +155,9 @@ func WorkerStateDiagram(s WorkerState) string {
 type Worker = worker.Worker
 
 // NewProcessWorker creates a new Process worker for the given command.
-// Alias for pkg/worker.NewProcess.
+// Alias for pkg/worker.NewProcessWorker.
 func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
-	return worker.NewProcess(name, nameCmd, args...)
+	return worker.NewProcessWorker(name, nameCmd, args...)
 }
 
 // Container represents a generic container interface.
@@ -166,6 +174,12 @@ func NewContainerWorker(name string, c Container) Worker {
 	return worker.NewContainerWorker(name, c)
 }
 
+// NewMockContainer creates a new MockContainer for testing.
+// Alias for pkg/container.NewMockContainer.
+func NewMockContainer(id string) Container {
+	return container.NewMockContainer(id)
+}
+
 // Handover Constants
 const (
 	// EnvResumeID is the unique session identifier for a worker.
@@ -173,3 +187,32 @@ const (
 	// EnvPrevExit is the exit code of the previous execution of this worker.
 	EnvPrevExit = worker.EnvPrevExit
 )
+
+// Supervisor defines the interface for a supervisor.
+// Alias for pkg/supervisor.Supervisor.
+type Supervisor = supervisor.Supervisor
+
+// SupervisorStrategy defines how the supervisor handles child failures.
+// Alias for pkg/supervisor.Strategy.
+type SupervisorStrategy = supervisor.Strategy
+
+const (
+	// StrategyOneForOne: If a child process terminates, only that process is restarted.
+	StrategyOneForOne = supervisor.StrategyOneForOne
+	// StrategyOneForAll: If a child process terminates, all other child processes are terminated.
+	StrategyOneForAll = supervisor.StrategyOneForAll
+)
+
+// SupervisorSpec defines the configuration for a supervised child worker.
+// Alias for pkg/supervisor.Spec.
+type SupervisorSpec = supervisor.Spec
+
+// SupervisorFactory is a function that creates a new worker instance.
+// Alias for pkg/supervisor.Factory.
+type SupervisorFactory = supervisor.Factory
+
+// NewSupervisor creates a new Supervisor for the given workers.
+// Alias for pkg/supervisor.New.
+func NewSupervisor(name string, strategy SupervisorStrategy, specs ...SupervisorSpec) Supervisor {
+	return supervisor.New(name, strategy, specs...)
+}
