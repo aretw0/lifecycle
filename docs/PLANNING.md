@@ -46,8 +46,16 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 
 - [ ] **Container Abstraction**: Define `Container` interface in `pkg/container` (Start, Stop, Logs) to decouple from Docker SDK.
 - [ ] **Reference Implementation**: Add a mock or shell-based implementation to validate the `Container` interface.
+- [ ] **Handover Protocol**: Standardize env vars (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) for Supervisors to pass context to restarted Workers.
 
-### v1.4: Portability
+### v1.4: Durable Primitives (The Reliability Layer)
+
+Focus: Features to support "Durable Execution" engines (like Trellis), distinguishing between "Stopping" and "Crashing".
+
+- [ ] **Critical Sections**: Implement `lifecycle.Do(ctx, fn)` to delay context cancellation for atomic operations (The "Shield").
+- [ ] **Shutdown Reason**: Add `Reason() enum` to `SignalContext` (Interrupt vs Terminate vs Timeout) to inform "Suspend" vs "Abort" decisions.
+
+### v1.5: Portability
 
 - [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior on other Unixes.
 
