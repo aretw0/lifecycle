@@ -140,3 +140,31 @@ To support tooling and better stewardship, we adopt an **Introspection Pattern**
 
 On **Windows**, `os.Stdin` is a wrapper around a Handle. If that Handle is in a blocking Read, standard Windows signals might not propagate correctly to the Go runtime in console applications.
 Using `CONIN$` ensures we are talking directly to the Console Input buffer, which allows `Ctrl+C` events to bypass the blocking Read and trigger the `pkg/signal` handler.
+
+### 8. Worker Protocol (`pkg/worker`)
+
+To support the Supervisor pattern (v1.3), we define a uniform `Worker` interface for managed units of work (Processes, Goroutines, Containers).
+
+```mermaid
+sequenceDiagram
+    participant Manager
+    participant Worker
+    
+    Manager->>Worker: Start(ctx)
+    activate Worker
+    
+    rect rgb(30, 30, 30)
+        note right of Worker: Work happens...
+    end
+
+    alt Graceful Stop
+        Manager->>Worker: Stop(ctx)
+        Worker-->>Manager: Returns nil
+        Worker->>Worker: Closes Wait() channel
+    else Crash
+        Worker->>Worker: Closes Wait() channel (w/ error)
+    end
+    deactivate Worker
+```
+
+* **Process Worker**: The `Process` implementation wraps `exec.Cmd` and enforces **Fail-Closed** hygiene using `pkg/proc` (JobObjects/PDeathSig).

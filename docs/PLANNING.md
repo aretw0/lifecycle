@@ -37,8 +37,8 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 
 #### The Supervisor Pattern
 
-- [ ] **Worker Protocol**: Define `Worker` interface (Start, Stop, Wait, Info) for uniform management of processes and goroutines.
-- [ ] **Process Worker**: Implement `Worker` for `exec.Cmd` utilizing `pkg/proc` for hygiene (Fail-Closed).
+- [x] **Worker Protocol**: Define `Worker` interface (Start, Stop, Wait, Info) for uniform management of processes and goroutines. (Implemented in `pkg/worker`)
+- [x] **Process Worker**: Implement `Worker` for `exec.Cmd` utilizing `pkg/proc` for hygiene (Fail-Closed).
 - [ ] **Supervisor Implementation**: Create `Supervisor` to manage a set of `Worker`s with restart policies (OneForOne, OneForAll).
 - [ ] **Tree Topology**: Verify `Supervisor` can supervise other `Supervisor`s (Tree structure).
 

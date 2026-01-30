@@ -30,6 +30,9 @@ go get github.com/aretw0/lifecycle
 * **Observability & Safety**:
   * **Metrics**: Built-in provider interface (`IncHookExecuted`, `ObserveHookDuration`) to track shutdown health.
   * **Stall Detection**: Automatically detects and logs warnings if a shutdown hook is stalled (runs > 5s).
+* **Worker Protocol** (v1.3):
+  * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes and Goroutines.
+  * **Process Hygiene**: `NewProcessWorker` ensures child processes are killed if the parent dies (Job Objects/PDeathSig).
 
 ## Usage
 
@@ -96,6 +99,39 @@ func main() {
         return
     }
     fmt.Printf("Read: %s\n", buf[:n])
+}
+```
+
+### Worker Protocol (v1.3)
+
+Manage long-running processes (or goroutines) with a uniform interface and hygiene.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/aretw0/lifecycle"
+)
+
+func main() {
+    ctx := lifecycle.NewSignalContext(context.Background())
+    defer ctx.Stop()
+
+    // Create a worker (Fail-Closed hygiene automatically applied)
+    worker := lifecycle.NewProcessWorker("pinger", "ping", "127.0.0.1")
+
+    // Async Start
+    worker.Start(ctx)
+
+    // Wait for shutdown or worker exit
+    select {
+    case <-ctx.Done():
+        worker.Stop(context.Background()) // Graceful stop
+    case <-worker.Wait():
+        fmt.Println("Worker finished!")
+    }
 }
 ```
 
