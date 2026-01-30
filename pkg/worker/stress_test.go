@@ -25,7 +25,7 @@ func TestStress_ProcessChurn(t *testing.T) {
 
 	for i := 0; i < iterations; i++ {
 		// Use "sleep" mode which waits until stopped
-		w := worker.NewProcess("stress-worker", os.Args[0], "sleep")
+		w := worker.NewProcessWorker("stress-worker", os.Args[0], "sleep")
 
 		start := time.Now()
 		if err := w.Start(ctx); err != nil {

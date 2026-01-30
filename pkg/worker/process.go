@@ -13,8 +13,8 @@ import (
 	"github.com/aretw0/lifecycle/pkg/proc"
 )
 
-// Process is a Worker that manages an OS process.
-type Process struct {
+// ProcessWorker is a Worker that manages an OS process.
+type ProcessWorker struct {
 	cmd  *exec.Cmd
 	name string
 
@@ -28,12 +28,12 @@ type Process struct {
 	env       map[string]string
 }
 
-// NewProcess creates a new Process worker for the given command.
-func NewProcess(name string, nameCmd string, args ...string) *Process {
+// NewProcessWorker creates a new ProcessWorker for the given command.
+func NewProcessWorker(name string, nameCmd string, args ...string) *ProcessWorker {
 	cmd := exec.Command(nameCmd, args...)
 	// proc.Start will handle hygiene (JobObjects/PDeathSig)
 
-	return &Process{
+	return &ProcessWorker{
 		cmd:      cmd,
 		name:     name,
 		status:   StatusPending,
@@ -43,7 +43,7 @@ func NewProcess(name string, nameCmd string, args ...string) *Process {
 }
 
 // Start starts the OS process.
-func (p *Process) Start(ctx context.Context) error {
+func (p *ProcessWorker) Start(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -110,7 +110,7 @@ func (p *Process) Start(ctx context.Context) error {
 }
 
 // Stop sends a signal to the process to terminate.
-func (p *Process) Stop(ctx context.Context) error {
+func (p *ProcessWorker) Stop(ctx context.Context) error {
 	p.mu.Lock()
 	if p.status != StatusRunning {
 		p.mu.Unlock()
@@ -150,24 +150,24 @@ func (p *Process) Stop(ctx context.Context) error {
 }
 
 // Wait returns the channel to wait for process exit.
-func (p *Process) Wait() <-chan error {
+func (p *ProcessWorker) Wait() <-chan error {
 	return p.waitChan
 }
 
 // String returns the worker name.
-func (p *Process) String() string {
+func (p *ProcessWorker) String() string {
 	return fmt.Sprintf("Process(%s)", p.name)
 }
 
 // SetEnv adds an environment variable to the process.
-func (p *Process) SetEnv(key, value string) {
+func (p *ProcessWorker) SetEnv(key, value string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.env[key] = value
 }
 
 // State returns a snapshot of the worker's status.
-func (p *Process) State() State {
+func (p *ProcessWorker) State() State {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

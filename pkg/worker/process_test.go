@@ -41,7 +41,7 @@ func runHelper() {
 
 func TestProcess_StartStop(t *testing.T) {
 	// Create a worker that sleeps
-	w := worker.NewProcess("test-sleep", os.Args[0], "sleep")
+	w := worker.NewProcessWorker("test-sleep", os.Args[0], "sleep")
 	// Inject the helper env.
 	// The child process created by NewProcess will inherit the current process's environment (os.Environ()),
 	// so setting the variable here is sufficient to pass it to the worker.
@@ -110,7 +110,7 @@ func TestProcess_Wait(t *testing.T) {
 	defer os.Unsetenv(HelperProcess)
 
 	// Worker that exits immediately (echo)
-	w := worker.NewProcess("test-echo", os.Args[0], "echo", "hello")
+	w := worker.NewProcessWorker("test-echo", os.Args[0], "echo", "hello")
 
 	if err := w.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
