@@ -25,6 +25,8 @@ func (m *mockProvider) IncWorkerStarted(wt string)                       {}
 func (m *mockProvider) IncWorkerStopped(wt string)                       {}
 func (m *mockProvider) IncWorkerFailed(wt string)                        {}
 func (m *mockProvider) ObserveWorkerDuration(wt string, d time.Duration) {}
+func (m *mockProvider) IncSupervisorRestart(s, strategy string)          {}
+func (m *mockProvider) IncChildRestart(s, c string)                      {}
 
 func TestSignalContext_Graceful(t *testing.T) {
 	ctx := NewContext(context.Background())

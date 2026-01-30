@@ -21,6 +21,8 @@ type Provider interface {
 	IncWorkerStopped(workerType string)
 	IncWorkerFailed(workerType string)
 	ObserveWorkerDuration(workerType string, duration time.Duration)
+	IncSupervisorRestart(supervisorName, strategy string)
+	IncChildRestart(supervisorName, childName string)
 }
 
 var (
@@ -60,6 +62,8 @@ func (n *NoOpProvider) IncWorkerStarted(wt string)                       {}
 func (n *NoOpProvider) IncWorkerStopped(wt string)                       {}
 func (n *NoOpProvider) IncWorkerFailed(wt string)                        {}
 func (n *NoOpProvider) ObserveWorkerDuration(wt string, d time.Duration) {}
+func (n *NoOpProvider) IncSupervisorRestart(s, est string)               {}
+func (n *NoOpProvider) IncChildRestart(s, c string)                      {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -107,4 +111,12 @@ func (l *LogProvider) IncWorkerFailed(wt string) {
 
 func (l *LogProvider) ObserveWorkerDuration(wt string, d time.Duration) {
 	log.Debug("metric observed", "name", "lifecycle_worker_duration_seconds", "type", wt, "value", d.Seconds())
+}
+
+func (l *LogProvider) IncSupervisorRestart(s, strategy string) {
+	log.Debug("metric incremented", "name", "lifecycle_supervisor_restarts_total", "supervisor", s, "strategy", strategy)
+}
+
+func (l *LogProvider) IncChildRestart(s, c string) {
+	log.Debug("metric incremented", "name", "lifecycle_worker_restarts_total", "supervisor", s, "child", c)
 }

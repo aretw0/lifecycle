@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
@@ -33,9 +34,9 @@ func (w *MockWorker) Stop(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.status = worker.StatusStopped
-	// Simulating stop by closing wait chan if not already closed is tricky without coordination.
-	// Usually WaitChan is closed when work finishes.
-	// For testing, we might want to trigger exit externally.
+	// Note: We do not close WaitChan here to simulate "work finished".
+	// In strict testing, Stop() should likely trigger the teardown of StartFunc,
+	// but for Supervisor restart logic, we primarily test spontaneous failures via externally closing WaitChan.
 	return nil
 }
 
@@ -163,5 +164,134 @@ func TestOneForAll(t *testing.T) {
 	}
 	if count := helper.getCount("worker-B"); count != 2 {
 		t.Errorf("Expected worker-B restarts: 2, got %d", count)
+	}
+}
+
+// MockProvider for verifying metric calls
+type mockMetrics struct {
+	mu            sync.Mutex
+	restarts      map[string]int // Supervisor -> count
+	childRestarts map[string]int // Child -> count
+}
+
+func (m *mockMetrics) IncSupervisorRestart(s, strategy string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.restarts[s]++
+}
+
+func (m *mockMetrics) IncChildRestart(s, c string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.childRestarts[c]++
+}
+
+// Stubs for other interface methods
+func (m *mockMetrics) IncSignalReceived(sig string)                     {}
+func (m *mockMetrics) IncProcessStarted()                               {}
+func (m *mockMetrics) IncProcessFailed()                                {}
+func (m *mockMetrics) IncTerminalUpgrade(success bool)                  {}
+func (m *mockMetrics) IncHookExecuted()                                 {}
+func (m *mockMetrics) IncHookPanicked()                                 {}
+func (m *mockMetrics) ObserveHookDuration(d time.Duration)              {}
+func (m *mockMetrics) IncWorkerStarted(wt string)                       {}
+func (m *mockMetrics) IncWorkerStopped(wt string)                       {}
+func (m *mockMetrics) IncWorkerFailed(wt string)                        {}
+func (m *mockMetrics) ObserveWorkerDuration(wt string, d time.Duration) {}
+
+func TestMetrics(t *testing.T) {
+	helper := newFactoryHelper()
+	mm := &mockMetrics{
+		restarts:      make(map[string]int),
+		childRestarts: make(map[string]int),
+	}
+
+	// Inject mock
+	original := metrics.GetProvider()
+	metrics.SetProvider(mm)
+	defer metrics.SetProvider(original)
+
+	sup := New("metrics-sup", StrategyOneForOne,
+		Spec{Name: "worker-1", Factory: helper.makeFactory("worker-1")},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.Start(ctx)
+	time.Sleep(20 * time.Millisecond)
+
+	// Fail worker
+	w1 := helper.getWorker("worker-1")
+	w1.WaitChan <- errors.New("fail")
+	close(w1.WaitChan)
+
+	time.Sleep(100 * time.Millisecond)
+
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	if mm.restarts["metrics-sup"] != 1 {
+		t.Errorf("Expected 1 supervisor restart metric, got %d", mm.restarts["metrics-sup"])
+	}
+	if mm.childRestarts["worker-1"] != 1 {
+		t.Errorf("Expected 1 child restart metric, got %d", mm.childRestarts["worker-1"])
+	}
+}
+
+func TestStateRecursion(t *testing.T) {
+	helper := newFactoryHelper()
+
+	// Create leaf workers
+	w1Fac := helper.makeFactory("leaf-1")
+
+	// Create child supervisor
+	subSup := New("sub-sup", StrategyOneForOne,
+		Spec{Name: "leaf-1", Factory: w1Fac},
+	)
+
+	// Create root supervisor
+	rootSup := New("root-sup", StrategyOneForOne,
+		Spec{Name: "sub-sup", Factory: func() (worker.Worker, error) {
+			return subSup, nil // Reuse instance for simplicity or factory wrapper
+		}},
+	)
+
+	// In real use, Factory would create NEW supervisor.
+	// For State() testing, we can just inspect the static structure if we start it.
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start
+	if err := rootSup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Allow start
+	time.Sleep(50 * time.Millisecond)
+
+	state := rootSup.State()
+
+	if state.Name != "root-sup" {
+		t.Errorf("Expected root name, got %s", state.Name)
+	}
+
+	if len(state.Children) != 1 {
+		t.Fatalf("Expected 1 child for root, got %d", len(state.Children))
+	}
+
+	childState := state.Children[0]
+	if childState.Name != "sub-sup" {
+		t.Errorf("Expected child state name sub-sup, got %s", childState.Name)
+	}
+
+	if len(childState.Children) != 1 {
+		t.Fatalf("Expected 1 grandchild, got %d", len(childState.Children))
+	}
+
+	grandChild := childState.Children[0]
+	if grandChild.Name != "leaf-1" {
+		t.Errorf("Expected grandchild leaf-1, got %s", grandChild.Name)
 	}
 }
