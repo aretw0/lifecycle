@@ -2,10 +2,8 @@ package lifecycle
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 	"time"
 
 	"log/slog"
@@ -141,52 +139,6 @@ func WorkerTreeDiagram(s WorkerState) string {
 // Alias for pkg/worker.MermaidState.
 func WorkerStateDiagram(s WorkerState) string {
 	return worker.MermaidState(s)
-}
-
-// SystemDiagram returns a unified Mermaid diagram representing the entire application lifecycle.
-// It combines the SignalContext (Control Plane) and the Worker hierarchy (Data Plane).
-func SystemDiagram(sig SignalState, work WorkerState) string {
-	var sb strings.Builder
-
-	sb.WriteString("graph TD\n")
-
-	// 1. Signal Context Subgraph
-	sb.WriteString("    subgraph ControlPlane [Control Plane (SignalContext)]\n")
-
-	// Convert SignalState to a single node representation for the subgraph
-	status := "Running"
-	if sig.Stopping {
-		status = "Graceful"
-	}
-	received := "None"
-	if sig.Received != nil {
-		received = sig.Received.String()
-	}
-
-	sb.WriteString(fmt.Sprintf("        S[\"<b>Signal Handler</b><br/>Mode: %s<br/>Received: %s\"]", status, received))
-	if sig.Stopping {
-		sb.WriteString(":::running")
-	} else {
-		sb.WriteString(":::pending")
-	}
-	sb.WriteString("\n")
-	sb.WriteString("    end\n\n")
-
-	// 2. Worker Subgraph (The worker tree)
-	sb.WriteString("    subgraph DataPlane [Data Plane (Supervision Tree)]\n")
-	worker.RenderTreeFragment(&sb, work, "root")
-	sb.WriteString("    end\n\n")
-
-	// 3. Connection
-	sb.WriteString("    S -- cancels --> root\n")
-
-	// 4. Styles
-	sb.WriteString("    classDef pending fill:#fff3cd,stroke:#ffecb5,color:#856404;\n")
-	sb.WriteString("    classDef running fill:#d1ecf1,stroke:#bee5eb,color:#0c5460;\n")
-	sb.WriteString("    classDef stopped fill:#d4edda,stroke:#c3e6cb,color:#155724;\n")
-	sb.WriteString("    classDef failed fill:#f8d7da,stroke:#f5c6cb,color:#721c24;\n")
-
-	return sb.String()
 }
 
 // Worker defines the interface for a managed unit of work.

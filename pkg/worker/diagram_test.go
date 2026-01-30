@@ -24,12 +24,12 @@ func TestMermaidState(t *testing.T) {
 		{
 			name:     "Stopped",
 			state:    State{Name: "worker-3", Status: StatusStopped, ExitCode: 0},
-			contains: []string{"class Stopped active", "ExitCode: 0", "class Stopped success"},
+			contains: []string{"class Stopped active", "ExitCode: 0", "class Stopped stopped"},
 		},
 		{
 			name:     "Failed",
 			state:    State{Name: "worker-4", Status: StatusFailed, ExitCode: 1},
-			contains: []string{"class Failed active", "ExitCode: 1", "class Failed failure"},
+			contains: []string{"class Failed active", "ExitCode: 1", "class Failed failed"},
 		},
 	}
 

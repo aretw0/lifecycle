@@ -3,6 +3,8 @@ package worker
 import (
 	"fmt"
 	"strings"
+
+	"github.com/aretw0/lifecycle/internal/diagram"
 )
 
 // MermaidState returns a simple Mermaid state diagram (FSM) for a single worker.
@@ -24,11 +26,10 @@ func MermaidState(s State) string {
 	sb.WriteString("    Running --> Stopped: Success (Exit 0)\n")
 	sb.WriteString("    Running --> Failed: Error (Exit != 0)\n")
 
-	// Styling for terminal states
-	sb.WriteString("    classDef success fill:#d4edda,stroke:#28a745,color:black;\n")
-	sb.WriteString("    classDef failure fill:#f8d7da,stroke:#dc3545,color:black;\n")
-	sb.WriteString("    class Stopped success\n")
-	sb.WriteString("    class Failed failure\n")
+	// Styling
+	sb.WriteString(diagram.Styles())
+	sb.WriteString("    class Stopped stopped\n")
+	sb.WriteString("    class Failed failed\n")
 
 	// Details note
 	sb.WriteString(fmt.Sprintf("    note right of %s\n", s.Status))
@@ -56,10 +57,7 @@ func MermaidTree(s State) string {
 	sb.WriteString("graph TD\n")
 
 	// Definitions for styles
-	sb.WriteString("    classDef pending fill:#fff3cd,stroke:#ffecb5,color:#856404;\n")
-	sb.WriteString("    classDef running fill:#d1ecf1,stroke:#bee5eb,color:#0c5460;\n")
-	sb.WriteString("    classDef stopped fill:#d4edda,stroke:#c3e6cb,color:#155724;\n")
-	sb.WriteString("    classDef failed fill:#f8d7da,stroke:#f5c6cb,color:#721c24;\n")
+	sb.WriteString(diagram.Styles())
 
 	// Render Root
 	renderNode(&sb, s, "root")
