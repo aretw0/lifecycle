@@ -11,3 +11,8 @@ vet:
 # Run local Go documentation server (pkgsite)
 serve-docs:
 	go tool godoc -http=:6060
+
+# Run stress tests
+stress:
+	go test -v -tags=stress -count=1 ./pkg/worker/...
+
