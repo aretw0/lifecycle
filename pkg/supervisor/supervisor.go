@@ -9,6 +9,7 @@ import (
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/worker"
+	"github.com/google/uuid"
 )
 
 // Strategy defines how the supervisor handles child failures.
@@ -37,21 +38,23 @@ type Supervisor struct {
 	strategy Strategy
 	specs    []Spec
 
-	mu       sync.Mutex
-	started  bool
-	children map[string]worker.Worker // Active workers
-	cancel   context.CancelFunc       // To stop the monitor loop
-	waitChan chan error
+	mu        sync.Mutex
+	started   bool
+	children  map[string]worker.Worker // Active workers
+	resumeIDs map[string]string        // Persistent IDs across restarts
+	cancel    context.CancelFunc       // To stop the monitor loop
+	waitChan  chan error
 }
 
 // New creates a new Supervisor.
 func New(name string, strategy Strategy, specs ...Spec) *Supervisor {
 	return &Supervisor{
-		name:     name,
-		strategy: strategy,
-		specs:    specs,
-		children: make(map[string]worker.Worker),
-		waitChan: make(chan error, 1),
+		name:      name,
+		strategy:  strategy,
+		specs:     specs,
+		children:  make(map[string]worker.Worker),
+		resumeIDs: make(map[string]string),
+		waitChan:  make(chan error, 1),
 	}
 }
 
@@ -106,6 +109,18 @@ func (s *Supervisor) startChild(ctx context.Context, spec Spec) error {
 
 	if err := w.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start worker %s: %w", spec.Name, err)
+	}
+
+	// Handover Protocol: Initialize or retrieve Resume ID
+	resumeID, ok := s.resumeIDs[spec.Name]
+	if !ok {
+		resumeID = uuid.New().String()
+		s.resumeIDs[spec.Name] = resumeID
+	}
+
+	// Inject Resume ID if possible
+	if injector, ok := w.(worker.EnvInjector); ok {
+		injector.SetEnv(worker.EnvResumeID, resumeID)
 	}
 
 	s.children[spec.Name] = w
@@ -194,6 +209,17 @@ func (s *Supervisor) handleExit(ctx context.Context, exit childExit, eventChan c
 		if err := s.startChild(restartCtx, failedSpec); err != nil {
 			log.Error("failed to restart child", "child", exit.name, "error", err)
 		} else {
+			// Handover Protocol: Inject previous exit code if possible
+			if injector, ok := s.children[exit.name].(worker.EnvInjector); ok {
+				exitCode := "0"
+				if exit.err != nil {
+					// Simplified: assume -1 if error.
+					// In a more complex impl, we'd extract the actual code from exit.err if it's an ExitError
+					exitCode = "-1"
+				}
+				injector.SetEnv(worker.EnvPrevExit, exitCode)
+			}
+
 			// Re-guard
 			go s.guard(exit.name, s.children[exit.name], eventChan)
 		}

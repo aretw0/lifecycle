@@ -12,6 +12,13 @@
 //   - StrategyOneForAll: If a child process terminates, all other child processes are terminated,
 //     and then all child processes are restarted.
 //
+// # Handover Protocol
+//
+// The supervisor implements a Handover Protocol to provide continuity across restarts.
+// Each worker spec is assigned a persistent `ResumeID`. When a worker is restarted,
+// the supervisor injects this ID and the previous exit status (via `EnvInjector`)
+// to allow the new instance to resume work or report status accurately.
+//
 // Usage
 //
 //	sup := supervisor.New("my-sup", supervisor.StrategyOneForOne,
