@@ -45,6 +45,12 @@ func main() {
 	fmt.Printf("Supervisor State: %s\n", state.Status)
 	for _, child := range state.Children {
 		fmt.Printf("  Child %s: %s\n", child.Name, child.Status)
+		if len(child.Metadata) > 0 {
+			fmt.Println("    Metadata:")
+			for k, v := range child.Metadata {
+				fmt.Printf("      %s: %s\n", k, v)
+			}
+		}
 	}
 
 	fmt.Println("Stopping supervisor gracefully...")
