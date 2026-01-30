@@ -25,6 +25,7 @@ type Process struct {
 	exitCode  int
 	err       error
 	waitChan  chan error
+	env       map[string]string
 }
 
 // NewProcess creates a new Process worker for the given command.
@@ -37,6 +38,7 @@ func NewProcess(name string, nameCmd string, args ...string) *Process {
 		name:     name,
 		status:   StatusPending,
 		waitChan: make(chan error, 1),
+		env:      make(map[string]string),
 	}
 }
 
@@ -50,6 +52,11 @@ func (p *Process) Start(ctx context.Context) error {
 	}
 
 	log.Info("starting process worker", "name", p.name, "cmd", p.cmd.Path, "args", p.cmd.Args)
+
+	// Inject environment variables
+	for k, v := range p.env {
+		p.cmd.Env = append(p.cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
 
 	// Use pkg/proc to start with hygiene guarantees
 	if err := proc.Start(p.cmd); err != nil {
@@ -150,6 +157,13 @@ func (p *Process) Wait() <-chan error {
 // String returns the worker name.
 func (p *Process) String() string {
 	return fmt.Sprintf("Process(%s)", p.name)
+}
+
+// SetEnv adds an environment variable to the process.
+func (p *Process) SetEnv(key, value string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.env[key] = value
 }
 
 // State returns a snapshot of the worker's status.

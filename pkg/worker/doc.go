@@ -7,6 +7,9 @@
 //   - **Worker Interface**: A standard contract for starting, stopping, and waiting for work.
 //   - **Process Worker**: A wrapper around `os/exec` that ensures process hygiene (Fail-Closed)
 //     using `pkg/proc` logic (Job Objects on Windows, PDeathSig on Linux).
+//   - **Container Worker**: A bridge to manage containerized workloads via `pkg/container`.
+//   - **Handover Protocol**: Standard environment variables (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`)
+//     to pass context across worker restarts.
 //
 // This package is foundational for the Supervisor pattern (v1.3+).
 package worker
