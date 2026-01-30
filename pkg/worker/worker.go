@@ -45,4 +45,5 @@ type State struct {
 	PID      int
 	ExitCode int
 	Error    error
+	Children []State
 }

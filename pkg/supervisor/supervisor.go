@@ -184,6 +184,9 @@ func (s *Supervisor) handleExit(ctx context.Context, exit childExit, eventChan c
 	// Apply Strategy
 	switch s.strategy {
 	case StrategyOneForOne:
+		metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForOne))
+		metrics.GetProvider().IncChildRestart(s.name, exit.name)
+
 		// Restart only this child
 		// Using Background context as restart is a fresh lifecycle event.
 		// Future: Support restart backoff and context timeouts.
@@ -196,6 +199,7 @@ func (s *Supervisor) handleExit(ctx context.Context, exit childExit, eventChan c
 		}
 
 	case StrategyOneForAll:
+		metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForAll))
 		// Stop all other children
 		log.Info("Restarting all children due to failure", "trigger", exit.name)
 		s.stopAll(context.Background()) // Synchronously stop others
@@ -274,8 +278,26 @@ func (s *Supervisor) State() worker.State {
 		status = worker.StatusStopped
 	}
 
+	// We iterate over specs to preserve order, or children map?
+	// Specs order is better for visualization.
+	childrenState := make([]worker.State, 0, len(s.specs))
+
+	for _, spec := range s.specs {
+		if child, ok := s.children[spec.Name]; ok {
+			childrenState = append(childrenState, child.State())
+		} else {
+			// Report missing children as Pending to report the full configuration scope,
+			// even if the process is temporarily down or failed.
+			childrenState = append(childrenState, worker.State{
+				Name:   spec.Name,
+				Status: worker.StatusPending,
+			})
+		}
+	}
+
 	return worker.State{
-		Name:   s.name,
-		Status: status,
+		Name:     s.name,
+		Status:   status,
+		Children: childrenState,
 	}
 }
