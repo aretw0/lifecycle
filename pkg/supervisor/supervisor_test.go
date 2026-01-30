@@ -187,17 +187,20 @@ func (m *mockMetrics) IncChildRestart(s, c string) {
 }
 
 // Stubs for other interface methods
-func (m *mockMetrics) IncSignalReceived(sig string)                     {}
-func (m *mockMetrics) IncProcessStarted()                               {}
-func (m *mockMetrics) IncProcessFailed()                                {}
-func (m *mockMetrics) IncTerminalUpgrade(success bool)                  {}
-func (m *mockMetrics) IncHookExecuted()                                 {}
-func (m *mockMetrics) IncHookPanicked()                                 {}
-func (m *mockMetrics) ObserveHookDuration(d time.Duration)              {}
-func (m *mockMetrics) IncWorkerStarted(wt string)                       {}
-func (m *mockMetrics) IncWorkerStopped(wt string)                       {}
-func (m *mockMetrics) IncWorkerFailed(wt string)                        {}
-func (m *mockMetrics) ObserveWorkerDuration(wt string, d time.Duration) {}
+func (m *mockMetrics) IncSignalReceived(sig string)                       {}
+func (m *mockMetrics) IncProcessStarted()                                 {}
+func (m *mockMetrics) IncProcessFailed()                                  {}
+func (m *mockMetrics) IncTerminalUpgrade(success bool)                    {}
+func (m *mockMetrics) IncHookExecuted()                                   {}
+func (m *mockMetrics) IncHookPanicked()                                   {}
+func (m *mockMetrics) ObserveHookDuration(d time.Duration)                {}
+func (m *mockMetrics) IncWorkerStarted(wt string)                         {}
+func (m *mockMetrics) IncWorkerStopped(wt string)                         {}
+func (m *mockMetrics) IncWorkerFailed(wt string)                          {}
+func (m *mockMetrics) ObserveWorkerDuration(wt string, d time.Duration)   {}
+func (m *mockMetrics) IncDataLost(bytes int)                              {}
+func (m *mockMetrics) ObserveShutdownDuration(wt string, d time.Duration) {}
+func (m *mockMetrics) IncForceExitTriggered()                             {}
 
 func TestMetrics(t *testing.T) {
 	helper := newFactoryHelper()

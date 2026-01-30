@@ -31,6 +31,7 @@ func initJob() {
 		return
 	}
 	jobHandle = h
+	log.Info("initialized Windows Job Object for process hygiene")
 
 	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{
 		BasicLimitInformation: windows.JOBOBJECT_BASIC_LIMIT_INFORMATION{

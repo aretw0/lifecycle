@@ -117,6 +117,7 @@ func (p *Process) Stop(ctx context.Context) error {
 	}
 
 	log.Debug("stopping process worker", "name", p.name, "pid", process.Pid)
+	stopStart := time.Now()
 
 	// First try graceful storage (SIGINT/SIGTERM depending on platform/app)
 	// For generic processes, SIGTERM is standard.
@@ -130,11 +131,13 @@ func (p *Process) Stop(ctx context.Context) error {
 	// Wait for exit or context timeout (Force Kill)
 	select {
 	case <-p.waitChan:
+		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))
 		return nil
 	case <-ctx.Done():
 		// Context expired, force kill
 		log.Warn("force killing process worker", "name", p.name, "pid", process.Pid)
 		_ = process.Kill()
+		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))
 		return ctx.Err()
 	}
 }

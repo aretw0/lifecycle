@@ -14,19 +14,22 @@ type mockProvider struct {
 	signals []string
 }
 
-func (m *mockProvider) IncSignalReceived(sig string)                     { m.signals = append(m.signals, sig) }
-func (m *mockProvider) IncProcessStarted()                               {}
-func (m *mockProvider) IncProcessFailed()                                {}
-func (m *mockProvider) IncTerminalUpgrade(success bool)                  {}
-func (m *mockProvider) IncHookExecuted()                                 { m.signals = append(m.signals, "HookExecuted") }
-func (m *mockProvider) IncHookPanicked()                                 {}
-func (m *mockProvider) ObserveHookDuration(d time.Duration)              {}
-func (m *mockProvider) IncWorkerStarted(wt string)                       {}
-func (m *mockProvider) IncWorkerStopped(wt string)                       {}
-func (m *mockProvider) IncWorkerFailed(wt string)                        {}
-func (m *mockProvider) ObserveWorkerDuration(wt string, d time.Duration) {}
-func (m *mockProvider) IncSupervisorRestart(s, strategy string)          {}
-func (m *mockProvider) IncChildRestart(s, c string)                      {}
+func (m *mockProvider) IncSignalReceived(sig string)                       { m.signals = append(m.signals, sig) }
+func (m *mockProvider) IncProcessStarted()                                 {}
+func (m *mockProvider) IncProcessFailed()                                  {}
+func (m *mockProvider) IncTerminalUpgrade(success bool)                    {}
+func (m *mockProvider) IncHookExecuted()                                   { m.signals = append(m.signals, "HookExecuted") }
+func (m *mockProvider) IncHookPanicked()                                   {}
+func (m *mockProvider) ObserveHookDuration(d time.Duration)                {}
+func (m *mockProvider) IncWorkerStarted(wt string)                         {}
+func (m *mockProvider) IncWorkerStopped(wt string)                         {}
+func (m *mockProvider) IncWorkerFailed(wt string)                          {}
+func (m *mockProvider) ObserveWorkerDuration(wt string, d time.Duration)   {}
+func (m *mockProvider) IncSupervisorRestart(s, strategy string)            {}
+func (m *mockProvider) IncChildRestart(s, c string)                        {}
+func (m *mockProvider) IncDataLost(bytes int)                              {}
+func (m *mockProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
+func (m *mockProvider) IncForceExitTriggered()                             {}
 
 func TestSignalContext_Graceful(t *testing.T) {
 	ctx := NewContext(context.Background())

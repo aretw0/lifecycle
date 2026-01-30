@@ -151,6 +151,7 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 		log.Warn("force exit threshold reached, exiting immediately",
 			"signal", sig.String(),
 			"count", count)
+		metrics.GetProvider().IncForceExitTriggered()
 		os.Exit(1)
 	}
 }

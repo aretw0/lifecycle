@@ -23,6 +23,9 @@ type Provider interface {
 	ObserveWorkerDuration(workerType string, duration time.Duration)
 	IncSupervisorRestart(supervisorName, strategy string)
 	IncChildRestart(supervisorName, childName string)
+	IncDataLost(bytes int)
+	ObserveShutdownDuration(workerType string, duration time.Duration)
+	IncForceExitTriggered()
 }
 
 var (
@@ -51,19 +54,22 @@ func GetProvider() Provider {
 // NoOpProvider is a metrics provider that does nothing.
 type NoOpProvider struct{}
 
-func (n *NoOpProvider) IncSignalReceived(sig string)                     {}
-func (n *NoOpProvider) IncProcessStarted()                               {}
-func (n *NoOpProvider) IncProcessFailed()                                {}
-func (n *NoOpProvider) IncTerminalUpgrade(success bool)                  {}
-func (n *NoOpProvider) IncHookExecuted()                                 {}
-func (n *NoOpProvider) IncHookPanicked()                                 {}
-func (n *NoOpProvider) ObserveHookDuration(d time.Duration)              {}
-func (n *NoOpProvider) IncWorkerStarted(wt string)                       {}
-func (n *NoOpProvider) IncWorkerStopped(wt string)                       {}
-func (n *NoOpProvider) IncWorkerFailed(wt string)                        {}
-func (n *NoOpProvider) ObserveWorkerDuration(wt string, d time.Duration) {}
-func (n *NoOpProvider) IncSupervisorRestart(s, est string)               {}
-func (n *NoOpProvider) IncChildRestart(s, c string)                      {}
+func (n *NoOpProvider) IncSignalReceived(sig string)                       {}
+func (n *NoOpProvider) IncProcessStarted()                                 {}
+func (n *NoOpProvider) IncProcessFailed()                                  {}
+func (n *NoOpProvider) IncTerminalUpgrade(success bool)                    {}
+func (n *NoOpProvider) IncHookExecuted()                                   {}
+func (n *NoOpProvider) IncHookPanicked()                                   {}
+func (n *NoOpProvider) ObserveHookDuration(d time.Duration)                {}
+func (n *NoOpProvider) IncWorkerStarted(wt string)                         {}
+func (n *NoOpProvider) IncWorkerStopped(wt string)                         {}
+func (n *NoOpProvider) IncWorkerFailed(wt string)                          {}
+func (n *NoOpProvider) ObserveWorkerDuration(wt string, d time.Duration)   {}
+func (n *NoOpProvider) IncSupervisorRestart(s, est string)                 {}
+func (n *NoOpProvider) IncChildRestart(s, c string)                        {}
+func (n *NoOpProvider) IncDataLost(bytes int)                              {}
+func (n *NoOpProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
+func (n *NoOpProvider) IncForceExitTriggered()                             {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -119,4 +125,16 @@ func (l *LogProvider) IncSupervisorRestart(s, strategy string) {
 
 func (l *LogProvider) IncChildRestart(s, c string) {
 	log.Debug("metric incremented", "name", "lifecycle_worker_restarts_total", "supervisor", s, "child", c)
+}
+
+func (l *LogProvider) IncDataLost(bytes int) {
+	log.Debug("metric incremented", "name", "lifecycle_data_lost_bytes_total", "bytes", bytes)
+}
+
+func (l *LogProvider) ObserveShutdownDuration(wt string, d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_worker_shutdown_duration_seconds", "type", wt, "value", d.Seconds())
+}
+
+func (l *LogProvider) IncForceExitTriggered() {
+	log.Debug("metric incremented", "name", "lifecycle_force_exit_triggered_total")
 }
