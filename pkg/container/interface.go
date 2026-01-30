@@ -15,6 +15,14 @@ const (
 	StatusFailed  Status = "Failed"
 )
 
+// InspectData contains detailed runtime information about a container.
+type InspectData struct {
+	Image  string
+	IP     string
+	Ports  []string
+	Labels map[string]string
+}
+
 // Container defines a generic interface for managing containerized workloads.
 // This decouples the lifecycle supervisor from specific SDKs like Docker or Podman.
 type Container interface {
@@ -23,6 +31,9 @@ type Container interface {
 
 	// Stop requests the container to stop gracefully.
 	Stop(ctx context.Context) error
+
+	// Inspect returns detailed runtime information.
+	Inspect(ctx context.Context) (InspectData, error)
 
 	// Logs returns a reader for the container's logs (stdout/stderr).
 	Logs(ctx context.Context) (io.ReadCloser, error)

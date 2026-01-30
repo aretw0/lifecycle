@@ -41,6 +41,17 @@ func (m *MockContainer) Stop(ctx context.Context) error {
 	return nil
 }
 
+func (m *MockContainer) Inspect(ctx context.Context) (InspectData, error) {
+	return InspectData{
+		Image: "redis:7-alpine",
+		IP:    "172.17.0.2",
+		Ports: []string{"6379/tcp"},
+		Labels: map[string]string{
+			"app": "lifecycle-demo",
+		},
+	}, nil
+}
+
 func (m *MockContainer) Logs(ctx context.Context) (io.ReadCloser, error) {
 	return io.NopCloser(m.logs), nil
 }
