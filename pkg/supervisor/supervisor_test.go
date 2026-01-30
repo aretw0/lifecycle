@@ -298,3 +298,75 @@ func TestStateRecursion(t *testing.T) {
 		t.Errorf("Expected grandchild leaf-1, got %s", grandChild.Name)
 	}
 }
+
+type InjectableMockWorker struct {
+	MockWorker
+	envs map[string]string
+}
+
+func (w *InjectableMockWorker) SetEnv(k, v string) {
+	if w.envs == nil {
+		w.envs = make(map[string]string)
+	}
+	w.envs[k] = v
+}
+
+func TestHandoverProtocol(t *testing.T) {
+	var (
+		mu           sync.Mutex
+		resumeID     string
+		prevExit     string
+		restartCount int
+	)
+
+	sup := New("handover-sup", StrategyOneForOne,
+		Spec{
+			Name: "worker-1",
+			Factory: func() (worker.Worker, error) {
+				mu.Lock()
+				defer mu.Unlock()
+				restartCount++
+				return &InjectableMockWorker{
+					MockWorker: MockWorker{
+						Name:     "worker-1",
+						WaitChan: make(chan error, 1),
+					},
+				}, nil
+			},
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.Start(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	// Capture first run info
+	w1 := sup.children["worker-1"].(*InjectableMockWorker)
+	resumeID = w1.envs[worker.EnvResumeID]
+	if resumeID == "" {
+		t.Fatal("LIFECYCLE_RESUME_ID should be set")
+	}
+
+	// Fail the worker
+	w1.WaitChan <- errors.New("crash")
+	close(w1.WaitChan)
+
+	// Wait for restart
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify second run
+	w2 := sup.children["worker-1"].(*InjectableMockWorker)
+	if w2.envs[worker.EnvResumeID] != resumeID {
+		t.Errorf("ResumeID should persist. Expected %s, got %s", resumeID, w2.envs[worker.EnvResumeID])
+	}
+	prevExit = w2.envs[worker.EnvPrevExit]
+	if prevExit != "-1" {
+		t.Errorf("PREV_EXIT should be -1 after crash, got %s", prevExit)
+	}
+
+	if restartCount != 2 {
+		t.Errorf("Expected 2 factory calls, got %d", restartCount)
+	}
+}

@@ -1,0 +1,56 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/aretw0/lifecycle/pkg/container"
+	"github.com/aretw0/lifecycle/pkg/supervisor"
+	"github.com/aretw0/lifecycle/pkg/worker"
+)
+
+func main() {
+	fmt.Println("=== Lifecycle v1.3: Ecosystem Interfaces & Handover Example ===")
+
+	// 1. Create a Mock Container
+	mock := container.NewMockContainer("redis-mock")
+
+	// 2. Wrap it in a ContainerWorker
+	redisWorker := worker.NewContainerWorker("redis", mock)
+
+	// 3. Define a Supervisor with a restart strategy
+	// We use StrategyOneForOne to demonstrate the Handover Protocol on restart.
+	sup := supervisor.New("main-supervisor", supervisor.StrategyOneForOne,
+		supervisor.Spec{
+			Name: "redis",
+			Factory: func() (worker.Worker, error) {
+				return redisWorker, nil
+			},
+		},
+	)
+
+	// 4. Start the Supervisor
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	fmt.Println("Starting supervisor...")
+	if err := sup.Start(ctx); err != nil {
+		panic(err)
+	}
+
+	// Wait a bit to see it running
+	time.Sleep(1 * time.Second)
+	state := sup.State()
+	fmt.Printf("Supervisor State: %s\n", state.Status)
+	for _, child := range state.Children {
+		fmt.Printf("  Child %s: %s\n", child.Name, child.Status)
+	}
+
+	fmt.Println("Stopping supervisor gracefully...")
+	if err := sup.Stop(ctx); err != nil {
+		fmt.Printf("Stop error: %v\n", err)
+	}
+
+	fmt.Println("Example finished.")
+}
