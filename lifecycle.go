@@ -109,10 +109,16 @@ func NewLogMetricsProvider() metrics.Provider {
 // Alias for pkg/signal.State.
 type State = signal.State
 
-// Mermaid returns a Mermaid state diagram string representing the lifecycle configuration.
+// SignalDiagram returns a Mermaid state diagram string representing the signal context configuration.
 // Alias for pkg/signal.Mermaid.
-func Mermaid(s State) string {
+func SignalDiagram(s State) string {
 	return signal.Mermaid(s)
+}
+
+// WorkerDiagram returns a Mermaid state diagram string representing the worker state.
+// Alias for pkg/worker.Mermaid.
+func WorkerDiagram(s worker.State) string {
+	return worker.Mermaid(s)
 }
 
 // Worker defines the interface for a managed unit of work.
