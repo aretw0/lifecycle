@@ -14,6 +14,7 @@ import (
 	"github.com/aretw0/lifecycle/pkg/runtime"
 	"github.com/aretw0/lifecycle/pkg/signal"
 	"github.com/aretw0/lifecycle/pkg/termio"
+	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
 // NewSignalContext creates a context that cancels on SIGTERM/SIGINT.
@@ -112,4 +113,14 @@ type State = signal.State
 // Alias for pkg/signal.Mermaid.
 func Mermaid(s State) string {
 	return signal.Mermaid(s)
+}
+
+// Worker defines the interface for a managed unit of work.
+// Alias for pkg/worker.Worker.
+type Worker = worker.Worker
+
+// NewProcessWorker creates a new Process worker for the given command.
+// Alias for pkg/worker.NewProcess.
+func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
+	return worker.NewProcess(name, nameCmd, args...)
 }
