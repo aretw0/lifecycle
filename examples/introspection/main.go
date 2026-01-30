@@ -41,14 +41,8 @@ func main() {
 }
 
 func printDiagrams(ctx *lifecycle.Context, w lifecycle.Worker) {
-	fmt.Println("\n--- Signal Context Diagram ---")
-	fmt.Println(lifecycle.SignalStateDiagram(ctx.State()))
-
-	fmt.Println("\n--- Worker Tree Diagram ---")
-	fmt.Println(lifecycle.WorkerTreeDiagram(w.State()))
-
-	fmt.Println("\n--- Worker State Diagram ---")
-	fmt.Println(lifecycle.WorkerStateDiagram(w.State()))
+	fmt.Println("\n--- Unified System Dashboard ---")
+	fmt.Println(lifecycle.SystemDiagram(ctx.State(), w.State()))
 }
 
 // Helper for the worker process simulation

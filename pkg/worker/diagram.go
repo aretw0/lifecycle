@@ -67,6 +67,12 @@ func MermaidTree(s State) string {
 	return sb.String()
 }
 
+// RenderTreeFragment appends the Mermaid tree nodes and links to the provided builder.
+// This is useful for building composite diagrams.
+func RenderTreeFragment(sb *strings.Builder, s State, rootID string) {
+	renderNode(sb, s, rootID)
+}
+
 func renderNode(sb *strings.Builder, s State, id string) {
 	// Node Label
 	label := fmt.Sprintf("<b>%s</b><br/>%s", s.Name, s.Status)

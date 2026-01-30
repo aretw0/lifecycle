@@ -178,14 +178,28 @@ type State struct {
 	InterruptCancel    bool
 	ForceExitThreshold int
 	HookTimeout        time.Duration
+	Received           os.Signal
+	Stopping           bool
 }
 
 // State returns a snapshot of the current configuration.
 func (sc *Context) State() State {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	stopping := false
+	select {
+	case <-sc.Context.Done():
+		stopping = true
+	default:
+	}
+
 	return State{
 		InterruptCancel:    sc.opts.interruptCancel,
 		ForceExitThreshold: sc.opts.forceExitThreshold,
 		HookTimeout:        sc.opts.hookTimeout,
+		Received:           sc.sigVal,
+		Stopping:           stopping,
 	}
 }
 

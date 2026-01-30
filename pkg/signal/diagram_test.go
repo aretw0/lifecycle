@@ -47,6 +47,19 @@ func TestMermaid(t *testing.T) {
 				"Timeout: 100ms",
 			},
 		},
+		{
+			name: "StoppingHighlight",
+			state: State{
+				InterruptCancel:    true,
+				ForceExitThreshold: 2,
+				HookTimeout:        5 * time.Second,
+				Stopping:           true,
+			},
+			contains: []string{
+				"class Graceful active",
+				"classDef active",
+			},
+		},
 	}
 
 	for _, tt := range tests {

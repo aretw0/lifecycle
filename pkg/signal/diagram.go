@@ -34,5 +34,18 @@ func MermaidState(s State) string {
 	// Natural completion
 	sb.WriteString("    Graceful --> [*]: Hooks Complete\n")
 
+	// State highlighting
+	if s.Stopping {
+		sb.WriteString("    class Graceful active\n")
+	} else if s.Received == nil {
+		sb.WriteString("    class Running active\n")
+	}
+
+	if s.Received != nil {
+		sb.WriteString(fmt.Sprintf("    note left of Graceful: Received %s\n", s.Received))
+	}
+
+	sb.WriteString("    classDef active fill:#d1ecf1,stroke:#0c5460,stroke-width:2px,color:#0c5460;\n")
+
 	return sb.String()
 }

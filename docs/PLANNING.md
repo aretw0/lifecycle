@@ -41,9 +41,9 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 - [x] **Process Worker**: Implement `Worker` for `exec.Cmd` utilizing `pkg/proc` for hygiene (Fail-Closed).
 - [x] **Supervisor Implementation**: Create `Supervisor` to manage a set of `Worker`s with restart policies (OneForOne, OneForAll).
 - [x] **Tree Topology**: Verify `Supervisor` can supervise other `Supervisor`s (Tree structure). (Verified in `pkg/supervisor/supervisor_test.go`)
-- [ ] **Unified Dashboard**: Synthesize `SignalContext` and `Worker` states into a single Mermaid diagram (The "Composite Introspection").
-  - [ ] Update `signal.State` to include runtime signal data.
-  - [ ] Implement `lifecycle.SystemDiagram` helper.
+- [x] **Unified Dashboard**: Synthesize `SignalContext` and `Worker` states into a single Mermaid diagram (The "Composite Introspection").
+  - [x] Update `signal.State` to include runtime signal data.
+  - [x] Implement `lifecycle.SystemDiagram` helper.
 
 #### Ecosystem Interfaces
 
