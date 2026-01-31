@@ -1,6 +1,9 @@
 package worker
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // Worker defines the interface for a managed unit of work (process, goroutine, container).
 //
@@ -37,6 +40,40 @@ const (
 	StatusStopped Status = "Stopped"
 	StatusFailed  Status = "Failed"
 )
+
+// Key returns the normalized lowercase representation of the status.
+func (s Status) Key() string {
+	return strings.ToLower(string(s))
+}
+
+// Type represents the kind of worker.
+type Type string
+
+const (
+	TypeProcess    Type = "process"
+	TypeContainer  Type = "container"
+	TypeFunc       Type = "func"
+	TypeSupervisor Type = "supervisor"
+	TypeGoroutine  Type = "goroutine"
+)
+
+// String returns the capitalized representation of the type for logs.
+func (t Type) String() string {
+	switch t {
+	case TypeProcess:
+		return "Process"
+	case TypeContainer:
+		return "Container"
+	case TypeFunc:
+		return "Func"
+	case TypeSupervisor:
+		return "Supervisor"
+	case TypeGoroutine:
+		return "Goroutine"
+	default:
+		return string(t)
+	}
+}
 
 // State represents a snapshot of the worker's status.
 type State struct {
