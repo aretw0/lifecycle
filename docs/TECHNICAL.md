@@ -259,6 +259,23 @@ sequenceDiagram
     note right of W2: Worker resumes work for session 'ABC'
 ```
 
+#### Backoff Strategy (v1.3.1)
+
+To prevent "Tight Loops" where a broken child restarts immediately and repeatedly (burning CPU), the Supervisor implements an **Exponential Backoff** strategy.
+
+* **Configuration**: Each `Spec` can define `Backoff` parameters (InitialInterval, MaxInterval, Multiplier, ResetDuration).
+* **Reset Logic**: If a child runs successfully for `ResetDuration`, the backoff interval resets to the initial value.
+* **Jitter**: A 10% randomization is added to intervals to prevent thundering herd restarts.
+
+#### Dynamic Topology (v1.3.1)
+
+The Supervisor topology is not static. It supports runtime modifications:
+
+* **Add(Spec)**: Dynamically starts a new worker under supervision.
+* **Remove(Name)**: Gracefully stops a worker and removes it from the supervision tree.
+
+This allows the Supervisor to act as a "Connection Manager" or "Session Host" where workers come and go based on external events.
+
 ### 10. Ecosystem Interfaces & Containers (`pkg/container`)
 
 To support broader infrastructure management, `lifecycle` provides a generic `Container` interface. This allows the Supervisor to manage containerized workloads (Docker, Podman, Mock) without a direct compile-time dependency on third-party SDKs.

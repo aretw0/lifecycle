@@ -6,4 +6,10 @@ import "github.com/aretw0/lifecycle/pkg/worker"
 // It implements the worker.Worker interface, allowing it to be nested.
 type Supervisor interface {
 	worker.Worker
+
+	// Add executes a new worker under the supervisor.
+	Add(Spec) error
+
+	// Remove terminates and removes a worker from the supervisor.
+	Remove(name string) error
 }

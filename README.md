@@ -34,6 +34,8 @@ go get github.com/aretw0/lifecycle
 * **Worker & Supervisor** (v1.3):
   * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes, Goroutines, and Containers.
   * **Supervision Tree**: `Supervisor` manages hierarchical worker clusters with restart policies (`OneForOne`, `OneForAll`).
+  * **Dynamic Topology**: Add or remove workers at runtime.
+  * **Functional Workers**: Turn any Go function into a managed Worker.
   * **Process Hygiene**: Automatic cleanup of child processes if the parent dies (Job Objects/PDeathSig).
   * **Handover Protocol**: Standardized environment variables (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) to pass context across restarts.
   * **Container Abstraction**: Generic interface to manage containerized workloads without direct SDK dependencies.

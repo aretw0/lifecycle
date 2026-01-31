@@ -177,6 +177,7 @@ func (p *ProcessWorker) State() State {
 	}
 
 	metadata := map[string]string{
+		"type": "process",
 		"path": p.cmd.Path,
 		"args": fmt.Sprintf("%v", p.cmd.Args),
 	}

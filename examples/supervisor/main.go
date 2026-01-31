@@ -7,8 +7,9 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/aretw0/lifecycle"
-	"github.com/aretw0/lifecycle/pkg/log"
 )
 
 // MockWorker implements worker.Worker for testing.
@@ -53,7 +54,8 @@ func main() {
 	metricProvider := lifecycle.NewLogMetricsProvider()
 	lifecycle.SetMetricsProvider(metricProvider)
 
-	// Default is Info, if we want Debug:
+	// Optional: Bridge library logs (internal events like restarts) to your application logger.
+	// If you don't call this, the library uses its default logger (or discards if not configured).
 	// logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	// lifecycle.SetLogger(logger)
 
@@ -100,7 +102,7 @@ func main() {
 
 	// 4. Start Supervisor
 	if err := sup.Start(ctx); err != nil {
-		log.Error("Failed to start supervisor", "error", err)
+		slog.Error("Failed to start supervisor", "error", err)
 		os.Exit(1)
 	}
 
@@ -121,10 +123,10 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	log.Info("Shutting down supervisor...")
+	slog.Info("Shutting down supervisor...")
 	if err := sup.Stop(shutdownCtx); err != nil {
-		log.Error("Failed to stop supervisor", "error", err)
+		slog.Error("Failed to stop supervisor", "error", err)
 	} else {
-		log.Info("Supervisor stopped successfully")
+		slog.Info("Supervisor stopped successfully")
 	}
 }

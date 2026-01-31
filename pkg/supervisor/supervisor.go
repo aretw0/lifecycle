@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
@@ -26,10 +28,27 @@ const (
 // Factory is a function that creates a new worker instance.
 type Factory func() (worker.Worker, error)
 
+// Backoff defines the retry policy for failed children.
+type Backoff struct {
+	InitialInterval time.Duration
+	MaxInterval     time.Duration
+	Multiplier      float64
+	// ResetDuration is the time the child must run successfully to reset the backoff.
+	ResetDuration time.Duration
+}
+
 // Spec defines the configuration for a supervised child worker.
 type Spec struct {
 	Name    string
+	Type    string // "process", "container", "func" (optional, for diagrams)
 	Factory Factory
+	Backoff Backoff
+}
+
+type backoffState struct {
+	currentInterval time.Duration
+	lastFailure     time.Time
+	lastStart       time.Time
 }
 
 // supervisor manages a set of worker processes.
@@ -38,23 +57,27 @@ type supervisor struct {
 	strategy Strategy
 	specs    []Spec
 
-	mu        sync.Mutex
-	started   bool
-	children  map[string]worker.Worker // Active workers
-	resumeIDs map[string]string        // Persistent IDs across restarts
-	cancel    context.CancelFunc       // To stop the monitor loop
-	waitChan  chan error
+	mu            sync.Mutex
+	started       bool
+	children      map[string]worker.Worker // Active workers
+	resumeIDs     map[string]string        // Persistent IDs across restarts
+	backoffStates map[string]*backoffState // State for exponential backoff
+	eventChan     chan childExit           // Channel for child exit events
+	cancel        context.CancelFunc       // To stop the monitor loop
+	waitChan      chan error
 }
 
 // New creates a new Supervisor.
 func New(name string, strategy Strategy, specs ...Spec) Supervisor {
 	return &supervisor{
-		name:      name,
-		strategy:  strategy,
-		specs:     specs,
-		children:  make(map[string]worker.Worker),
-		resumeIDs: make(map[string]string),
-		waitChan:  make(chan error, 1),
+		name:          name,
+		strategy:      strategy,
+		specs:         specs,
+		children:      make(map[string]worker.Worker),
+		resumeIDs:     make(map[string]string),
+		backoffStates: make(map[string]*backoffState),
+		eventChan:     make(chan childExit, 100), // Buffer to prevent blocking guards slightly
+		waitChan:      make(chan error, 1),
 	}
 }
 
@@ -124,6 +147,16 @@ func (s *supervisor) startChild(ctx context.Context, spec Spec) error {
 	}
 
 	s.children[spec.Name] = w
+
+	// Initialize or update backoff state
+	if bs, ok := s.backoffStates[spec.Name]; ok {
+		bs.lastStart = time.Now()
+	} else {
+		s.backoffStates[spec.Name] = &backoffState{
+			lastStart: time.Now(),
+		}
+	}
+
 	metrics.GetProvider().IncWorkerStarted("supervisor_child")
 	return nil
 }
@@ -131,14 +164,12 @@ func (s *supervisor) startChild(ctx context.Context, spec Spec) error {
 // monitor runs the main supervision loop.
 func (s *supervisor) monitor(ctx context.Context) {
 	// We need to listen to all children's Wait channels.
-	// A simple way is to spawn a "guard" goroutine for each child that forwards exit events.
-
-	eventChan := make(chan childExit, len(s.specs)*2)
+	// Guards forward exit events to s.eventChan.
 
 	// Spawn guards for initially started children
 	s.mu.Lock()
 	for name, w := range s.children {
-		go s.guard(name, w, eventChan)
+		go s.guard(name, w, s.eventChan)
 	}
 	s.mu.Unlock()
 
@@ -150,8 +181,8 @@ func (s *supervisor) monitor(ctx context.Context) {
 			close(s.waitChan)
 			return
 
-		case exit := <-eventChan:
-			s.handleExit(ctx, exit, eventChan)
+		case exit := <-s.eventChan:
+			s.handleExit(ctx, exit)
 		}
 	}
 }
@@ -168,7 +199,7 @@ func (s *supervisor) guard(name string, w worker.Worker, ch chan<- childExit) {
 }
 
 // handleExit processes a child's exit event.
-func (s *supervisor) handleExit(ctx context.Context, exit childExit, eventChan chan<- childExit) {
+func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -202,26 +233,25 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit, eventChan c
 		metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForOne))
 		metrics.GetProvider().IncChildRestart(s.name, exit.name)
 
-		// Restart only this child
-		// Using Background context as restart is a fresh lifecycle event.
-		// Future: Support restart backoff and context timeouts.
-		restartCtx := context.Background()
-		if err := s.startChild(restartCtx, failedSpec); err != nil {
-			log.Error("failed to restart child", "child", exit.name, "error", err)
-		} else {
-			// Handover Protocol: Inject previous exit code if possible
-			if injector, ok := s.children[exit.name].(worker.EnvInjector); ok {
-				exitCode := "0"
-				if exit.err != nil {
-					// Simplified: assume -1 if error.
-					// In a more complex impl, we'd extract the actual code from exit.err if it's an ExitError
-					exitCode = "-1"
+		// Backoff Strategy
+		delay := s.nextBackoff(exit.name, failedSpec.Backoff)
+		if delay > 0 {
+			log.Info("backing off restart", "child", exit.name, "delay", delay)
+			// Spawn a goroutine to wait and then restart
+			go func() {
+				select {
+				case <-ctx.Done():
+					return // Supervisor stopping
+				case <-time.After(delay):
+					// Attempt restart with lock
+					s.mu.Lock()
+					defer s.mu.Unlock()
+					s.restartChildLocked(exit.name, failedSpec, exit.err)
 				}
-				injector.SetEnv(worker.EnvPrevExit, exitCode)
-			}
-
-			// Re-guard
-			go s.guard(exit.name, s.children[exit.name], eventChan)
+			}()
+		} else {
+			// Immediate restart (lock already held)
+			s.restartChildLocked(exit.name, failedSpec, exit.err)
 		}
 
 	case StrategyOneForAll:
@@ -236,10 +266,150 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit, eventChan c
 		} else {
 			// Re-guard all
 			for name, w := range s.children {
-				go s.guard(name, w, eventChan)
+				go s.guard(name, w, s.eventChan)
 			}
 		}
 	}
+}
+
+// restartChildLocked handles the actual start logic for a single child after backoff.
+// MUST hold lock.
+func (s *supervisor) restartChildLocked(name string, spec Spec, prevErr error) {
+	// Verify supervisor is still running
+	if !s.started {
+		return
+	}
+
+	// Verify spec still exists (dynamic removal)
+	exists := false
+	for _, s := range s.specs {
+		if s.Name == name {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		return
+	}
+
+	restartCtx := context.Background()
+	if err := s.startChild(restartCtx, spec); err != nil {
+		log.Error("failed to restart child", "child", name, "error", err)
+	} else {
+		// Handover Protocol: Inject previous exit code
+		if injector, ok := s.children[name].(worker.EnvInjector); ok {
+			exitCode := "0"
+			if prevErr != nil {
+				exitCode = "-1"
+			}
+			injector.SetEnv(worker.EnvPrevExit, exitCode)
+		}
+
+		// Re-guard
+		go s.guard(name, s.children[name], s.eventChan)
+	}
+}
+
+// nextBackoff calculates the delay for the next restart.
+// MUST hold lock.
+func (s *supervisor) nextBackoff(name string, cfg Backoff) time.Duration {
+	bs, ok := s.backoffStates[name]
+	if !ok {
+		return 0
+	}
+
+	// Check if we should reset
+	if cfg.ResetDuration > 0 && time.Since(bs.lastStart) > cfg.ResetDuration {
+		bs.currentInterval = cfg.InitialInterval
+		bs.lastFailure = time.Now()
+		metrics.GetProvider().IncBackoffTriggered(name, 0)
+		return 0
+	}
+
+	// Calculate next
+	if bs.currentInterval == 0 {
+		bs.currentInterval = cfg.InitialInterval
+	} else {
+		bs.currentInterval = time.Duration(float64(bs.currentInterval) * cfg.Multiplier)
+	}
+
+	if cfg.MaxInterval > 0 && bs.currentInterval > cfg.MaxInterval {
+		bs.currentInterval = cfg.MaxInterval
+	}
+
+	// Add jitter (10%)
+	jitter := time.Duration(rand.Int63n(int64(bs.currentInterval/10 + 1)))
+	final := bs.currentInterval + jitter
+	metrics.GetProvider().IncBackoffTriggered(name, final)
+	return final
+}
+
+// Add ensures a worker is supervised.
+func (s *supervisor) Add(spec Spec) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Check duplicates
+	for _, child := range s.specs {
+		if child.Name == spec.Name {
+			return fmt.Errorf("child %s already exists", spec.Name)
+		}
+	}
+	if _, ok := s.children[spec.Name]; ok {
+		return fmt.Errorf("child %s already running", spec.Name)
+	}
+
+	s.specs = append(s.specs, spec)
+
+	if s.started {
+		// Start immediately
+		if err := s.startChild(context.Background(), spec); err != nil {
+			return err
+		}
+		// Guard
+		go s.guard(spec.Name, s.children[spec.Name], s.eventChan)
+	}
+	metrics.GetProvider().IncSupervisorAdd(s.name)
+	return nil
+}
+
+// Remove stops and removes a supervised worker.
+func (s *supervisor) Remove(name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Find spec
+	idx := -1
+	for i, spec := range s.specs {
+		if spec.Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return fmt.Errorf("child %s not found", name)
+	}
+
+	// Stop child if running
+	if child, ok := s.children[name]; ok {
+		// Stop with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := child.Stop(ctx); err != nil {
+			log.Warn("failed to stop child during remove", "child", name, "error", err)
+		}
+		delete(s.children, name)
+	}
+
+	// Remove from specs
+	s.specs = append(s.specs[:idx], s.specs[idx+1:]...)
+
+	// Clean state
+	delete(s.backoffStates, name)
+	delete(s.resumeIDs, name)
+
+	metrics.GetProvider().IncSupervisorRemove(s.name)
+	return nil
 }
 
 // Stop stops the supervisor and all its children.
@@ -317,6 +487,9 @@ func (s *supervisor) State() worker.State {
 			childrenState = append(childrenState, worker.State{
 				Name:   spec.Name,
 				Status: worker.StatusPending,
+				Metadata: map[string]string{
+					"type": spec.Type,
+				},
 			})
 		}
 	}
@@ -325,5 +498,8 @@ func (s *supervisor) State() worker.State {
 		Name:     s.name,
 		Status:   status,
 		Children: childrenState,
+		Metadata: map[string]string{
+			"type": "supervisor",
+		},
 	}
 }

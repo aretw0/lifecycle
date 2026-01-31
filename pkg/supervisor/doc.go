@@ -12,6 +12,15 @@
 //   - StrategyOneForAll: If a child process terminates, all other child processes are terminated,
 //     and then all child processes are restarted.
 //
+// # Backoff Strategy
+//
+// To prevent rapid restart loops, the supervisor implements an exponential backoff strategy
+// with jitter. This is configurable per-worker via `Backoff` struct in `Spec`.
+//
+// # Dynamic Topology
+//
+// Workers can be added or removed dynamically at runtime using `Add(Spec)` and `Remove(name)`.
+//
 // # Handover Protocol
 //
 // The supervisor implements a Handover Protocol to provide continuity across restarts.

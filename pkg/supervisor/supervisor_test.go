@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/metrics"
+	"github.com/aretw0/lifecycle/pkg/metrics/mock"
 	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
@@ -167,52 +168,9 @@ func TestOneForAll(t *testing.T) {
 	}
 }
 
-// MockProvider for verifying metric calls
-type mockMetrics struct {
-	mu            sync.Mutex
-	restarts      map[string]int // Supervisor -> count
-	childRestarts map[string]int // Child -> count
-}
-
-func (m *mockMetrics) IncSupervisorRestart(s, strategy string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.restarts[s]++
-}
-
-func (m *mockMetrics) IncChildRestart(s, c string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.childRestarts[c]++
-}
-
-// Stubs for other interface methods
-func (m *mockMetrics) IncSignalReceived(sig string)                       {}
-func (m *mockMetrics) IncProcessStarted()                                 {}
-func (m *mockMetrics) IncProcessFailed()                                  {}
-func (m *mockMetrics) IncTerminalUpgrade(success bool)                    {}
-func (m *mockMetrics) IncHookExecuted()                                   {}
-func (m *mockMetrics) IncHookPanicked()                                   {}
-func (m *mockMetrics) ObserveHookDuration(d time.Duration)                {}
-func (m *mockMetrics) IncWorkerStarted(wt string)                         {}
-func (m *mockMetrics) IncWorkerStopped(wt string)                         {}
-func (m *mockMetrics) IncWorkerFailed(wt string)                          {}
-func (m *mockMetrics) ObserveWorkerDuration(wt string, d time.Duration)   {}
-func (m *mockMetrics) IncDataLost(bytes int)                              {}
-func (m *mockMetrics) ObserveShutdownDuration(wt string, d time.Duration) {}
-func (m *mockMetrics) IncForceExitTriggered()                             {}
-
-func (m *mockMetrics) IncContainerStarted(image string)                       {}
-func (m *mockMetrics) IncContainerStopped(image string)                       {}
-func (m *mockMetrics) IncContainerFailed(image string)                        {}
-func (m *mockMetrics) ObserveContainerDuration(image string, d time.Duration) {}
-
 func TestMetrics(t *testing.T) {
 	helper := newFactoryHelper()
-	mm := &mockMetrics{
-		restarts:      make(map[string]int),
-		childRestarts: make(map[string]int),
-	}
+	mm := mock.New() // Use centralized mock
 
 	// Inject mock
 	original := metrics.GetProvider()
@@ -236,14 +194,17 @@ func TestMetrics(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
+	mm.Mu.Lock()
+	defer mm.Mu.Unlock() // Access fields directly or via helper methods if added?
+	// The mock struct fields are public in the file I created.
+	// But Wait, I need to make sure I am importing the mock package.
+	// I will update imports in a separate step or via multi-replace if possible.
 
-	if mm.restarts["metrics-sup"] != 1 {
-		t.Errorf("Expected 1 supervisor restart metric, got %d", mm.restarts["metrics-sup"])
+	if mm.Restarts["metrics-sup"] != 1 {
+		t.Errorf("Expected 1 supervisor restart metric, got %d", mm.Restarts["metrics-sup"])
 	}
-	if mm.childRestarts["worker-1"] != 1 {
-		t.Errorf("Expected 1 child restart metric, got %d", mm.childRestarts["worker-1"])
+	if mm.ChildRestarts["worker-1"] != 1 {
+		t.Errorf("Expected 1 child restart metric, got %d", mm.ChildRestarts["worker-1"])
 	}
 }
 
@@ -373,5 +334,108 @@ func TestHandoverProtocol(t *testing.T) {
 
 	if restartCount != 2 {
 		t.Errorf("Expected 2 factory calls, got %d", restartCount)
+	}
+}
+
+func TestSupervisor_Backoff(t *testing.T) {
+	helper := newFactoryHelper()
+
+	backoff := Backoff{
+		InitialInterval: 50 * time.Millisecond,
+		MaxInterval:     200 * time.Millisecond,
+		Multiplier:      2.0,
+	}
+
+	sup := New("backoff-sup", StrategyOneForOne,
+		Spec{
+			Name:    "worker-1",
+			Factory: helper.makeFactory("worker-1"),
+			Backoff: backoff,
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := sup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond) // Wait start
+
+	// Fail 1st time (Interval = 50ms)
+	w1 := helper.getWorker("worker-1")
+	w1.WaitChan <- errors.New("fail-1")
+	close(w1.WaitChan)
+
+	// Wait check (should be > 50ms)
+	time.Sleep(20 * time.Millisecond)
+	if count := helper.getCount("worker-1"); count != 1 {
+		t.Errorf("Worker restarted too fast! Count=%d", count)
+	}
+
+	time.Sleep(60 * time.Millisecond) // Total wait ~80ms
+	if count := helper.getCount("worker-1"); count != 2 {
+		t.Errorf("Worker should represent after 50ms! Count=%d", count)
+	}
+
+	// Fail 2nd time (Interval = 100ms)
+	w2 := helper.getWorker("worker-1")
+	w2.WaitChan <- errors.New("fail-2")
+	close(w2.WaitChan) // Should trigger backoff 100ms
+
+	time.Sleep(60 * time.Millisecond)
+	if count := helper.getCount("worker-1"); count != 2 {
+		t.Errorf("Worker restarted too fast (expected 100ms delay)! Count=%d", count)
+	}
+
+	time.Sleep(150 * time.Millisecond) // Total ~210ms
+	if count := helper.getCount("worker-1"); count != 3 {
+		t.Errorf("Worker should restart after 100ms! Count=%d", count)
+	}
+}
+
+func TestSupervisor_DynamicTopology(t *testing.T) {
+	helper := newFactoryHelper()
+	sup := New("dynamic-sup", StrategyOneForOne)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := sup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Add worker
+	spec := Spec{Name: "dynamic-1", Factory: helper.makeFactory("dynamic-1")}
+	if err := sup.Add(spec); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	if helper.getCount("dynamic-1") != 1 {
+		t.Error("Worker not started after Add")
+	}
+
+	// Add duplicate
+	if err := sup.Add(spec); err == nil {
+		t.Error("Add duplicate should error")
+	}
+
+	// Remove worker
+	if err := sup.Remove("dynamic-1"); err != nil {
+		t.Fatalf("Remove failed: %v", err)
+	}
+
+	// Verify stopped
+	w1 := helper.getWorker("dynamic-1")
+	w1.mu.Lock()
+	if w1.status != worker.StatusStopped {
+		t.Error("Worker should be stopped after Remove")
+	}
+	w1.mu.Unlock()
+
+	// Remove unknown
+	if err := sup.Remove("dynamic-1"); err == nil {
+		t.Error("Remove unknown should error")
 	}
 }

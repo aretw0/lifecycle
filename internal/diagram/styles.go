@@ -13,5 +13,6 @@ func Styles() string {
 	sb.WriteString("    classDef container stroke-width:3px,stroke-dasharray: 0;\n")
 	sb.WriteString("    classDef process stroke-width:1px;\n")
 	sb.WriteString("    classDef goroutine stroke-dasharray: 5 5;\n")
+	sb.WriteString("    classDef supervisor fill:#e2e3e5,stroke:#383d41,stroke-width:2px,stroke-dasharray: 0;\n")
 	return sb.String()
 }

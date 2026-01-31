@@ -55,9 +55,9 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 
 Focus: Hardening the Supervisor implementation and improving developer ergonomics based on ecosystem analysis.
 
-- [ ] **Backoff Strategy**: Implement exponential backoff for restarts to prevent "Tight Loop" CPU burning on immediate child failures. (Promoted from Backlog)
-- [ ] **Dynamic Topology**: Support adding/removing child workers at runtime (`Add(Spec)`) to support "Connection Manager" patterns, not just static Daemons.
-- [ ] **Task Adapter**: Introduce `worker.FromFunc(fn)` to allow simple functions to be supervised without full `struct` boilerplate. ("Lightweight Contract")
+- [x] **Backoff Strategy**: Implement exponential backoff for restarts to prevent "Tight Loop" CPU burning on immediate child failures. (Promoted from Backlog)
+- [x] **Dynamic Topology**: Support adding/removing child workers at runtime (`Add(Spec)`) to support "Connection Manager" patterns, not just static Daemons.
+- [x] **Task Adapter**: Introduce `worker.FromFunc(fn)` to allow simple functions to be supervised without full `struct` boilerplate. ("Lightweight Contract")
 
 ### v1.4: Durable Primitives (The Reliability Layer)
 
@@ -66,6 +66,8 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 - [ ] **Critical Sections**: Implement `lifecycle.Do(ctx, fn)` to delay context cancellation for atomic operations (The "Shield").
 - [ ] **Shutdown Reason**: Add `Reason() enum` to `SignalContext` (Interrupt vs Terminate vs Timeout) to inform "Suspend" vs "Abort" decisions.
 - [ ] **Input Safety**: Rework `InterruptibleReader` to support "Buffered Peek" or "Shielded Return" to prevent data loss on cancellation.
+- [ ] **Resumable Worker**: Worker that can be paused/resumed via Token (Trellis convergence).
+- [ ] **Token Protocol**: Standardize passing `LIFECYCLE_RESUME_TOKEN` via Env/Stdin.
 
 ### v1.5: Portability
 

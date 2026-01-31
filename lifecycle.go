@@ -160,6 +160,12 @@ func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
 	return worker.NewProcessWorker(name, nameCmd, args...)
 }
 
+// NewWorkerFromFunc creates a Worker from a function.
+// Alias for pkg/worker.FromFunc.
+func NewWorkerFromFunc(name string, fn func(context.Context) error) Worker {
+	return worker.FromFunc(name, fn)
+}
+
 // Container represents a generic container interface.
 // Alias for container.Container.
 type Container = container.Container
@@ -206,6 +212,10 @@ const (
 // SupervisorSpec defines the configuration for a supervised child worker.
 // Alias for pkg/supervisor.Spec.
 type SupervisorSpec = supervisor.Spec
+
+// SupervisorBackoff defines the retry policy for failed children.
+// Alias for pkg/supervisor.Backoff.
+type SupervisorBackoff = supervisor.Backoff
 
 // SupervisorFactory is a function that creates a new worker instance.
 // Alias for pkg/supervisor.Factory.

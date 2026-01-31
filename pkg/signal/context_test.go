@@ -8,33 +8,8 @@ import (
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/metrics"
+	"github.com/aretw0/lifecycle/pkg/metrics/mock"
 )
-
-type mockProvider struct {
-	signals []string
-}
-
-func (m *mockProvider) IncSignalReceived(sig string)                       { m.signals = append(m.signals, sig) }
-func (m *mockProvider) IncProcessStarted()                                 {}
-func (m *mockProvider) IncProcessFailed()                                  {}
-func (m *mockProvider) IncTerminalUpgrade(success bool)                    {}
-func (m *mockProvider) IncHookExecuted()                                   { m.signals = append(m.signals, "HookExecuted") }
-func (m *mockProvider) IncHookPanicked()                                   {}
-func (m *mockProvider) ObserveHookDuration(d time.Duration)                {}
-func (m *mockProvider) IncWorkerStarted(wt string)                         {}
-func (m *mockProvider) IncWorkerStopped(wt string)                         {}
-func (m *mockProvider) IncWorkerFailed(wt string)                          {}
-func (m *mockProvider) ObserveWorkerDuration(wt string, d time.Duration)   {}
-func (m *mockProvider) IncSupervisorRestart(s, strategy string)            {}
-func (m *mockProvider) IncChildRestart(s, c string)                        {}
-func (m *mockProvider) IncDataLost(bytes int)                              {}
-func (m *mockProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
-func (m *mockProvider) IncForceExitTriggered()                             {}
-
-func (m *mockProvider) IncContainerStarted(image string)                       {}
-func (m *mockProvider) IncContainerStopped(image string)                       {}
-func (m *mockProvider) IncContainerFailed(image string)                        {}
-func (m *mockProvider) ObserveContainerDuration(image string, d time.Duration) {}
 
 func TestSignalContext_Graceful(t *testing.T) {
 	ctx := NewContext(context.Background())
@@ -222,7 +197,8 @@ func TestSignalContext_HookTimeout(t *testing.T) {
 	// But we wait... the stall log happens on timer tick.
 	// For this test, we just want to ensure it doesn't BLOCK forever or panic.
 
-	mp := &mockProvider{}
+	// Use centralized mock
+	mp := mock.New()
 	metrics.SetProvider(mp)
 
 	hookDone := make(chan struct{})
@@ -248,12 +224,14 @@ func TestSignalContext_HookTimeout(t *testing.T) {
 
 	// Verify metric was recorded (meaning the timeout logic didn't abort execution flow)
 	found := false
-	for _, s := range mp.signals {
+	mp.Mu.Lock()
+	for _, s := range mp.Signals {
 		if s == "HookExecuted" {
 			found = true
 			break
 		}
 	}
+	mp.Mu.Unlock()
 	if !found {
 		t.Error("Expected HookExecuted metric even after stall warning")
 	}

@@ -23,6 +23,9 @@ type Provider interface {
 	ObserveWorkerDuration(workerType string, duration time.Duration)
 	IncSupervisorRestart(supervisorName, strategy string)
 	IncChildRestart(supervisorName, childName string)
+	IncSupervisorAdd(supervisorName string)
+	IncSupervisorRemove(supervisorName string)
+	IncBackoffTriggered(childName string, delay time.Duration)
 	IncDataLost(bytes int)
 	ObserveShutdownDuration(workerType string, duration time.Duration)
 	IncForceExitTriggered()
@@ -73,6 +76,9 @@ func (n *NoOpProvider) IncWorkerFailed(wt string)                          {}
 func (n *NoOpProvider) ObserveWorkerDuration(wt string, d time.Duration)   {}
 func (n *NoOpProvider) IncSupervisorRestart(s, est string)                 {}
 func (n *NoOpProvider) IncChildRestart(s, c string)                        {}
+func (n *NoOpProvider) IncSupervisorAdd(s string)                          {}
+func (n *NoOpProvider) IncSupervisorRemove(s string)                       {}
+func (n *NoOpProvider) IncBackoffTriggered(c string, d time.Duration)      {}
 func (n *NoOpProvider) IncDataLost(bytes int)                              {}
 func (n *NoOpProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (n *NoOpProvider) IncForceExitTriggered()                             {}
@@ -136,6 +142,18 @@ func (l *LogProvider) IncSupervisorRestart(s, strategy string) {
 
 func (l *LogProvider) IncChildRestart(s, c string) {
 	log.Debug("metric incremented", "name", "lifecycle_worker_restarts_total", "supervisor", s, "child", c)
+}
+
+func (l *LogProvider) IncSupervisorAdd(s string) {
+	log.Debug("metric incremented", "name", "lifecycle_supervisor_add_total", "supervisor", s)
+}
+
+func (l *LogProvider) IncSupervisorRemove(s string) {
+	log.Debug("metric incremented", "name", "lifecycle_supervisor_remove_total", "supervisor", s)
+}
+
+func (l *LogProvider) IncBackoffTriggered(c string, d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_backoff_triggered_seconds", "child", c, "delay", d.Seconds())
 }
 
 func (l *LogProvider) IncDataLost(bytes int) {

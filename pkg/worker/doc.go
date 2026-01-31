@@ -5,6 +5,7 @@
 //
 // key features:
 //   - **Worker Interface**: A standard contract for starting, stopping, and waiting for work.
+//   - **Functional Worker**: Simple adapter `FromFunc` to turn any function into a Worker.
 //   - **Process Worker**: A wrapper around `os/exec` that ensures process hygiene (Fail-Closed)
 //     using `pkg/proc` logic (Job Objects on Windows, PDeathSig on Linux).
 //   - **Container Worker**: A bridge to manage containerized workloads via `pkg/container`.

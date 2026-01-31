@@ -114,6 +114,7 @@ func (cw *ContainerWorker) State() State {
 			metadata["label."+k] = v
 		}
 	}
+	metadata["type"] = "container"
 
 	return State{
 		Name:     cw.name,

@@ -77,14 +77,25 @@ func renderNode(sb *strings.Builder, s State, id string) {
 	shapeStart, shapeEnd := "(", ")"
 	idClass := "goroutine"
 
-	if _, ok := s.Metadata["image"]; ok {
-		icon = "📦 "
-		shapeStart, shapeEnd = "[[", "]]"
-		idClass = "container"
-	} else if _, ok := s.Metadata["path"]; ok {
-		icon = "⚙️ "
-		shapeStart, shapeEnd = "[", "]"
-		idClass = "process"
+	if t, ok := s.Metadata["type"]; ok {
+		switch t {
+		case "container":
+			icon = "📦 "
+			shapeStart, shapeEnd = "[[", "]]"
+			idClass = "container"
+		case "process":
+			icon = "⚙️ "
+			shapeStart, shapeEnd = "[", "]"
+			idClass = "process"
+		case "func":
+			icon = "λ "
+			shapeStart, shapeEnd = "(", ")"
+			idClass = "func"
+		case "supervisor":
+			icon = "🧠 "
+			shapeStart, shapeEnd = "{{", "}}" // Hexagon shape for supervisor/orchestrator
+			idClass = "supervisor"
+		}
 	}
 
 	// 2. Build Label
