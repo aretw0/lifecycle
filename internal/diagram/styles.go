@@ -17,5 +17,6 @@ func Styles() string {
 	sb.WriteString("    classDef process stroke-width:1px;\n")
 	sb.WriteString("    classDef goroutine stroke-dasharray: 5 5;\n")
 	sb.WriteString("    classDef supervisor stroke-width:2px,stroke-dasharray: 0;\n")
+	sb.WriteString("    classDef signal stroke-width:2px,stroke-dasharray: 0;\n") // Signal Handler Style
 	return sb.String()
 }
