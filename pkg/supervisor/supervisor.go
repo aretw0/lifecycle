@@ -230,44 +230,55 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 	// Apply Strategy
 	switch s.strategy {
 	case StrategyOneForOne:
-		metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForOne))
-		metrics.GetProvider().IncChildRestart(s.name, exit.name)
-
-		// Backoff Strategy
-		delay := s.nextBackoff(exit.name, failedSpec.Backoff)
-		if delay > 0 {
-			log.Info("backing off restart", "child", exit.name, "delay", delay)
-			// Spawn a goroutine to wait and then restart
-			go func() {
-				select {
-				case <-ctx.Done():
-					return // Supervisor stopping
-				case <-time.After(delay):
-					// Attempt restart with lock
-					s.mu.Lock()
-					defer s.mu.Unlock()
-					s.restartChildLocked(exit.name, failedSpec, exit.err)
-				}
-			}()
-		} else {
-			// Immediate restart (lock already held)
-			s.restartChildLocked(exit.name, failedSpec, exit.err)
-		}
-
+		s.handleOneForOne(ctx, exit, failedSpec)
 	case StrategyOneForAll:
-		metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForAll))
-		// Stop all other children
-		log.Info("Restarting all children due to failure", "trigger", exit.name)
-		s.stopAll(context.Background()) // Synchronously stop others
+		s.handleOneForAll(exit)
+	}
+}
 
-		// Restart all
-		if err := s.startChildren(context.Background(), s.specs); err != nil {
-			log.Error("failed to restart all children", "error", err)
-		} else {
-			// Re-guard all
-			for name, w := range s.children {
-				go s.guard(name, w, s.eventChan)
+// handleOneForOne handles the restart logic for a single child.
+// MUST hold lock.
+func (s *supervisor) handleOneForOne(ctx context.Context, exit childExit, failedSpec Spec) {
+	metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForOne))
+	metrics.GetProvider().IncChildRestart(s.name, exit.name)
+
+	// Backoff Strategy
+	delay := s.nextBackoff(exit.name, failedSpec.Backoff)
+	if delay > 0 {
+		log.Info("backing off restart", "child", exit.name, "delay", delay)
+		// Spawn a goroutine to wait and then restart
+		go func() {
+			select {
+			case <-ctx.Done():
+				return // Supervisor stopping
+			case <-time.After(delay):
+				// Attempt restart with lock
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				s.restartChildLocked(exit.name, failedSpec, exit.err)
 			}
+		}()
+	} else {
+		// Immediate restart (lock already held)
+		s.restartChildLocked(exit.name, failedSpec, exit.err)
+	}
+}
+
+// handleOneForAll handles the restart logic for all children upon a single failure.
+// MUST hold lock.
+func (s *supervisor) handleOneForAll(exit childExit) {
+	metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForAll))
+	// Stop all other children
+	log.Info("Restarting all children due to failure", "trigger", exit.name)
+	s.stopAll(context.Background()) // Synchronously stop others
+
+	// Restart all
+	if err := s.startChildren(context.Background(), s.specs); err != nil {
+		log.Error("failed to restart all children", "error", err)
+	} else {
+		// Re-guard all
+		for name, w := range s.children {
+			go s.guard(name, w, s.eventChan)
 		}
 	}
 }
