@@ -71,6 +71,14 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 
 - [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior on other Unixes.
 
+### v1.6: Ecosystem Unification (The DX Layer)
+
+Focus: Establishing `lifecycle` as the canonical "DX Provider" for the Arbour ecosystem, centralizing Introspection and Observability standards.
+
+- [ ] **Visualization 2.0 (The Overlay Pattern)**: Adapt the `Mermaid` renderer to separate **Topology** (Static Spec) from **Status** (Dynamic Runtime). This stability, inspired by Trellis, allows visualizing "Missing/Crashed" nodes instead of them just vanishing.
+- [ ] **Universal Introspection**: Define a public `Introspectable` interface (`State() any`) to allow external systems (Trellis Adapters, Loam Watchers) to plug into the `lifecycle` dashboard.
+- [ ] **Unified Observability**: Promote `pkg/metrics` as the standard bridge for the ecosystem, ensuring Trellis and Loam metrics (e.g., "Flow Transition", "File Change") flow through the same pipeline.
+
 ## Backlog
 
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
