@@ -76,6 +76,10 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
 - **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown scenarios (requested by user).
 - **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never) in `Spec`.
+- **Circuit Breaker**: Implement "MaxRestarts within Duration" logic to give up on permanently broken children (Erlang `MaxR/MaxT` style).
+- **Health Checks**: Add a `Probe()` interface for workers to report health status beyond just "process existence" (Kubernetes Liveness inspiration).
+- **Hot Reload**: Support `SIGHUP` to trigger configuration reloading without full process restart.
+- **Priority Shutdown**: Explicit shutdown phases (e.g., "Critical", "Normal", "Logging") beyond simple LIFO order.
 
 ## Technical Debt
 
