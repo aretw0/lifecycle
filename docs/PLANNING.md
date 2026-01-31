@@ -51,6 +51,14 @@ Focus: Robust management of child processes and support for "Agents" (Trellis/Ar
 - [x] **Reference Implementation**: Add a mock or shell-based implementation to validate the `Container` interface.
 - [x] **Handover Protocol**: Standardize env vars (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) for Supervisors to pass context to restarted Workers.
 
+### v1.3.1: Supervisor Refinements
+
+Focus: Hardening the Supervisor implementation and improving developer ergonomics based on ecosystem analysis.
+
+- [ ] **Backoff Strategy**: Implement exponential backoff for restarts to prevent "Tight Loop" CPU burning on immediate child failures. (Promoted from Backlog)
+- [ ] **Dynamic Topology**: Support adding/removing child workers at runtime (`Add(Spec)`) to support "Connection Manager" patterns, not just static Daemons.
+- [ ] **Task Adapter**: Introduce `worker.FromFunc(fn)` to allow simple functions to be supervised without full `struct` boilerplate. ("Lightweight Contract")
+
 ### v1.4: Durable Primitives (The Reliability Layer)
 
 Focus: Features to support "Durable Execution" engines (like Trellis), distinguishing between "Stopping" and "Crashing".
@@ -67,7 +75,6 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
 - **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown scenarios (requested by user).
-- **Supervisor Backoff**: Implement restart backoff policies (exponential, constant) to prevent restart loops.
 - **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never) in `Spec`.
 
 ## Technical Debt
