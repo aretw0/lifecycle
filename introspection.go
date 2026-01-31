@@ -17,24 +17,7 @@ func SystemDiagram(sig SignalState, work WorkerState) string {
 
 	// 1. Signal Context Subgraph
 	sb.WriteString("    subgraph ControlPlane [Signal Context]\n")
-
-	// Convert SignalState to a single node representation for the subgraph
-	status := "Running"
-	if sig.Stopping {
-		status = "Graceful"
-	}
-	received := "None"
-	if sig.Received != nil {
-		received = sig.Received.String()
-	}
-
-	sb.WriteString(fmt.Sprintf("        S[\"<b>Signal Handler</b><br/>Mode: %s<br/>Received: %s\"]", status, received))
-	if sig.Stopping {
-		sb.WriteString(":::running")
-	} else {
-		sb.WriteString(":::pending")
-	}
-	sb.WriteString("\n")
+	renderSignalFragment(&sb, sig, "S", "        ")
 	sb.WriteString("    end\n\n")
 
 	// 2. Worker Subgraph (The worker tree)
@@ -49,4 +32,28 @@ func SystemDiagram(sig SignalState, work WorkerState) string {
 	sb.WriteString(diagram.Styles())
 
 	return sb.String()
+}
+
+func renderSignalFragment(sb *strings.Builder, sig SignalState, id, indent string) {
+	statusMode := "Running"
+	statusClass := "pending"
+
+	if sig.Stopping {
+		statusMode = "Graceful"
+		statusClass = "running" // Or "stopped" depending on semantics, but let's match loop active state
+	} else {
+		// Waiting for signal (Pending state in terms of lifecycle action)
+		statusClass = "pending"
+	}
+
+	received := "None"
+	if sig.Received != nil {
+		received = sig.Received.String()
+	}
+
+	// S["..."]:::signal
+	// class S statusClass
+	label := fmt.Sprintf("<b>Signal Handler</b><br/>Mode: %s<br/>Received: %s", statusMode, received)
+	sb.WriteString(fmt.Sprintf("%s%s[\"%s\"]:::signal\n", indent, id, label))
+	sb.WriteString(fmt.Sprintf("%sclass %s %s\n", indent, id, statusClass))
 }
