@@ -1,6 +1,8 @@
 package diagram
 
-import "strings"
+import (
+	"strings"
+)
 
 // Styles returns the standard Mermaid class definitions for the library.
 func Styles() string {
@@ -10,9 +12,10 @@ func Styles() string {
 	sb.WriteString("    classDef stopped fill:#d4edda,stroke:#c3e6cb,color:#155724;\n")
 	sb.WriteString("    classDef failed fill:#f8d7da,stroke:#f5c6cb,color:#721c24;\n")
 	sb.WriteString("    classDef active fill:#d1ecf1,stroke:#0c5460,stroke-width:2px,color:#0c5460;\n")
+	// Structural styles (matching worker.Type*.Key())
 	sb.WriteString("    classDef container stroke-width:3px,stroke-dasharray: 0;\n")
 	sb.WriteString("    classDef process stroke-width:1px;\n")
 	sb.WriteString("    classDef goroutine stroke-dasharray: 5 5;\n")
-	sb.WriteString("    classDef supervisor fill:#e2e3e5,stroke:#383d41,stroke-width:2px,stroke-dasharray: 0;\n")
+	sb.WriteString("    classDef supervisor stroke-width:2px,stroke-dasharray: 0;\n")
 	return sb.String()
 }
