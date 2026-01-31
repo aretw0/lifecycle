@@ -60,7 +60,7 @@ func MermaidTree(s State) string {
 	sb.WriteString(diagram.Styles())
 
 	// Render Root
-	renderNode(&sb, s, "root")
+	renderNode(&sb, s, "root", "    ")
 
 	return sb.String()
 }
@@ -68,37 +68,72 @@ func MermaidTree(s State) string {
 // RenderTreeFragment appends the Mermaid tree nodes and links to the provided builder.
 // This is useful for building composite diagrams.
 func RenderTreeFragment(sb *strings.Builder, s State, rootID string) {
-	renderNode(sb, s, rootID)
+	renderNode(sb, s, rootID, "    ")
 }
 
-func renderNode(sb *strings.Builder, s State, id string) {
-	// 1. Determine Identity & Metadata Enrichment
-	icon := "🧬 " // Default: Goroutine/Generic
-	shapeStart, shapeEnd := "(", ")"
-	idClass := "goroutine"
-
-	if t, ok := s.Metadata["type"]; ok {
-		switch t {
-		case "container":
-			icon = "📦 "
-			shapeStart, shapeEnd = "[[", "]]"
-			idClass = "container"
-		case "process":
-			icon = "⚙️ "
-			shapeStart, shapeEnd = "[", "]"
-			idClass = "process"
-		case "func":
-			icon = "λ "
-			shapeStart, shapeEnd = "(", ")"
-			idClass = "func"
-		case "supervisor":
-			icon = "🧠 "
-			shapeStart, shapeEnd = "{{", "}}" // Hexagon shape for supervisor/orchestrator
-			idClass = "supervisor"
-		}
+func renderNode(sb *strings.Builder, s State, id, indent string) {
+	// 0. Set indent
+	defaultIndent := "    "
+	if indent == "" {
+		indent = defaultIndent
+	} else {
+		indent = indent + defaultIndent
 	}
 
+	// 1. Determine Identity & Metadata Enrichment
+	icon, shapeStart, shapeEnd, idClass := getNodeStyle(s)
+
 	// 2. Build Label
+	label := buildNodeLabel(s, icon)
+
+	// 3. Determine Color Class
+	statusClass := s.Status.Key()
+
+	// 4. Write Node and Class Assignment
+	// Use ::: shorthand for the structural class (idClass)
+	// Apply the status class separately for easier styling overrides
+	sb.WriteString(fmt.Sprintf("%s%s%s\"%s\"%s:::%s\n", indent, id, shapeStart, label, shapeEnd, idClass))
+	sb.WriteString(fmt.Sprintf("%sclass %s %s\n", indent, id, statusClass))
+
+	// Render Children
+	for i, child := range s.Children {
+		childID := fmt.Sprintf("%s_%d", id, i)
+		renderNode(sb, child, childID, defaultIndent)
+		// Link
+		sb.WriteString(fmt.Sprintf("%s%s --> %s\n", indent, id, childID))
+	}
+}
+
+func getNodeStyle(s State) (icon, shapeStart, shapeEnd, idClass string) {
+	icon = "🧬 " // Default: Goroutine/Generic
+	shapeStart, shapeEnd = "(", ")"
+	idClass = string(TypeGoroutine)
+
+	if tStr, ok := s.Metadata["type"]; ok {
+		// Normalize metadata to lowercase to match our canonical types
+		switch Type(strings.ToLower(tStr)) {
+		case TypeContainer:
+			icon = "📦 "
+			shapeStart, shapeEnd = "[[", "]]"
+			idClass = string(TypeContainer)
+		case TypeProcess:
+			icon = "⚙️ "
+			shapeStart, shapeEnd = "[", "]"
+			idClass = string(TypeProcess)
+		case TypeFunc:
+			icon = "λ "
+			shapeStart, shapeEnd = "(", ")"
+			idClass = string(TypeFunc)
+		case TypeSupervisor:
+			icon = "🧠 "
+			shapeStart, shapeEnd = "{{", "}}" // Hexagon shape for supervisor/orchestrator
+			idClass = string(TypeSupervisor)
+		}
+	}
+	return
+}
+
+func buildNodeLabel(s State, icon string) string {
 	var labelParts []string
 	labelParts = append(labelParts, fmt.Sprintf("<b>%s%s</b>", icon, s.Name))
 	labelParts = append(labelParts, string(s.Status))
@@ -118,30 +153,5 @@ func renderNode(sb *strings.Builder, s State, id string) {
 		labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", image))
 	}
 
-	label := strings.Join(labelParts, "<br/>")
-
-	// 3. Determine Color Class
-	statusClass := "pending"
-	switch s.Status {
-	case StatusRunning:
-		statusClass = "running"
-	case StatusStopped:
-		statusClass = "stopped"
-	case StatusFailed:
-		statusClass = "failed"
-	}
-
-	// 4. Write Node and Class Assignment
-	// We use the 'class ID className' syntax to avoid generating too many colons in a single line,
-	// which ensures better compatibility across different Mermaid renderers.
-	sb.WriteString(fmt.Sprintf("    %s%s\"%s\"%s\n", id, shapeStart, label, shapeEnd))
-	sb.WriteString(fmt.Sprintf("    class %s %s,%s\n", id, statusClass, idClass))
-
-	// Render Children
-	for i, child := range s.Children {
-		childID := fmt.Sprintf("%s_%d", id, i)
-		renderNode(sb, child, childID)
-		// Link
-		sb.WriteString(fmt.Sprintf("    %s --> %s\n", id, childID))
-	}
+	return strings.Join(labelParts, "<br/>")
 }
