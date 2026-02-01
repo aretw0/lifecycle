@@ -59,7 +59,7 @@ func RenderFragment(sb *strings.Builder, sig State, id, indent string) {
 
 	if !sig.Enabled {
 		statusMode = "Stopped"
-		statusClass = "stopped" // Green: Manually stopped
+		statusClass = "stopped" // Green: Manually stopped (Listener inactive)
 	} else if sig.Stopping {
 		statusMode = "Graceful"
 		// Default Graceful is Warning/Pending (Yellow)
@@ -88,7 +88,7 @@ func RenderFragment(sb *strings.Builder, sig State, id, indent string) {
 
 	// S["..."]:::signal
 	// class S statusClass
-	label := fmt.Sprintf("<b>Signal Handler</b><br/>Mode: %s<br/>Received: %s<br/>Reason: %s", statusMode, received, reason)
+	label := fmt.Sprintf("<b>⚡ Signal Listener</b><br/>Mode: %s<br/>Received: %s<br/>Reason: %s", statusMode, received, reason)
 	sb.WriteString(fmt.Sprintf("%s%s[\"%s\"]:::signal\n", indent, id, label))
 	sb.WriteString(fmt.Sprintf("%sclass %s %s\n", indent, id, statusClass))
 }
