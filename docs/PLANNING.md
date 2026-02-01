@@ -12,17 +12,17 @@
 
 Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Application Control Plane". Decouple "Events" (Triggers) from "Reactions" (Actions).
 
-- [ ] **Event Sources (Inputs)**: Generalized interface for things that trigger lifecycle changes.
-  - `OSSignalSource` (SIGINT, SIGTERM)
-  - `WebhookSource` (Admin HTTP endpoints)
-  - `HealthCheckSource` (Promoted from Backlog: `Probe()` failures trigger restarts/shutdowns)
-  - `FileWatchSource` (Integration with Loam?)
-  - **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders without coupling (Headless Timers).
+- [-] **Event Sources (Inputs)**: Generalized interface for things that trigger lifecycle changes.
+  - [x] `OSSignalSource` (SIGINT, SIGTERM)
+  - [x] `WebhookSource` (Admin HTTP endpoints - Skeleton)
+  - [x] `HealthCheckSource` (Promoted from Backlog - Skeleton)
+  - [x] `FileWatchSource` (Integration with Loam? - Skeleton)
+  - [ ] **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders without coupling (Headless Timers).
 - [ ] **Lifecycle Reactions (Outputs)**: Dynamic responses to events.
-  - `Shutdown` (Current behavior)
-  - `HotReload` (Promoted from Backlog: SIGHUP triggers config reload without context cancellation)
-  - `Suspend/Resume` (For Durable Execution)
-- [ ] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
+  - [x] `Shutdown` (Current behavior)
+  - [ ] `HotReload` (Promoted from Backlog: SIGHUP triggers config reload without context cancellation)
+  - [ ] `Suspend/Resume` (For Durable Execution)
+- [x] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
   - `lifecycle.Go(ctx, fn)`: A helper to spawn goroutines that are automatically tracked, waited on, and shielded from premature Context cancellation. Enforces "Safe Concurrency" by default.
 - [ ] **Control Router**: Configurable logic mapping `Source -> Reaction` (e.g., "On SIGHUP -> Reload", "On SIGINT -> Shutdown").
 - [ ] **Ecosystem Integration (DX Layer)**:
