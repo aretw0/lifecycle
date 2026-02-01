@@ -24,8 +24,8 @@
 
 * [**IV. The Control Plane (v2.x Vision)**](#iv-the-control-plane-v2x-vision)
 
-    10. [Events vs Reactions](#10-events-vs-reactions)
-    11. [Managed Concurrency](#11-managed-concurrency)
+    10. [Event Router](#10-event-router-source---reaction)
+    11. [Managed Concurrency](#11-managed-concurrency-lifecyclegroup)
 
 * [**V. Ecosystem & Operations**](#v-ecosystem--operations)
 
@@ -278,16 +278,58 @@ sequenceDiagram
 (Introduced in v2.0)
 The Control Plane generalized the "Signal" concept into generic "Events".
 
-### 10. Events vs Reactions
+### 10. Event Router (Source -> Reaction)
 
-Instead of just `Signal -> Shutdown`, v2 introduce a router:
+The `Router` decouples triggers from actions, allowing dynamic rewiring of the application.
 
-* **Source (Input)**: `SIGINT`, `Webhook`, `FileWatch`, `HealthCheck`.
-* **Reaction (Output)**: `Shutdown`, `Reload`, `Suspend`, `Scale`.
+```mermaid
+graph LR
+    S[Source] -->|Event| R{Router}
+    R -->|Match| RE[Reaction]
+    
+    subgraph Sources
+        SIG[OS Signal]
+        WEB[Webhook]
+        FILE[File Watch]
+    end
+    
+    subgraph Reactions
+        STOP[Shutdown]
+        REL[Reload]
+        LOG[Log]
+    end
+    
+    SIG --> S
+    WEB --> S
+    FILE --> S
+    
+    RE --> STOP
+    RE --> REL
+    RE --> LOG
+```
 
-### 11. Managed Concurrency
+> **Note**: This diagram represents the **v2.0 Vision**.
+> Currently, `OS Signal` is fully implemented. `Webhook` and `File Watch` sources are available as skeletons (stubs) ready for integration.
+> Similarly, `Shutdown` is the primary available reaction, with `Reload` and others mapped for future implementation.
 
-`lifecycle.Go(ctx, fn)` introduces "Safe Goroutines" that are automatically tracked and waited on, preventing the common "I forgot to WaitGroup this" leak.
+### 11. Managed Concurrency (`lifecycle.Group`)
+
+To adhere to **Zero Global State**, we avoid global goroutine tracking. Instead, we provide `lifecycle.Group` (similar to `errgroup.Group`) with added safety and observability.
+
+```go
+g, ctx := lifecycle.NewGroup(mainCtx)
+g.Go(func(ctx context.Context) error {
+    // ... work ...
+    return nil
+})
+g.Wait()
+```
+
+**Features:**
+
+* **Panic Recovery**: Panics are recovered, logged with stack traces, and returned as errors to cancel the group.
+* **Auto-Observability**: Active goroutines are tracked in metrics (`lifecycle_goroutines_started_total`).
+* **Concurrency Limits**: `g.SetLimit(n)` prevents resource exhaustion.
 
 ---
 
