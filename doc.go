@@ -41,6 +41,6 @@ from the internal `pkg/` structure.
 # Configuration
 
 Configuration is done via Functional Options (SignalOption) and Struct Specs (SupervisorSpec).
-Everything is "Zero Global State" by default, requiring explicit context propagation.
+We adopt the "Stdlib Pattern": providing a `DefaultRouter` for convenience ("Managed Global State") while allowing explicit `NewRouter` for strict isolation.
 */
 package lifecycle

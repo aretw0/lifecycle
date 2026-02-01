@@ -1,18 +1,62 @@
 # Control Plane Example
 
-This example demonstrates the **v2.0 Control Plane** features:
+This example demonstrates the **v2.0 Control Plane** architecture, where multiple event sources (OS Signals, Webhooks) are routed to different reactions.
 
-1. **Event Router**: Wiring `Sources` (Signals, Webhooks) to `Reactions`.
-2. **Managed Concurrency**: Using `lifecycle.Group` to manage goroutines with panic recovery and observability.
+## How it works
 
-## Running
+1. **Router**: Acts as the central hub (`http.ServeMux` style).
+2. **Sources**:
+    - **OS Signals**: Listens for `SIGINT` (Ctrl+C).
+    - **Webhook**: Listens on `:8080` for HTTP requests.
+3. **Reactions**:
+    - **Shutdown**: Cancels the main context.
+    - **Reload**: Simulates a config reload without stopping the app.
+
+## Running the Example
 
 ```bash
-go run main.go
+go run ./examples/control_plane/main.go
 ```
 
-## Features Demonstrated
+## Triggering Events
 
-* **Signal Handling**: Press `Ctrl+C` to trigger the shutdown reaction.
-* **Panic Recovery**: Uncomment the panic line in `main.go` to see the group recover and exit gracefully.
-* **Observability**: Metrics are logged to `debug` level.
+### 1. OS Signal (Shutdown)
+
+Press `Ctrl+C` in the terminal.
+
+**Output:**
+
+```text
+🛑 Received Signal: Signal(interrupt)
+👋 Shutdown Complete
+```
+
+### 2. Webhook (Reload)
+
+Open a new terminal and run:
+
+```bash
+curl -X POST http://localhost:8080/reload
+```
+
+**Output:**
+
+```text
+🔄 Reload triggered via Webhook!
+✅ Configuration Reloaded
+```
+
+### 3. Webhook (Shutdown)
+
+Run:
+
+```bash
+curl -X POST http://localhost:8080/stop
+```
+
+**Output:**
+
+```text
+🛑 Stop triggered via Webhook!
+👋 Shutdown Complete
+```

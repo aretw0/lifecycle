@@ -24,7 +24,7 @@
 
 * [**IV. The Control Plane (v2.x Vision)**](#iv-the-control-plane-v2x-vision)
 
-    10. [Event Router](#10-event-router-source---reaction)
+    10. [Event Router](#10-event-router-source---handler)
     11. [Managed Concurrency](#11-managed-concurrency-lifecyclegroup)
 
 * [**V. Ecosystem & Operations**](#v-ecosystem--operations)
@@ -50,9 +50,12 @@ Technically, `lifecycle` is a **Signal-Aware Control Plane** and **Interruptible
 
 To prevent "Memory Leaks" and "Zombie Processes", the system imposes explicit constraints:
 
-#### 2.1. Zero Global State
+#### 2.1. Managed Global State
 
-We rely strictly on `Context` propagation. There are no global variables or `init()` side effects that capture signals automatically. The application must explicitly opt-in via `lifecycle.Run()` or `NewSignalContext()`.
+We acknowledge that OS signals are inherently global. Instead of pretending they aren't, `lifecycle` **manages** this global state for you.
+
+* **Default Router**: Like `net/http`, we provide a default multiplexer for ease of use.
+* **Clean Logic**: Your business logic remains free of global side-effects, relying on `Context` propagation and `Handler` interfaces.
 
 #### 2.2. Fail-Closed Hygiene
 
@@ -278,39 +281,51 @@ sequenceDiagram
 (Introduced in v2.0)
 The Control Plane generalized the "Signal" concept into generic "Events".
 
-### 10. Event Router (Source -> Reaction)
+### 10. Event Router (Source -> Handler)
 
-The `Router` decouples triggers from actions, allowing dynamic rewiring of the application.
+The `Router` is the central nervous system of the Control Plane, inspired by `net/http.ServeMux`. It routes generalized `Events` to specialized `Handlers`.
 
-```mermaid
-graph LR
-    S[Source] -->|Event| R{Router}
-    R -->|Match| RE[Reaction]
-    
-    subgraph Sources
-        SIG[OS Signal]
-        WEB[Webhook]
-        FILE[File Watch]
-    end
-    
-    subgraph Reactions
-        STOP[Shutdown]
-        REL[Reload]
-        LOG[Log]
-    end
-    
-    SIG --> S
-    WEB --> S
-    FILE --> S
-    
-    RE --> STOP
-    RE --> REL
-    RE --> LOG
+> **Note (Facade)**: The router and handlers are exposed via the top-level `lifecycle` package for ease of use (e.g., `lifecycle.NewRouter()`).
+
+#### 10.1. Mux-Style Pattern Matching
+
+Routes are defined using string patterns. We support:
+
+* **Exact Match**: `"webhook/reload"`
+* **Glob Match**: `"signal.*"` (using `path.Match`)
+
+```go
+router.HandleFunc("signal.*", func(ctx context.Context, e Event) error {
+    log.Println("Received signal:", e)
+    return nil
+})
 ```
 
-> **Note**: This diagram represents the **v2.0 Vision**.
-> Currently, `OS Signal` is fully implemented. `Webhook` and `File Watch` sources are available as skeletons (stubs) ready for integration.
-> Similarly, `Shutdown` is the primary available reaction, with `Reload` and others mapped for future implementation.
+#### 10.2. Middleware Chains
+
+Middleware wraps handlers to provide cross-cutting concerns (logging, recovery, tracing).
+
+```go
+router.Use(RecoveryMiddleware)
+router.Use(LoggingMiddleware)
+```
+
+#### 10.3. Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant S as Source (OS/HTTP)
+    participant R as Router
+    participant M as Middleware
+    participant H as Handler
+
+    S->>R: Emit(Event)
+    R->>R: Match(Event.Topic)
+    R->>M: Dispatch(Event)
+    M->>H: Handle(Event)
+    H-->>M: Return error?
+    M-->>R: Complete
+```
 
 ### 11. Managed Concurrency (`lifecycle.Group`)
 

@@ -40,7 +40,7 @@ go run ./examples/hooks/main.go
 
 ## Development Philosophy
 
-* **Zero Global State**: Use `Context` propagation, never global handlers.
+* **Managed Global State**: We abstract the inevitable global state (OS Signals) into clean, context-aware usage. Prefer `Context` propagation, but enjoy `DefaultRouter` convenience.
 * **Leak-Free**: Every resource (goroutine, file handle) must close on shutdown.
 * **Platform Agnostic**: Windows `CONIN$` handling is a first-class citizen, not an afterthought.
 * **Observability**: Internal state changes must be visible via `pkg/metrics` interfaces.
