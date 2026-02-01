@@ -23,10 +23,11 @@ func main() {
 	// 3. Enter Critical Section
 	// Even if you hit Ctrl+C here, the inner function will complete.
 	fmt.Println("\n>>> Entering Critical Section (Shielded) <<<")
-	err := lifecycle.Do(ctx, func(innerCtx context.Context) {
+	err := lifecycle.Do(ctx, func(innerCtx context.Context) error {
 		// Attempt to cancel during the critical section?
 		// The innerCtx is NOT cancelled by the parent ctx.
 		work(innerCtx, "Phase 2: Critical Transaction (Commit)")
+		return nil
 	})
 
 	if err != nil {

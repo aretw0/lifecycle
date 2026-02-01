@@ -35,6 +35,13 @@ type Provider struct {
 	HandlersExecuted map[string]int
 	HandlerErrors    map[string]int
 	HandlerDurations map[string]time.Duration
+
+	// Critical Section metrics
+	CriticalSectionStarted   int
+	CriticalSectionFinished  int
+	CriticalSectionSuccesses int
+	CriticalSectionFailures  int
+	CriticalSectionDuration  time.Duration
 }
 
 // Ensure interface compliance
@@ -129,10 +136,28 @@ func (m *Provider) IncBackoffTriggered(c string, d time.Duration) {
 	m.Backoffs[c] = d
 }
 
-func (m *Provider) IncCriticalSectionStarted()              {}
-func (m *Provider) IncCriticalSectionFinished(success bool) {}
+func (m *Provider) IncCriticalSectionStarted() {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.CriticalSectionStarted++
+}
 
-func (m *Provider) ObserveCriticalSectionDuration(d time.Duration) {}
+func (m *Provider) IncCriticalSectionFinished(success bool) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.CriticalSectionFinished++
+	if success {
+		m.CriticalSectionSuccesses++
+	} else {
+		m.CriticalSectionFailures++
+	}
+}
+
+func (m *Provider) ObserveCriticalSectionDuration(d time.Duration) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.CriticalSectionDuration = d
+}
 
 func (m *Provider) IncGoroutineStarted() {
 	m.Mu.Lock()
