@@ -67,19 +67,11 @@ func MermaidTree(s State) string {
 
 // RenderTreeFragment appends the Mermaid tree nodes and links to the provided builder.
 // This is useful for building composite diagrams.
-func RenderTreeFragment(sb *strings.Builder, s State, rootID string) {
-	renderNode(sb, s, rootID, "    ")
+func RenderTreeFragment(sb *strings.Builder, s State, rootID string, indent string) {
+	renderNode(sb, s, rootID, indent)
 }
 
 func renderNode(sb *strings.Builder, s State, id, indent string) {
-	// 0. Set indent
-	defaultIndent := "    "
-	if indent == "" {
-		indent = defaultIndent
-	} else {
-		indent = indent + defaultIndent
-	}
-
 	// 1. Determine Identity & Metadata Enrichment
 	icon, shapeStart, shapeEnd, idClass := getNodeStyle(s)
 
@@ -98,7 +90,7 @@ func renderNode(sb *strings.Builder, s State, id, indent string) {
 	// Render Children
 	for i, child := range s.Children {
 		childID := fmt.Sprintf("%s_%d", id, i)
-		renderNode(sb, child, childID, defaultIndent)
+		renderNode(sb, child, childID, indent)
 		// Link
 		sb.WriteString(fmt.Sprintf("%s%s --> %s\n", indent, id, childID))
 	}
