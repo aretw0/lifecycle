@@ -106,3 +106,53 @@ func TestSpike_Race_ImmediateCancel(t *testing.T) {
 		t.Errorf("Expected 0 bytes, got %d", n)
 	}
 }
+
+// TestSpike_Interactive_StrictCancel verifies that ReadInteractive DISCARDS data
+// if the context is cancelled, prioritizing the error.
+func TestSpike_Interactive_StrictCancel(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
+	}
+	defer r.Close()
+	defer w.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	reader := NewInterruptibleReader(r, ctx.Done())
+
+	type result struct {
+		n   int
+		err error
+	}
+	resChan := make(chan result, 1)
+
+	// Launch Reader
+	go func() {
+		buf := make([]byte, 1024)
+		// USE STRICT READ
+		n, err := reader.ReadInteractive(buf)
+		resChan <- result{n: n, err: err}
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Cancel Context ("Stop!")
+	cancel()
+
+	// But also simulate data arriving ("y\n") at the same time
+	w.Write([]byte("yes"))
+
+	select {
+	case res := <-resChan:
+		// STRICT MODE: Should return Error, NOT data.
+		if !IsInterrupted(res.err) {
+			t.Errorf("Expected interruption error, got %v", res.err)
+		}
+		if res.n != 0 {
+			// This is the key difference: Data is discarded!
+			t.Errorf("Expected 0 bytes (discarded), got %d: %q", res.n, string(make([]byte, res.n)))
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Test timed out")
+	}
+}

@@ -51,6 +51,32 @@ func (r *InterruptibleReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
+// ReadInteractive reads from the underlying source but enforces a "Strict Cancel" policy.
+// Unlike Read() (which prioritizes Data over Error to prevent data loss), ReadInteractive
+// prioritizes the Cancellation Error over Data.
+//
+// If the context is cancelled while reading (or immediately after), any data read from
+// the OS buffer is DISCARDED, and ErrInterrupted is returned.
+//
+// Use this for interactive prompts (e.g. "Do you want to continue? [y/N]") where a
+// User Interrupt (Ctrl+C) should always take precedence over the input "y", preventing
+// accidental execution of dangerous actions.
+func (r *InterruptibleReader) ReadInteractive(p []byte) (n int, err error) {
+	// Standard read first (which respects pre-cancellation)
+	n, err = r.Read(p)
+
+	// Post-Read Strict Check:
+	// If the context is cancelled, we MUST discard the result to honor the
+	// user's intent to "Cancel", even if they managed to type a character along with it.
+	select {
+	case <-r.cancel:
+		return 0, ErrInterrupted
+	default:
+	}
+
+	return n, err
+}
+
 // IsInterrupted checks if the error is related to an interruption (Context Canceled, ErrInterrupted, or EOF).
 func IsInterrupted(err error) bool {
 	if err == nil {
