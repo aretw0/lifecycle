@@ -31,6 +31,9 @@ go get github.com/aretw0/lifecycle
   * **Unified Dashboard**: `SystemDiagram` synthesizes Signal and Worker states into a single Mermaid visualization.
   * **Rich Metrics**: Built-in providers for tracking shutdown health, data loss, and shutdown latency.
   * **Stall Detection**: Automatically detects and warns if a shutdown hook is stalled (runs > 5s).
+* **Reliability Primitives** (v1.4):
+  * **Critical Sections**: `lifecycle.Do(ctx, fn)` shields atomic operations from cancellation (deferring the signal) until completion.
+  * **Introspection**: `SignalContext.Reason()` to differentiate between "Manual Stop", "Interrupt", or "Timeout".
 * **Worker & Supervisor** (v1.3):
   * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes, Goroutines, and Containers.
   * **Supervision Tree**: `Supervisor` manages hierarchical worker clusters with restart policies (`OneForOne`, `OneForAll`).
@@ -39,6 +42,10 @@ go get github.com/aretw0/lifecycle
   * **Process Hygiene**: Automatic cleanup of child processes if the parent dies (Job Objects/PDeathSig).
   * **Handover Protocol**: Standardized environment variables (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) to pass context across restarts.
   * **Container Abstraction**: Generic interface to manage containerized workloads without direct SDK dependencies.
+* **DX Helpers** (v1.4):
+  * **`Run`**: One-line `main` entry point (Context + Signal Handling + Cleanup).
+  * **`Sleep`**: Context-aware sleep (returns immediately on cancel).
+  * **`OnShutdown`**: Type-safe hook registration without casting.
 
 ## Usage
 
@@ -50,31 +57,29 @@ package main
 import (
     "context"
     "fmt"
+    "time"
     "github.com/aretw0/lifecycle"
 )
 
 func main() {
-    // captures SIGINT/SIGTERM
-    ctx := lifecycle.NewSignalContext(context.Background())
-    defer ctx.Cancel() 
+    // lifecycle.Run handles context creation, signal listening, and cleanup.
+    // It automatically waits for hooks if a signal is received.
+    lifecycle.Run(runApp)
+}
 
-    // Register cleanup hooks (LIFO execution)
-    ctx.OnShutdown(func() {
+func runApp(ctx context.Context) error {
+    // 1. Frictionless Hook Registration
+    lifecycle.OnShutdown(ctx, func() {
         fmt.Println("Cleanup: Database closed")
     })
-    ctx.OnShutdown(func() {
-        fmt.Println("Cleanup: HTTP server stopped")
-    })
 
-    <-ctx.Done()
-    
-    // Check why we stopped
-    if sig := ctx.Signal(); sig != nil {
-        fmt.Printf("Stopped by signal: %v\n", sig)
+    // 2. Safe Sleep (Regret Window)
+    // Returns immediately if Ctrl+C is pressed.
+    if err := lifecycle.Sleep(ctx, 10*time.Second); err != nil {
+        return err
     }
-
-    // IMPORTANT: Wait for hooks to finish!
-    ctx.Wait()
+    
+    return nil
 }
 ```
 
@@ -170,14 +175,12 @@ The library uses a consistent color palette for all generated diagrams:
 * 🟢 **Stopped**: Successfully terminated.
 * 🔴 **Failed**: Crashed or terminated with error.
 
-## Caveats
+## I/O Safety
 
-### Interruptible I/O & Data Loss
+The library implements **Context-Aware I/O** to balance data preservation and responsiveness:
 
-The `InterruptibleReader` uses a "Peek & Abandon" strategy to allow unblocking a read.
-
-* **Risk**: If data arrives from the OS *exactly* when the context is cancelled, that data is discarded to prioritize the cancellation.
-* **Impact**: This is acceptable for interactive CLIs (user hits Ctrl+C, we discard the "y" they just typed), but **NOT** suitable for critical binary streams where every byte matters.
+* **`Read()` (Pipeline Safe)**: Uses a **Shielded Return** strategy. If data arrives simultaneously with a cancellation signal, it returns the *data* (nil error). This guarantees no data loss in pipelines or logs.
+* **`ReadInteractive()` (Interactive Safe)**: Uses a **Strict Discard** strategy. If the user hits Ctrl+C while typing, any partial input is discarded to prevent accidental execution of commands.
 
 ## Documentation
 

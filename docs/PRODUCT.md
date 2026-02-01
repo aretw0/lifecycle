@@ -19,6 +19,7 @@ Writing robust CLI tools in Go is deceptive. Handling `Ctrl+C` correctly implies
 * **Dual-Signal Context**: A standard pattern to differentiate "Soft Interrupt" vs "Hard Kill".
 * **Safety Wrapper**: `pkg/termio` guarantees that I/O operations respect `context.Context`, implementing "Abandon Ship" logic for blocking reads.
 * **Runtime Safety**: `pkg/runtime` prevents "Zombie Processes" and "Eternal Shutdowns" via strict timeouts and cleanup helpers.
+* **Durable Execution**: `lifecycle.Do` shielding allows engines to protect critical state transitions from interruption.
 * **Uniformity**: Ensures tools behave identically when the user tries to stop them.
 
 ## Target Audience

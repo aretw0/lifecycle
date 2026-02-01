@@ -6,6 +6,7 @@
 
 1. **Dual-Signal Handling**: Distinguishing `SIGINT` (User Interrupt) from `SIGTERM` (System Termination).
 2. **Interruptible I/O**: Wrapping blocking `io.Reader` calls to allow context cancellation, essential for preventing goroutine leaks during shutdown.
+3. **Durable Primitives** (v1.4): Shielding critical sections (`lifecycle.Do`) to allow "Durable Execution" engines to run safely.
 
 It is designed to be the foundational entry point for Go CLIs.
 

@@ -63,11 +63,11 @@ Focus: Hardening the Supervisor implementation and improving developer ergonomic
 
 Focus: Features to support "Durable Execution" engines (like Trellis), distinguishing between "Stopping" and "Crashing".
 
-- [ ] **Critical Sections**: Implement `lifecycle.Do(ctx, fn)` to delay context cancellation for atomic operations (The "Shield").
-- [ ] **Shutdown Reason**: Add `Reason() enum` to `SignalContext` (Interrupt vs Terminate vs Timeout) to inform "Suspend" vs "Abort" decisions.
-- [ ] **Input Safety**: Rework `InterruptibleReader` to support "Buffered Peek" or "Shielded Return" to prevent data loss on cancellation.
-- [ ] **Resumable Worker**: Worker that can be paused/resumed via Token (Trellis convergence).
-- [ ] **Token Protocol**: Standardize passing `LIFECYCLE_RESUME_TOKEN` via Env/Stdin.
+- [x] **Critical Sections**: Implement `lifecycle.Do(ctx, fn)` to delay context cancellation for atomic operations (The "Shield").
+- [x] **Shutdown Reason**: Add `Reason() enum` to `SignalContext` (Interrupt vs Terminate vs Timeout) to inform "Suspend" vs "Abort" decisions.
+- [x] **Input Safety**: Rework `InterruptibleReader` to support "Buffered Peek" or "Shielded Return" to prevent data loss on cancellation.
+- [x] **Resumable Worker**: Worker that can be paused/resumed via Token (Trellis convergence).
+- [x] **Token Protocol**: Standardize passing `LIFECYCLE_RESUME_ID` (acts as Resume Token) via Env.
 
 ### v1.5: Portability
 

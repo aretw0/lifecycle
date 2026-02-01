@@ -35,6 +35,7 @@ stateDiagram-v2
 * **Functional Options**: Customize if `SIGINT` cancels or the number of signals for `ForceExit`.
 * **Zero Leak**: monitoring goroutine is cleaned up via `.Stop()`.
 * **Lifecycle Hooks**: Supports `OnShutdown` callbacks executed in LIFO order (defer-like) upon signal reception.
+* **Introspection**: `Reason()` allows checking *why* a context was cancelled (`Interrupt`, `Terminate`, `Timeout` or `Manual:Stop`).
 
 #### Execution Flow
 
@@ -58,37 +59,75 @@ sequenceDiagram
     end
 ```
 
-### 2. Interruptible I/O (`pkg/termio`)
+### 2. Context-Aware I/O & Safety (`pkg/termio`)
 
-Go's `io.Reader` is blocking. We cannot easily kill a thread blocked on a syscall. `InterruptibleReader` solves this by using a "Peek & Abandon" strategy.
+Traditional I/O is binary: it reads or it blocks. `lifecycle` introduces **Context-Aware I/O**, allowing the application to decide how to balance **Data Preservation** vs **Responsiveness** based on the use case.
+
+#### Strategy A: Shielded Return (Pipeline Safe)
+
+**Use Case**: CI/CD Pipelines, Log Aggregation, Automation.
+**Goal**: Never lose data. If `SIGINT` arrives *while* data is being read, we must return the data first.
+
+* **Method**: `InterruptibleReader.Read(p)` takes a "Data First" approach.
+* **Behavior**:
+    1. Blocks on OS Read.
+    2. If Data arrives AND Context is cancelled: Returns `n > 0, nil`.
+    3. Only returns `ErrInterrupted` if *no data* was read.
+
+#### Strategy B: Strict Discard (Interactive Safe)
+
+**Use Case**: Interactive Prompts (Y/N), Confirmation Dialogs, Menu Selection.
+**Goal**: Safety First. If the user hits `Ctrl+C` while typing, they likely *changed their mind*, and we should not act on partial input (like `y` followed by `Ctrl+C`).
+
+* **Method**: `InterruptibleReader.ReadInteractive(p)` takes an "Error First" approach.
+* **Behavior**:
+    1. Blocks on OS Read.
+    2. If Data arrives AND Context is cancelled: Returns `n=0, ErrInterrupted`.
+    3. **Discards** the buffer to prevent accidental execution.
+
+#### Strategy C: Regret Window (Execution Safe)
+
+**Use Case**: Critical Operations (Deleting Resources, Deployment).
+**Goal**: Give the user a "grace period" to abort *after* submitting a command.
+
+* **Method**: `lifecycle.Sleep(ctx, duration)`.
+* **Behavior**:
+    1. User submits command (Input Phase complete).
+    2. App pauses for N seconds.
+    3. If `Ctrl+C` happens during sleep, `Sleep` returns `ctx.Err()` immediately, allowing clean abort.
 
 ```mermaid
 sequenceDiagram
-    participant Main
-    participant ReaderWrapper
+    participant App
+    participant Reader
     participant OS_Stdin
-    
-    Main->>ReaderWrapper: Read(p)
-    ReaderWrapper->>ReaderWrapper: Select(ctx.Done?)
-    
-    alt Context Active
-        ReaderWrapper->>OS_Stdin: syscall.Read() [BLOCKING]
-        OS_Stdin-->>ReaderWrapper: return n bytes
-        ReaderWrapper->>ReaderWrapper: Select(ctx.Done?)
-        ReaderWrapper-->>Main: return n, nil
-    else Context Cancelled (Before)
-        ReaderWrapper-->>Main: return 0, ErrInterrupted
-    else Context Cancelled (During)
-        note over ReaderWrapper: OS Read eventually returns (or we abandon)
-        OS_Stdin-->>ReaderWrapper: return n bytes
-        ReaderWrapper->>ReaderWrapper: Select(ctx.Done?) -> YES
-        ReaderWrapper-->>Main: return 0, ErrInterrupted
+    participant Context
+
+    note over App: Strategy Selection
+
+    alt Strategy A (Data First)
+        App->>Reader: Read()
+        OS_Stdin-->>Reader: Returns "Data"
+        Context-->>Reader: Returns "Cancelled"
+        Reader-->>App: Return "Data", nil
+        note right of App: Process Data
+    else Strategy B (Error First)
+        App->>Reader: ReadInteractive()
+        OS_Stdin-->>Reader: Returns "Data"
+        Context-->>Reader: Returns "Cancelled"
+        Reader-->>App: Return 0, ErrInterrupted
+        note right of App: Abort Operation (Strict)
+    else Strategy C (Regret Window)
+        App->>App: Input Accepted
+        App->>lifecycle: Sleep(ctx, 3s)
+        Context-->>lifecycle: Cancelled (User Regret)
+        lifecycle-->>App: Return ctx.Err()
+        note right of App: Abort Execution
     end
 ```
 
 #### Caveats & Constraints
 
-* **Data Loss (Peek & Abandon)**: If a read returns exactly as the context is cancelled, the bytes consumed from the OS buffer are **discarded** to prioritize the error. This is acceptable for interactive CLIs but risky for binary streams.
 * **Blocking Syscalls**: Go cannot interrupt a raw `read()` syscall. The `Reader` remains blocked in the OS until data arrives, even if the user receives `ErrInterrupted`.
 * **Buffer Inconsistency**: Sharing the underlying `io.Reader` between multiple `InterruptibleReader` instances leads to non-deterministic data theft.
 
@@ -293,3 +332,37 @@ graph TD
     style CW fill:#ccf,stroke:#333
     style C fill:#f9f,stroke:#333
 ```
+
+### 11. Reliability Primitives (`internal/reliability`) (v1.4)
+
+To support **Durable Execution** engines (like Trellis), we provide primitives that shield critical operations from interruptions.
+
+#### Critical Sections (`lifecycle.Do`)
+
+`lifecycle.Do(ctx, fn)` allows executing a function that *cannot be cancelled* by the parent context until it completes.
+
+* **Shielding**: The provided `fn` receives a new context that is **detached** from the parent's cancellation.
+* **Deferral**: If the parent context is cancelled during execution, `Do` waits for `fn` to return before returning the parent's error.
+
+```mermaid
+sequenceDiagram
+    participant P as Parent Context
+    participant D as lifecycle.Do
+    participant F as Function
+    
+    P->>D: Call Do(ctx, fn)
+    D->>F: Run fn(shieldedCtx)
+    
+    note right of P: User hits Ctrl+C
+    P--xP: Cancelled!
+    
+    note over D: Do detects cancellation<br/>but WAITS for fn
+    
+    F->>F: Complete Critical Work
+    F-->>D: Return
+    
+    D-->>P: Return ctx.Err() (Canceled)
+```
+
+> [!WARNING]
+> **Blocking Shutdown**: Since `Do` waits for the function to complete, a long-running or hung function *inside* a `Do` block will prevent the application from shutting down, effectively overriding `SIGINT`. Use strict internal timeouts within the shielded function.
