@@ -22,6 +22,11 @@ type Provider struct {
 	WorkerStarts      map[string]int
 	WorkerStops       map[string]int
 	WorkerFails       map[string]int
+
+	// Goroutine metrics
+	GoroutinesStarted  int
+	GoroutinesFinished int
+	GoroutinesPanicked int
 }
 
 // Ensure interface compliance
@@ -111,6 +116,32 @@ func (m *Provider) IncBackoffTriggered(c string, d time.Duration) {
 	m.Backoffs[c] = d
 }
 
-func (m *Provider) IncCriticalSectionStarted()                     {}
-func (m *Provider) IncCriticalSectionFinished(success bool)        {}
+func (m *Provider) IncCriticalSectionStarted()              {}
+func (m *Provider) IncCriticalSectionFinished(success bool) {}
+
 func (m *Provider) ObserveCriticalSectionDuration(d time.Duration) {}
+
+func (m *Provider) IncGoroutineStarted() {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.GoroutinesStarted++
+}
+
+func (m *Provider) IncGoroutineFinished() {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.GoroutinesFinished++
+}
+
+func (m *Provider) IncGoroutinePanicked() {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.GoroutinesPanicked++
+}
+
+func (m *Provider) ObserveGoroutineBlockDuration(d time.Duration) {}
+
+func (m *Provider) IncGoroutineWaiting() {
+	// For testing, we might want to track this, but simpler to NoOp or just track calls if needed.
+}
+func (m *Provider) DecGoroutineWaiting() {}

@@ -39,6 +39,17 @@ type Provider interface {
 	IncContainerStopped(image string)
 	IncContainerFailed(image string)
 	ObserveContainerDuration(image string, duration time.Duration)
+
+	// Goroutine metrics (v2.0)
+	IncGoroutineStarted()
+	IncGoroutineFinished()
+	IncGoroutinePanicked()
+
+	ObserveGoroutineBlockDuration(duration time.Duration)
+
+	// Waiting/Backpressure Gauge
+	IncGoroutineWaiting()
+	DecGoroutineWaiting()
 }
 
 var (
@@ -94,6 +105,15 @@ func (n *NoOpProvider) IncContainerStarted(image string)                       {
 func (n *NoOpProvider) IncContainerStopped(image string)                       {}
 func (n *NoOpProvider) IncContainerFailed(image string)                        {}
 func (n *NoOpProvider) ObserveContainerDuration(image string, d time.Duration) {}
+
+func (n *NoOpProvider) IncGoroutineStarted()  {}
+func (n *NoOpProvider) IncGoroutineFinished() {}
+func (n *NoOpProvider) IncGoroutinePanicked() {}
+
+func (n *NoOpProvider) ObserveGoroutineBlockDuration(d time.Duration) {}
+
+func (n *NoOpProvider) IncGoroutineWaiting() {}
+func (n *NoOpProvider) DecGoroutineWaiting() {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -197,4 +217,28 @@ func (l *LogProvider) IncContainerFailed(image string) {
 
 func (l *LogProvider) ObserveContainerDuration(image string, d time.Duration) {
 	log.Debug("metric observed", "name", "lifecycle_container_duration_seconds", "image", image, "value", d.Seconds())
+}
+
+func (l *LogProvider) IncGoroutineStarted() {
+	log.Debug("metric incremented", "name", "lifecycle_goroutines_started_total")
+}
+
+func (l *LogProvider) IncGoroutineFinished() {
+	log.Debug("metric incremented", "name", "lifecycle_goroutines_finished_total")
+}
+
+func (l *LogProvider) IncGoroutinePanicked() {
+	log.Debug("metric incremented", "name", "lifecycle_goroutines_panicked_total")
+}
+
+func (l *LogProvider) ObserveGoroutineBlockDuration(d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_goroutines_block_duration_seconds", "value", d.Seconds())
+}
+
+func (l *LogProvider) IncGoroutineWaiting() {
+	log.Debug("metric incremented", "name", "lifecycle_goroutines_waiting_current")
+}
+
+func (l *LogProvider) DecGoroutineWaiting() {
+	log.Debug("metric decremented", "name", "lifecycle_goroutines_waiting_current")
 }
