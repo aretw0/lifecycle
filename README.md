@@ -1,7 +1,7 @@
 # lifecycle
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/aretw0/lifecycle)](https://goreportcard.com/report/github.com/aretw0/lifecycle)
-[![Go Doc](https://godoc.org/github.com/aretw0/lifecycle?status.svg)](https://godoc.org/github.com/aretw0/lifecycle)
+[![Go Reference](https://pkg.go.dev/badge/github.com/aretw0/lifecycle.svg)](https://pkg.go.dev/github.com/aretw0/lifecycle)
 [![License](https://img.shields.io/github/license/aretw0/lifecycle.svg?color=red)](LICENSE.txt)
 [![Release](https://img.shields.io/github/release/aretw0/lifecycle.svg?branch=main)](https://github.com/aretw0/lifecycle/releases)
 
