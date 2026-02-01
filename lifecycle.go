@@ -8,6 +8,7 @@ import (
 
 	"log/slog"
 
+	"github.com/aretw0/lifecycle/internal/reliability"
 	"github.com/aretw0/lifecycle/pkg/container"
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
@@ -85,6 +86,13 @@ func StartProcess(cmd *exec.Cmd) error {
 // Alias for pkg/proc.StrictMode.
 func SetStrictMode(strict bool) {
 	proc.StrictMode = strict
+}
+
+// Do executes a function in a "Critical Section" that delays context cancellation.
+// It wraps the provided function in a shielded context that ignores the parent's cancellation.
+// Alias for internal/reliability.Do.
+func Do(parent context.Context, fn func(ctx context.Context)) error {
+	return reliability.Do(parent, fn)
 }
 
 // SetLogger overrides the global logger used by the library.
