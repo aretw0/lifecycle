@@ -8,9 +8,18 @@ type Event interface {
 	String() string
 }
 
-// Reaction is an action taken in response to an event.
-// It receives the context and performs a task (e.g., Shutdown, Reload, Log).
-type Reaction func(ctx context.Context) error
+// Handler responds to an event.
+type Handler interface {
+	HandleEvent(ctx context.Context, e Event) error
+}
+
+// HandlerFunc matches the signature of a Handler.
+type HandlerFunc func(ctx context.Context, e Event) error
+
+// HandleEvent calls f(ctx, e).
+func (f HandlerFunc) HandleEvent(ctx context.Context, e Event) error {
+	return f(ctx, e)
+}
 
 // Source is a producer of events.
 // It listens for external or internal triggers and emits them to the Events channel.

@@ -3,24 +3,61 @@ package control
 import (
 	"context"
 	"fmt"
+	"path"
 	"sync"
+
+	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
-// Router routes events from sources to reactions.
+// Middleware wraps a Handler.
+type Middleware func(next Handler) Handler
+
+// Router routes events from sources to reactions using a ServeMux-style pattern.
 type Router struct {
-	mu        sync.RWMutex
-	routes    map[string][]Reaction
-	sources   []Source
-	events    chan Event
-	isRunning bool
+	mu          sync.RWMutex
+	routes      map[string]Handler // Pattern -> Handler
+	middlewares []Middleware
+	sources     []Source
+	events      chan Event
+	isRunning   bool
 }
 
 // NewRouter creates a new control router.
 func NewRouter() *Router {
 	return &Router{
-		routes: make(map[string][]Reaction),
-		events: make(chan Event, 100), // Buffer events to prevent blocking sources
+		routes: make(map[string]Handler),
+		events: make(chan Event, 100), // TODO: Make this configurable?
 	}
+}
+
+// Handle registers the handler for the given pattern.
+// Patterns supports glob matching via path.Match.
+func (r *Router) Handle(pattern string, handler Handler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if pattern == "" {
+		panic("control: invalid pattern")
+	}
+	if handler == nil {
+		panic("control: nil handler")
+	}
+
+	// Check for collision? Standard ServeMux overwrites or panics.
+	// We will overwrite for now to allow dynamic re-routing.
+	r.routes[pattern] = handler
+}
+
+// HandleFunc registers the handler function for the given pattern.
+func (r *Router) HandleFunc(pattern string, handler func(context.Context, Event) error) {
+	r.Handle(pattern, HandlerFunc(handler))
+}
+
+// Use appends a middleware to the router stack.
+func (r *Router) Use(mw Middleware) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.middlewares = append(r.middlewares, mw)
 }
 
 // AddSource registers an event source.
@@ -30,16 +67,7 @@ func (r *Router) AddSource(s Source) {
 	r.sources = append(r.sources, s)
 }
 
-// On binds an event pattern (via string matching) to a reaction.
-// For now, it uses exact string matching of Event.String().
-// TODO: Implement regex or type-based matching.
-func (r *Router) On(pattern string, reaction Reaction) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.routes[pattern] = append(r.routes[pattern], reaction)
-}
-
-// Start runs the router loop. It starts all sources and listens for events.
+// Start runs the router loop.
 func (r *Router) Start(ctx context.Context) error {
 	r.mu.Lock()
 	if r.isRunning {
@@ -82,15 +110,15 @@ func (r *Router) Start(ctx context.Context) error {
 	}
 
 	// Process events
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		wg.Add(1)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case e := <-r.events:
-				r.dispatch(ctx, e)
+				r.Dispatch(ctx, e)
 			}
 		}
 	}()
@@ -99,24 +127,46 @@ func (r *Router) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *Router) dispatch(ctx context.Context, e Event) {
+// Dispatch finds the handler for an event and executes it.
+func (r *Router) Dispatch(ctx context.Context, e Event) {
 	r.mu.RLock()
-	reactions := r.routes[e.String()]
-	// Also check for wildcard or partial matches if we implement them later
-	r.mu.RUnlock()
+	defer r.mu.RUnlock()
 
-	if len(reactions) == 0 {
+	topic := e.String()
+	var matchedHandler Handler
+
+	// Metrics
+	metrics.GetProvider().IncEventRouted(topic)
+
+	// 1. Exact match
+	if h, ok := r.routes[topic]; ok {
+		matchedHandler = h
+	} else {
+		// 2. Glob match
+		// TODO: Optimize if many routes
+		for pattern, h := range r.routes {
+			if matched, _ := path.Match(pattern, topic); matched {
+				matchedHandler = h
+				break // First match wins? Or aggregation? Sticking to first match for Mux style.
+			}
+		}
+	}
+
+	if matchedHandler == nil {
 		return
 	}
 
-	// Execute reactions
-	// TODO: Managed Concurrency for reactions? Or Router blocks?
-	// For now, execute sequentially to ensure order.
-	for _, rn := range reactions {
-		if err := rn(ctx); err != nil {
-			// Log error but don't stop router
-			// TODO: Use pkg/log
-			fmt.Printf("Error executing reaction for %s: %v\n", e, err)
-		}
+	// Apply middleware
+	finalHandler := matchedHandler
+	for i := len(r.middlewares) - 1; i >= 0; i-- {
+		finalHandler = r.middlewares[i](finalHandler)
+	}
+
+	// Execute
+	metrics.GetProvider().IncHandlerExecuted(topic)
+	if err := finalHandler.HandleEvent(ctx, e); err != nil {
+		metrics.GetProvider().IncHandlerError(topic, err)
+		// TODO: Hook into pkg/log
+		fmt.Printf("control: handler error for %s: %v\n", topic, err)
 	}
 }

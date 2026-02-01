@@ -12,6 +12,7 @@ import (
 	"github.com/aretw0/lifecycle/internal/reliability"
 	"github.com/aretw0/lifecycle/pkg/container"
 	"github.com/aretw0/lifecycle/pkg/control"
+	"github.com/aretw0/lifecycle/pkg/handlers"
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/proc"
@@ -267,9 +268,13 @@ func NewSupervisor(name string, strategy SupervisorStrategy, specs ...Supervisor
 // Alias for pkg/control.Event.
 type Event = control.Event
 
-// Reaction is an action taken in response to an event.
-// Alias for pkg/control.Reaction.
-type Reaction = control.Reaction
+// Handler responds to an event.
+// Alias for pkg/control.Handler.
+type Handler = control.Handler
+
+// HandlerFunc matches the signature of a Handler.
+// Alias for pkg/control.HandlerFunc.
+type HandlerFunc = control.HandlerFunc
 
 // Source is a producer of events.
 // Alias for pkg/control.Source.
@@ -293,6 +298,18 @@ func NewOSSignalSource(signals ...os.Signal) Source {
 
 // NewWebhookSource creates a source that listens for Webhooks.
 // Alias for pkg/sources.NewWebhookSource.
-func NewWebhookSource() *sources.WebhookSource {
-	return sources.NewWebhookSource()
+func NewWebhookSource(addr string) *sources.WebhookSource {
+	return sources.NewWebhookSource(addr)
+}
+
+// NewShutdownHandler returns a handler that cancels context.
+// Alias for pkg/handlers.NewShutdown.
+func NewShutdownHandler(cancel context.CancelFunc) Handler {
+	return handlers.NewShutdown(cancel)
+}
+
+// NewReloadHandler returns a handler that reloads configuration.
+// Alias for pkg/handlers.NewReload.
+func NewReloadHandler(onReload func(context.Context) error) Handler {
+	return handlers.NewReload(onReload)
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"fmt" // Kept fmt as it's used in the new code
 	"os"
 	"syscall"
 	"time"
@@ -11,73 +11,45 @@ import (
 )
 
 func main() {
-	// 1. Setup interactions
-	ctx := context.Background()
-
-	// Configure Logger (Application Level)
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	slog.SetDefault(logger)
-
-	// Configure Library Logger & Metrics
-	lifecycle.SetLogger(logger)
-	lifecycle.SetMetricsProvider(lifecycle.NewLogMetricsProvider())
-
-	// 2. Define the Control Router
+	// 1. Create Router
 	router := lifecycle.NewRouter()
 
-	// 3. Add Sources
-	// Source A: OS Signals (SIGINT, SIGTERM)
-	sigSource := lifecycle.NewOSSignalSource(syscall.SIGINT, syscall.SIGTERM)
-	router.AddSource(sigSource)
+	// 2. Register Sources
+	// Signal Source: "signal.interrupt", "signal.terminated"
+	sigSrc := lifecycle.NewOSSignalSource(os.Interrupt, syscall.SIGTERM)
+	router.AddSource(sigSrc)
 
-	// Source B: Simulated Webhook (Simulating an event after 2s)
-	webhookSource := lifecycle.NewWebhookSource()
-	router.AddSource(webhookSource)
+	// Webhook Source: "webhook.reload"
+	// Try: curl -X POST http://localhost:8080/reload
+	webSrc := lifecycle.NewWebhookSource(":8080") // Added port back based on context
+	router.AddSource(webSrc)
 
-	// 4. Register Reactions
-	// When a signal arrives, we log it.
-	// Note: We haven't implemented "pattern matching" yet, so we match the string representation.
-	// This is just a demo of the wiring.
-	router.On("Signal(interrupt)", func(ctx context.Context) error {
-		slog.Info("Reaction: Received Interrupt! Initiating Shutdown...")
+	// 3. Register Handlers (Reactions)
+	// For v2, let's assume we control the main context cancel.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Shutdown on Signal
+	shutdownHandler := lifecycle.NewShutdownHandler(cancel)
+	router.Handle("signal.*", shutdownHandler)
+
+	// Reload on Webhook
+	router.Handle("webhook.reload", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+		fmt.Println("🔄 Reload triggered via Webhook!")
+		fmt.Println("APP: Reloading configuration...")
+		time.Sleep(500 * time.Millisecond) // Simulate work
+		fmt.Println("✅ Configuration Reloaded")
 		return nil
-	})
+	}))
 
-	// 5. Use Managed Concurrency for the Application
-	g, _ := lifecycle.NewGroup(ctx)
+	// 4. Start Router
+	fmt.Println("🚀 Control Plane Started. PID:", os.Getpid())
+	fmt.Println("   - Waiting for SIGINT/SIGTERM...")
+	fmt.Println("   - Listening for Webhooks on :8080...")
 
-	// Task 1: Run the Router
-	g.Go(func(ctx context.Context) error {
-		slog.Info("Router: Starting...")
-		return router.Start(ctx)
-	})
-
-	// Task 2: Simulate a Panic (to test Recovery)
-	g.Go(func(ctx context.Context) error {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(1 * time.Second):
-			// Uncomment to test panic recovery
-			// panic("Oops! Something went wrong in a worker")
-			slog.Info("Worker: Still alive...")
-		}
-		return nil
-	})
-
-	// Task 3: Simulate external webhook trigger
-	g.Go(func(ctx context.Context) error {
-		time.Sleep(2 * time.Second)
-		slog.Info("Simulating Webhook Event...")
-		// In a real scenario, this would come from the WebhookSource internals
-		return nil
-	})
-
-	// Wait for everything
-	slog.Info("Main: Waiting for group...")
-	if err := g.Wait(); err != nil {
-		slog.Error("Main: Group error", "error", err)
+	if err := router.Start(ctx); err != nil {
+		fmt.Printf("Router error: %v\n", err)
 	}
-	slog.Info("Main: Exited.")
 
+	fmt.Println("👋 Shutdown Complete")
 }
