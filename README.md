@@ -11,6 +11,14 @@
 
 To provide a standard, leak-free way to handle CLI interruptions (Ctrl+C) and graceful shutdowns across Go CLI applications, handling OS idiosyncrasies (especially Windows `CONIN$`) transparently.
 
+## Project Status & Versioning
+
+> [!IMPORTANT]
+> **v1.x (Current - LTS)**: Focuses strictly on **Death Management** (Graceful Shutdown, Signals, Leak Prevention).
+> This branch is in **Maintenance Mode**. New features target v2.0.
+>
+> **v2.x (Upcoming)**: Will introduce the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, etc).
+
 ## Installation
 
 ```bash

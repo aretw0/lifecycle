@@ -1,4 +1,6 @@
-# Technical Architecture
+# Technical Architecture (v1.x)
+
+> **Note**: This document describes the architecture of the **v1.x series** (Death Management).
 
 ## Overview
 
