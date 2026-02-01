@@ -1,41 +1,46 @@
-# Technical Architecture (v1.x)
+# Technical Architecture
 
-> **Note**: This document describes the architecture of the **v1.x series** (Death Management).
+> **Note**: This document describes the architecture of `lifecycle`, spanning its **v1.x Foundation** (Death Management) and the **v2.x Control Plane** (Life Management).
 
 ## Table of Contents
 
-* [**I. Core Foundation**](#i-core-foundation)
+* [**I. The Bedrock (v1.x Foundation)**](#i-the-bedrock-v1x-foundation)
 
     1. [Formal Definition](#1-formal-definition-identity)
     2. [Design Principles](#2-design-principles-constraints)
 
-* [**II. Core Mechanics**](#ii-core-mechanics)
+* [**II. Core Mechanics (Death Management)**](#ii-core-mechanics-death-management)
 
     3. [Signal State Machine](#3-signal-state-machine)
     4. [Context-Aware I/O](#4-context-aware-io--safety)
     5. [Process Hygiene](#5-process-hygiene)
     6. [Reliability Primitives (v1.4)](#6-reliability-primitives-v14)
 
-* [**III. The Supervisor Pattern**](#iii-the-supervisor-pattern)
+* [**III. The Supervisor Pattern (The Bridge)**](#iii-the-supervisor-pattern-the-bridge)
 
     7. [Worker Protocol](#7-worker-protocol)
     8. [Supervision Tree](#8-supervision-tree)
     9. [Handover Protocol](#9-handover-protocol)
 
-* [**IV. Ecosystem & Operations**](#iv-ecosystem--operations)
+* [**IV. The Control Plane (v2.x Vision)**](#iv-the-control-plane-v2x-vision)
 
-    10. [Introspection & Visualization](#10-introspection--visualization)
-    11. [Observability](#11-observability)
+    10. [Events vs Reactions](#10-events-vs-reactions)
+    11. [Managed Concurrency](#11-managed-concurrency)
+
+* [**V. Ecosystem & Operations**](#v-ecosystem--operations)
+
+    12. [Introspection & Visualization](#12-introspection--visualization)
+    13. [Observability](#13-observability)
 
 ---
 
-## I. Core Foundation
+## I. The Bedrock (v1.x Foundation)
 
 This section defines the architectural pillars that govern the library.
 
 ### 1. Formal Definition (Identity)
 
-Technically, `lifecycle` is a **Signal-Aware Control Plane** and **Interruptible I/O Supervisor**.
+Technically, `lifecycle` is a **Signal-Aware Control Plane** for modern applications (Services, Agents, CLIs).
 
 * **Signal-Aware**: It allows the application to distinguish between "User Requests" (`SIGINT`) and "System Demands" (`SIGTERM`), enabling intelligent shutdown policies (e.g., "Press Ctrl+C again to force quit").
 * **Interruptible**: It creates a layer over blocking System Calls (like `read`), allowing them to be abandoned instantly via Context cancellation, preventing goroutine leaks.
@@ -74,7 +79,7 @@ Internal state changes are not black boxes. They are exposed via:
 
 ---
 
-## II. Core Mechanics
+## II. Core Mechanics (Death Management)
 
 This section details the internal state machines and I/O handling strategies.
 
@@ -207,7 +212,7 @@ sequenceDiagram
 
 ---
 
-## III. The Supervisor Pattern
+## III. The Supervisor Pattern (The Bridge)
 
 (Introduced in v1.3)
 The Supervisor manages a set of Workers, forming a **Supervision Tree**.
@@ -268,9 +273,27 @@ sequenceDiagram
 
 ---
 
-## IV. Ecosystem & Operations
+## IV. The Control Plane (v2.x Vision)
 
-### 10. Introspection & Visualization
+(Introduced in v2.0)
+The Control Plane generalized the "Signal" concept into generic "Events".
+
+### 10. Events vs Reactions
+
+Instead of just `Signal -> Shutdown`, v2 introduce a router:
+
+* **Source (Input)**: `SIGINT`, `Webhook`, `FileWatch`, `HealthCheck`.
+* **Reaction (Output)**: `Shutdown`, `Reload`, `Suspend`, `Scale`.
+
+### 11. Managed Concurrency
+
+`lifecycle.Go(ctx, fn)` introduces "Safe Goroutines" that are automatically tracked and waited on, preventing the common "I forgot to WaitGroup this" leak.
+
+---
+
+## V. Ecosystem & Operations
+
+### 12. Introspection & Visualization
 
 We adopt the **Introspection Pattern**: components expose `State()` methods returning immutable DTOs, which are rendered into diagrams.
 
@@ -284,7 +307,7 @@ We adopt the **Introspection Pattern**: components expose `State()` methods retu
 * 🟢 **Stopped**: Clean exit.
 * 🔴 **Failed**: Crashed/Error.
 
-### 11. Observability
+### 13. Observability
 
 The library is instrumented via `pkg/metrics` and `pkg/log`.
 
