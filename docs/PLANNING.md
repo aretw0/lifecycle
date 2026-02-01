@@ -69,7 +69,7 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 - [x] **Resumable Worker**: Worker that can be paused/resumed via Token (Trellis convergence).
 - [x] **Token Protocol**: Standardize passing `LIFECYCLE_RESUME_ID` (acts as Resume Token) via Env.
 
-### v1.5: Maintenance Mode (LTS)
+### v1.4.1: Maintenance Mode (LTS)
 
 > [!IMPORTANT]
 > **Feature Freeze**: v1.4 marks the completion of the "Death Management" feature set.
