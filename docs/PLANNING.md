@@ -22,8 +22,9 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - [x] `Shutdown` (Current behavior)
   - [x] `HotReload` (Promoted from Backlog: SIGHUP triggers config reload without context cancellation)
   - [ ] `Suspend/Resume` (For Durable Execution)
-- [x] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
+- [ ] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
   - `lifecycle.Go(ctx, fn)`: A helper to spawn goroutines that are automatically tracked, waited on, and shielded from premature Context cancellation. Enforces "Safe Concurrency" by default.
+  - *Strategy*: Use a **Global WaitGroup** inside `pkg/runtime`. `Run` will `Wait()` on it after `Runnable` exits but before returning, guaranteeing no leaks. Panics in these goroutines should be caught and logged (metrics), but not crash the app (Recovery). `Supervisor` is reserved for "Services" that need restarts; `lifecycle.Go` is for "Tasks" that need cleanup.
 - [x] **Control Router (Stdlib-Native Mux)**:
   - **Strategy**: Clone `net/http` API (`Handle`, `Use`, `ServeMux`) but for `lifecycle.Event`. Avoid external deps.
   - [x] **Pattern Matching**: Use `path.Match` (Glob) backend (`signal.*`) and support `regexp` (partial).
