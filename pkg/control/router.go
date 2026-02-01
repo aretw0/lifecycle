@@ -30,6 +30,19 @@ func NewRouter() *Router {
 	}
 }
 
+// DefaultRouter is the default instance for package-level helpers.
+var DefaultRouter = NewRouter()
+
+// Handle registers a handler on the DefaultRouter.
+func Handle(pattern string, handler Handler) {
+	DefaultRouter.Handle(pattern, handler)
+}
+
+// HandleFunc registers a handler function on the DefaultRouter.
+func HandleFunc(pattern string, handler func(context.Context, Event) error) {
+	DefaultRouter.HandleFunc(pattern, handler)
+}
+
 // Handle registers the handler for the given pattern.
 // Patterns supports glob matching via path.Match.
 func (r *Router) Handle(pattern string, handler Handler) {

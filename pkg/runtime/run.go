@@ -19,15 +19,33 @@ func Sleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
+// Runnable defines a long-running process that can be started with a context.
+type Runnable interface {
+	Start(ctx context.Context) error
+}
+
+// RunnableFunc is a function adapter that implements Runnable.
+type RunnableFunc func(context.Context) error
+
+// Start calls the underlying function.
+func (f RunnableFunc) Start(ctx context.Context) error {
+	return f(ctx)
+}
+
+// Job creates a Runnable from a function.
+// It is an alias for RunnableFunc, providing a cleaner API for v1-style CLIs.
+func Job(fn func(context.Context) error) Runnable {
+	return RunnableFunc(fn)
+}
+
 // Run executes the application logic with a managed SignalContext.
-// It handles context creation, signal monitoring, and proper cleanup (Stop).
-// It also ensures we Wait() for hooks if a signal triggered the shutdown.
+// It accepts a Runnable (Job, Router, Supervisor) and manages its lifecycle.
 // This is the recommended entry point for main().
-func Run(fn func(context.Context) error, opts ...signal.Option) error {
+func Run(r Runnable, opts ...signal.Option) error {
 	ctx := signal.NewContext(context.Background(), opts...)
 	defer ctx.Stop()
 
-	err := fn(ctx)
+	err := r.Start(ctx)
 
 	// If shutdown was triggered by a signal, wait for hooks to complete.
 	// We avoid calling Wait() on normal exit or manual stop, as it would block forever.

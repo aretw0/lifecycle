@@ -14,7 +14,7 @@ func main() {
 	// 1. Context Creation (SIGINT/SIGTERM)
 	// 2. Monitoring Goroutine Cleanup (Stop)
 	// 3. Waiting for Hooks (Wait) on signal
-	err := lifecycle.Run(runApp)
+	err := lifecycle.Run(lifecycle.Job(runApp))
 	if err != nil && !lifecycle.IsInterrupted(err) {
 		fmt.Printf("Exit error: %v\n", err)
 	}

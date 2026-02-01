@@ -86,10 +86,20 @@ func Sleep(ctx context.Context, d time.Duration) error {
 	return runtime.Sleep(ctx, d)
 }
 
+// Runnable defines a long-running process.
+// Alias for pkg/runtime.Runnable.
+type Runnable = runtime.Runnable
+
+// Job creates a Runnable from a function.
+// Alias for pkg/runtime.Job.
+func Job(fn func(context.Context) error) Runnable {
+	return runtime.Job(fn)
+}
+
 // Run executes the application logic with a managed SignalContext.
 // Alias for pkg/runtime.Run.
-func Run(fn func(context.Context) error, opts ...SignalOption) error {
-	return runtime.Run(fn, opts...)
+func Run(r Runnable, opts ...SignalOption) error {
+	return runtime.Run(r, opts...)
 }
 
 // OnShutdown safely registers a shutdown hook on the context if it supports it.
@@ -119,7 +129,7 @@ func SetStrictMode(strict bool) {
 // Do executes a function in a "Critical Section" that delays context cancellation.
 // It wraps the provided function in a shielded context that ignores the parent's cancellation.
 // Alias for internal/reliability.Do.
-func Do(parent context.Context, fn func(ctx context.Context)) error {
+func Do(parent context.Context, fn func(ctx context.Context) error) error {
 	return reliability.Do(parent, fn)
 }
 
@@ -313,3 +323,21 @@ func NewShutdownHandler(cancel context.CancelFunc) Handler {
 func NewReloadHandler(onReload func(context.Context) error) Handler {
 	return handlers.NewReload(onReload)
 }
+
+// --- Stdlib Pattern Helpers ---
+
+// Handle registers a handler on the DefaultRouter.
+// Alias for pkg/control.Handle.
+func Handle(pattern string, handler Handler) {
+	control.Handle(pattern, handler)
+}
+
+// HandleFunc registers a handler function on the DefaultRouter.
+// Alias for pkg/control.HandleFunc.
+func HandleFunc(pattern string, handler func(context.Context, Event) error) {
+	control.HandleFunc(pattern, handler)
+}
+
+// DefaultRouter is the default instance for package-level helpers.
+// Alias for pkg/control.DefaultRouter.
+var DefaultRouter = control.DefaultRouter
