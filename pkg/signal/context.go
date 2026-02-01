@@ -12,6 +12,22 @@ import (
 	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
+// Reason describes why the context was cancelled.
+type Reason string
+
+const (
+	ReasonNone         Reason = "None"
+	ReasonInterrupt    Reason = "Interrupt"     // SIGINT (Ctrl+C)
+	ReasonTerminate    Reason = "Terminate"     // SIGTERM
+	ReasonManualStop   Reason = "Manual:Stop"   // Explicit Stop() call
+	ReasonManualCancel Reason = "Manual:Cancel" // Context Cancel() called
+	ReasonTimeout      Reason = "Timeout"       // Shutdown timed out
+)
+
+func (r Reason) String() string {
+	return string(r)
+}
+
 // Context wraps a context and captures the signal that cancelled it.
 type Context struct {
 	context.Context
@@ -20,6 +36,7 @@ type Context struct {
 	stop      sync.Once
 	sigCh     chan os.Signal
 	sigVal    os.Signal
+	reason    Reason
 	mu        sync.Mutex
 	opts      options
 	hooks     []func()
@@ -73,6 +90,11 @@ func WithHookTimeout(d time.Duration) Option {
 // It also ensures Wait() unblocks if called.
 func (sc *Context) Stop() {
 	sc.stop.Do(func() {
+		sc.mu.Lock()
+		if sc.reason == ReasonNone {
+			sc.reason = ReasonManualStop
+		}
+		sc.mu.Unlock()
 		ossignal.Stop(sc.sigCh)
 		close(sc.sigCh)
 	})
@@ -100,10 +122,21 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 	ctx, cancel := context.WithCancel(parent)
 	sc := &Context{
 		Context:   ctx,
-		Cancel:    cancel,
 		sigCh:     make(chan os.Signal, 1),
 		hooksDone: make(chan struct{}),
+		reason:    ReasonNone,
 		opts:      o,
+	}
+
+	// Internal Cancel Wrapper
+	// We wrap the context's cancel function to set the ReasonManualCancel if no other reason is set.
+	sc.Cancel = func() {
+		sc.mu.Lock()
+		if sc.reason == ReasonNone {
+			sc.reason = ReasonManualCancel
+		}
+		sc.mu.Unlock()
+		cancel()
 	}
 
 	sc.start.Do(func() {
@@ -143,6 +176,15 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 	metrics.GetProvider().IncSignalReceived(sig.String())
 
 	if isFirst && sc.shouldCancel(sig) {
+		sc.mu.Lock()
+		switch sig {
+		case os.Interrupt:
+			sc.reason = ReasonInterrupt
+		case syscall.SIGTERM:
+			sc.reason = ReasonTerminate
+		}
+		sc.mu.Unlock()
+
 		sc.Cancel()
 		go sc.runHooks()
 	}
@@ -174,13 +216,22 @@ func (sc *Context) Signal() os.Signal {
 	return sc.sigVal
 }
 
+// Reason returns the reason why the context was cancelled.
+func (sc *Context) Reason() Reason {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return sc.reason
+}
+
 // State represents the configuration state of the SignalContext.
 type State struct {
 	InterruptCancel    bool
 	ForceExitThreshold int
 	HookTimeout        time.Duration
 	Received           os.Signal
+	Reason             Reason
 	Stopping           bool
+	Enabled            bool // True if the signal monitor is active
 }
 
 // State returns a snapshot of the current configuration.
@@ -200,7 +251,22 @@ func (sc *Context) State() State {
 		ForceExitThreshold: sc.opts.forceExitThreshold,
 		HookTimeout:        sc.opts.hookTimeout,
 		Received:           sc.sigVal,
+		Reason:             sc.reason,
 		Stopping:           stopping,
+		// If the channel is closed, the monitor is disabled (Stopped).
+		// We can check if the channel is closed or nil, but checking the channel itself is tricky without a lock/select.
+		// However, in Stop(), we close the channel.
+		// A reliable way is checking if sigCh is closed.
+		Enabled: isChannelOpen(sc.sigCh),
+	}
+}
+
+func isChannelOpen(ch <-chan os.Signal) bool {
+	select {
+	case _, ok := <-ch:
+		return ok
+	default:
+		return true // It's open but empty
 	}
 }
 

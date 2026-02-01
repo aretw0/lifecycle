@@ -24,9 +24,42 @@ func TestSignalContext_Graceful(t *testing.T) {
 		if ctx.Signal() != syscall.SIGTERM {
 			t.Errorf("Expected signal SIGTERM, got %v", ctx.Signal())
 		}
+		if ctx.Reason() != ReasonTerminate {
+			t.Errorf("Expected reason Terminate, got %v", ctx.Reason())
+		}
 	case <-time.After(1 * time.Second):
 		t.Error("Context was not cancelled after signal")
 	}
+}
+
+func TestSignalContext_Reason(t *testing.T) {
+	t.Run("Interrupt", func(t *testing.T) {
+		ctx := NewContext(context.Background())
+		defer ctx.Stop()
+		ctx.sigCh <- os.Interrupt
+		<-ctx.Done()
+		if ctx.Reason() != ReasonInterrupt {
+			t.Errorf("Expected ReasonInterrupt, got %v", ctx.Reason())
+		}
+	})
+
+	t.Run("ManualStop", func(t *testing.T) {
+		ctx := NewContext(context.Background())
+		ctx.Stop()
+		if ctx.Reason() != ReasonManualStop {
+			t.Errorf("Expected ReasonManualStop after Stop(), got %v", ctx.Reason())
+		}
+	})
+
+	t.Run("ManualCancel", func(t *testing.T) {
+		ctx := NewContext(context.Background())
+		ctx.Cancel()
+		// Wait for context to be done to ensure cancellation propagated
+		<-ctx.Done()
+		if ctx.Reason() != ReasonManualCancel {
+			t.Errorf("Expected ReasonManualCancel after Cancel(), got %v", ctx.Reason())
+		}
+	})
 }
 
 func TestSignalContext_Options(t *testing.T) {

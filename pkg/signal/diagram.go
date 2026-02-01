@@ -51,3 +51,44 @@ func MermaidState(s State) string {
 
 	return sb.String()
 }
+
+// RenderFragment renders a Mermaid fragment representing the signal context for use in composite diagrams.
+func RenderFragment(sb *strings.Builder, sig State, id, indent string) {
+	statusMode := "Running"
+	statusClass := "active" // Default: Blue/Standard (Listening)
+
+	if !sig.Enabled {
+		statusMode = "Stopped"
+		statusClass = "stopped" // Green: Manually stopped
+	} else if sig.Stopping {
+		statusMode = "Graceful"
+		// Default Graceful is Warning/Pending (Yellow)
+		statusClass = "pending"
+
+		switch sig.Reason {
+		case ReasonTerminate:
+			statusClass = "failed" // Red: System Termination
+		case ReasonInterrupt:
+			statusClass = "pending" // Yellow: User Interrupt
+		case ReasonManualStop, ReasonManualCancel:
+			// If cancelled manually (Cancel called) but monitor is still enabled
+			statusClass = "pending"
+		}
+	}
+
+	received := "None"
+	if sig.Received != nil {
+		received = sig.Received.String()
+	}
+
+	reason := sig.Reason
+	if reason == "" {
+		reason = ReasonNone
+	}
+
+	// S["..."]:::signal
+	// class S statusClass
+	label := fmt.Sprintf("<b>Signal Handler</b><br/>Mode: %s<br/>Received: %s<br/>Reason: %s", statusMode, received, reason)
+	sb.WriteString(fmt.Sprintf("%s%s[\"%s\"]:::signal\n", indent, id, label))
+	sb.WriteString(fmt.Sprintf("%sclass %s %s\n", indent, id, statusClass))
+}

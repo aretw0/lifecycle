@@ -63,6 +63,10 @@ func main() {
 	fmt.Println(lifecycle.SystemDiagram(ctx.State(), sup.State()))
 
 	// 5. Shutdown
+	fmt.Println("\nStopping SignalContext (Manual)...")
+	ctx.Stop() // This sets Reason = Manual
+
+	// Stop Supervisor
 	sup.Stop(ctx)
 	<-sup.Wait()
 
