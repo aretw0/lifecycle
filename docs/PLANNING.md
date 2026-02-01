@@ -24,7 +24,11 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - [ ] `Suspend/Resume` (For Durable Execution)
 - [x] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
   - `lifecycle.Go(ctx, fn)`: A helper to spawn goroutines that are automatically tracked, waited on, and shielded from premature Context cancellation. Enforces "Safe Concurrency" by default.
-- [ ] **Control Router**: Configurable logic mapping `Source -> Reaction` (e.g., "On SIGHUP -> Reload", "On SIGINT -> Shutdown").
+- [ ] **Control Router (Robustness & DX)**:
+  - [ ] **Pattern Matching**: Implement Regex/Wildcard support (e.g., `signal.*`, `webhook:deploy:*`) instead of strict string equality.
+  - [ ] **Middleware**: Implement `Use(func(next Reaction) Reaction)` for cross-cutting concerns (Logging, Tracing, Panic Recovery).
+  - [ ] **Concurrency Strategy**: Configurable Dispatch (Sync vs Async vs Worker Pool per Route).
+  - [ ] **Introspection**: `Routes()` to list active bindings and `Graph()` for visualization.
 - [ ] **Ecosystem Integration (DX Layer)**:
   - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize missing/crashed nodes.
   - **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.
