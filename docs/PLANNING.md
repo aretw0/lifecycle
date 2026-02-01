@@ -76,7 +76,7 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 > Future v1.x releases will focus strictly on bug fixes, OS compatibility (e.g., BSD support), and performance.
 > All new "Control Plane" features target v2.0.
 
-- [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior (Portability).
+- [x] **Cross-Platform Verification**: Added macOS CI support (BSD proxy) to ensure `termio.Open()` portability.
 
 ### v2.0: Control Plane (Event-Driven Lifecycle)
 
