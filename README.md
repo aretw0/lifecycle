@@ -9,7 +9,10 @@
 
 ## Vision
 
-To provide a standard, leak-free way to handle CLI interruptions (Ctrl+C) and graceful shutdowns across Go CLI applications, handling OS idiosyncrasies (especially Windows `CONIN$`) transparently.
+To be the **standard Control Plane** for Infrastructure-Aware Applications (Services, Agents, CLIs).
+
+* **v1 (Foundation)**: Solves "Death Management" (Signals, Blocking I/O, Zombies).
+* **v2 (Evolution)**: Solves "Life Management" (Events, Reactions, Hot Reloading).
 
 ## Project Status & Versioning
 
@@ -25,7 +28,7 @@ To provide a standard, leak-free way to handle CLI interruptions (Ctrl+C) and gr
 go get github.com/aretw0/lifecycle
 ```
 
-## Features
+## Features (Foundation v1)
 
 * **SignalContext**: Differentiates between `SIGINT` (User Interrupt) and `SIGTERM` (System Shutdown).
   * **SIGINT**: Captured but doesn't cancel context immediately (allows "Wait, are you sure?" logic).
@@ -54,6 +57,12 @@ go get github.com/aretw0/lifecycle
   * **`Run`**: One-line `main` entry point (Context + Signal Handling + Cleanup).
   * **`Sleep`**: Context-aware sleep (returns immediately on cancel).
   * **`OnShutdown`**: Type-safe hook registration without casting.
+
+## Roadmap (Control Plane v2)
+
+* **Event Router**: Generalize `Signals` into `Events` (Webhook, FileWatch, HealthCheck).
+* **Managed Concurrency**: `lifecycle.Go(ctx, fn)` for non-leaking goroutines.
+* **Reactions**: `Reload`, `Suspend`, `Scale` alongside `Shutdown`.
 
 ## Usage
 

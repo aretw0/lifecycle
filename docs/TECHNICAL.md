@@ -40,7 +40,7 @@ This section defines the architectural pillars that govern the library.
 
 ### 1. Formal Definition (Identity)
 
-Technically, `lifecycle` is a **Signal-Aware Control Plane** for modern applications (Services, Agents, CLIs).
+Technically, `lifecycle` is a **Signal-Aware Control Plane** and **Interruptible I/O Supervisor** for modern applications (Services, Agents, CLIs).
 
 * **Signal-Aware**: It allows the application to distinguish between "User Requests" (`SIGINT`) and "System Demands" (`SIGTERM`), enabling intelligent shutdown policies (e.g., "Press Ctrl+C again to force quit").
 * **Interruptible**: It creates a layer over blocking System Calls (like `read`), allowing them to be abandoned instantly via Context cancellation, preventing goroutine leaks.

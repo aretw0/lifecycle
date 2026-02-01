@@ -2,20 +2,19 @@
 
 ## Project Overview
 
-**lifecycle** is a Go library for robust infrastructure signaling and interactive I/O. It solves two specific problems:
+**lifecycle** is a Go library for robust infrastructure signaling and interactive I/O.
+It allows applications to differentiate between "User Interrupts" and "System Terminations" while strictly enforcing leak-free shutdowns.
 
-1. **Dual-Signal Handling**: Distinguishing `SIGINT` (User Interrupt) from `SIGTERM` (System Termination).
-2. **Interruptible I/O**: Wrapping blocking `io.Reader` calls to allow context cancellation, essential for preventing goroutine leaks during shutdown.
-3. **Durable Primitives** (v1.4): Shielding critical sections (`lifecycle.Do`) to allow "Durable Execution" engines to run safely.
+For a detailed breakdown of the problems we solve (Zombie Processes, Blocking I/O, Dual Signals), see **[PRODUCT.md](docs/PRODUCT.md)**.
 
-It is designed to be the foundational entry point for Go CLIs.
+It is designed to be the foundational entry point for modern Go Applications (Services, Agents, CLIs).
 
 ## Project Structure & Documentation
 
-* **[TECHNICAL.md](docs/TECHNICAL.md)**: Architecture, State Machine, and Constraints (Data Loss vs Safety).
-* **[PLANNING.md](docs/PLANNING.md)**: Roadmap and Backlog.
+* **[TECHNICAL.md](docs/TECHNICAL.md)**: Architecture (Foundation & Control Plane).
+* **[PLANNING.md](docs/PLANNING.md)**: Roadmap (v2.0 Focus).
 * **[PRODUCT.md](docs/PRODUCT.md)**: Vision and "Why?" (The problem space).
-* **[examples/](examples/)**: Runnable recipes (`basic`, `hooks`, `termio`).
+* **[examples/](examples/)**: Runnable recipes (`basic`, `hooks`, `termio`, `supervisor`).
 
 ## Key Commands
 
