@@ -23,20 +23,47 @@
 // operation stalls, `lifecycle` provides `BlockWithTimeout`. This ensures the process exits
 // deterministically even if some components are stuck.
 //
+// # Reliability Primitives (v1.4)
+//
+// For "Durable Execution" patterns, `lifecycle` provides `Do(ctx, fn)`. This creates a
+// "Critical Section" where value-critical operations (like state commits) are shielded
+// from cancellation. If a user hits Ctrl+C during a critical section, the signal is
+// captured but deferred until the section completes.
+//
 // # Worker Protocol & Supervision (v1.3)
 //
 // For complex applications, `lifecycle` provides a `Worker` interface and a `Supervisor`.
 // This allows managing hierarchies of processes, goroutines, and containers with
 // automatic restarts, session persistence (Handover Protocol), and unified introspection.
 //
+// # DX Helpers & Boilerplate (v1.4)
+//
+// To reduce friction, `lifecycle` provides helpers that standardizes common patterns:
+//   - Run: Standardizes the `main` function (Context creation -> Run -> Stop -> Wait).
+//   - Sleep: Replaces `select { case <-time.After... }` with a single context-aware call.
+//   - OnShutdown: Registers hooks without manual type assertions.
+//
 // # Usage
 //
-//	ctx := lifecycle.NewSignalContext(context.Background())
-//	defer ctx.Cancel()
+//	func main() {
+//		err := lifecycle.Run(runApp)
+//		if err != nil {
+//			// handle err
+//		}
+//	}
 //
-//	// Safe terminal reading
-//	term, _ := lifecycle.OpenTerminal()
-//	reader := lifecycle.NewInterruptibleReader(term, ctx.Done())
+//	func runApp(ctx context.Context) error {
+//		// Register cleanup
+//		lifecycle.OnShutdown(ctx, func() {
+//			fmt.Println("Closing DB...")
+//		})
 //
-// See examples/demo for a full interactive application.
+//		// Safe Sleep (Regret Window)
+//		if err := lifecycle.Sleep(ctx, 5*time.Second); err != nil {
+//			return err
+//		}
+//		return nil
+//	}
+//
+// See examples/hooks for a full application structure.
 package lifecycle

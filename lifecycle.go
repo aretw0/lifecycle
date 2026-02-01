@@ -76,6 +76,30 @@ func BlockWithTimeout(done <-chan struct{}, timeout time.Duration) error {
 	return runtime.BlockWithTimeout(done, timeout)
 }
 
+// Sleep pauses the current goroutine for at least the duration d.
+// Alias for pkg/runtime.Sleep.
+func Sleep(ctx context.Context, d time.Duration) error {
+	return runtime.Sleep(ctx, d)
+}
+
+// Run executes the application logic with a managed SignalContext.
+// Alias for pkg/runtime.Run.
+func Run(fn func(context.Context) error, opts ...Option) error {
+	return runtime.Run(fn, opts...)
+}
+
+// OnShutdown safely registers a shutdown hook on the context if it supports it.
+// It abstracts the type assertion for *signal.Context.
+func OnShutdown(ctx context.Context, fn func()) {
+	if sc, ok := ctx.(*signal.Context); ok {
+		sc.OnShutdown(fn)
+	}
+	// If context is not a SignalContext, we could log a warning,
+	// but purely functional options often fail silently or use an interface.
+	// For now, silent allow is arguably least intrusive, but explicit is better.
+	// We'll stick to simple casting for now.
+}
+
 // StartProcess starts the specified command with process hygiene (auto-kill on parent exit).
 // Alias for pkg/proc.Start.
 func StartProcess(cmd *exec.Cmd) error {

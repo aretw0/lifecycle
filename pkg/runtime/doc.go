@@ -1,5 +1,7 @@
-// Package runtime provides utilities for deterministic process management.
+// Package runtime provides utilities for deterministic process management and boilerplate reduction.
 //
-// It focuses on preventing hangs during shutdown and ensuring cleanup tasks
-// are executed within a specified timeframe.
+// It focuses on:
+//  1. Preventing hangs during shutdown (timeouts).
+//  2. Standardizing application entry points (Run).
+//  3. Providing context-aware primitives (Sleep).
 package runtime
