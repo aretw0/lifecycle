@@ -69,27 +69,50 @@ Focus: Features to support "Durable Execution" engines (like Trellis), distingui
 - [x] **Resumable Worker**: Worker that can be paused/resumed via Token (Trellis convergence).
 - [x] **Token Protocol**: Standardize passing `LIFECYCLE_RESUME_ID` (acts as Resume Token) via Env.
 
-### v1.5: Portability
+### v1.5: Maintenance Mode (LTS)
 
-- [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior on other Unixes.
+> [!IMPORTANT]
+> **Feature Freeze**: v1.4 marks the completion of the "Death Management" feature set.
+> Future v1.x releases will focus strictly on bug fixes, OS compatibility (e.g., BSD support), and performance.
+> All new "Control Plane" features target v2.0.
 
-### v1.6: Ecosystem Unification (The DX Layer)
+- [ ] **BSD/Solaris Support**: Verify `termio.Open()` behavior (Portability).
 
-Focus: Establishing `lifecycle` as the canonical "DX Provider" for the Arbour ecosystem, centralizing Introspection and Observability standards.
+### v2.0: Control Plane (Event-Driven Lifecycle)
 
-- [ ] **Visualization 2.0 (The Overlay Pattern)**: Adapt the `Mermaid` renderer to separate **Topology** (Static Spec) from **Status** (Dynamic Runtime). This stability, inspired by Trellis, allows visualizing "Missing/Crashed" nodes instead of them just vanishing.
-- [ ] **Universal Introspection**: Define a public `Introspectable` interface (`State() any`) to allow external systems (Trellis Adapters, Loam Watchers) to plug into the `lifecycle` dashboard.
-- [ ] **Unified Observability**: Promote `pkg/metrics` as the standard bridge for the ecosystem, ensuring Trellis and Loam metrics (e.g., "Flow Transition", "File Change") flow through the same pipeline.
+> [!NOTE]
+> **Evolution Strategy**:
+>
+> - **v1.x**: Remains the stable, lightweight standard for **Death Management** (Shutdown & Signals). Ideal for simple CLIs.
+> - **v2.x**: Introduces the **Control Plane** (Life Management). A superset for complex applications needing Event Routing, Hot Reloading, and Dynamic Reactions.
+
+Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Application Control Plane". Decouple "Events" (Triggers) from "Reactions" (Actions).
+
+- [ ] **Event Sources (Inputs)**: Generalized interface for things that trigger lifecycle changes.
+  - `OSSignalSource` (SIGINT, SIGTERM)
+  - `WebhookSource` (Admin HTTP endpoints)
+  - `HealthCheckSource` (Promoted from Backlog: `Probe()` failures trigger restarts/shutdowns)
+  - `FileWatchSource` (Integration with Loam?)
+  - **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders without coupling (Headless Timers).
+- [ ] **Lifecycle Reactions (Outputs)**: Dynamic responses to events.
+  - `Shutdown` (Current behavior)
+  - `HotReload` (Promoted from Backlog: SIGHUP triggers config reload without context cancellation)
+  - `Suspend/Resume` (For Durable Execution)
+- [ ] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
+  - `lifecycle.Go(ctx, fn)`: A helper to spawn goroutines that are automatically tracked, waited on, and shielded from premature Context cancellation. Enforces "Safe Concurrency" by default.
+- [ ] **Control Router**: Configurable logic mapping `Source -> Reaction` (e.g., "On SIGHUP -> Reload", "On SIGINT -> Shutdown").
+- [ ] **Ecosystem Integration (DX Layer)**:
+  - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize missing/crashed nodes.
+  - **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.
+  - **Unified Observability**: Promote `pkg/metrics` as the standard bridge for Trellis/Loam.
 
 ## Backlog
 
-- **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic if it becomes repetitive across projects?
-- **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown scenarios (requested by user).
-- **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never) in `Spec`.
-- **Circuit Breaker**: Implement "MaxRestarts within Duration" logic to give up on permanently broken children (Erlang `MaxR/MaxT` style).
-- **Health Checks**: Add a `Probe()` interface for workers to report health status beyond just "process existence" (Kubernetes Liveness inspiration).
-- **Hot Reload**: Support `SIGHUP` to trigger configuration reloading without full process restart.
-- **Priority Shutdown**: Explicit shutdown phases (e.g., "Critical", "Normal", "Logging") beyond simple LIFO order.
+- **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic.
+- **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown.
+- **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never).
+- **Circuit Breaker**: Implement "MaxRestarts within Duration" logic (Erlang style).
+- **Priority Shutdown**: Explicit shutdown phases (e.g., "Critical", "Normal").
 
 ## Technical Debt
 
