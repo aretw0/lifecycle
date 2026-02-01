@@ -9,47 +9,55 @@ import (
 )
 
 func main() {
-	// Create a SignalContext
-	// This captures SIGINT (Ctrl+C) and SIGTERM.
-	ctx := lifecycle.NewSignalContext(context.Background())
-	defer ctx.Stop() // Ensure we stop the monitoring goroutine
+	// Use lifecycle.Run to manage the SignalContext automatically.
+	// It handles:
+	// 1. Context Creation (SIGINT/SIGTERM)
+	// 2. Monitoring Goroutine Cleanup (Stop)
+	// 3. Waiting for Hooks (Wait) on signal
+	err := lifecycle.Run(runApp)
+	if err != nil && !lifecycle.IsInterrupted(err) {
+		fmt.Printf("Exit error: %v\n", err)
+	}
+	fmt.Println("All cleanups done. Goodbye!")
+}
 
+func runApp(ctx context.Context) error {
 	fmt.Println("Application started. Press Ctrl+C to shutdown.")
 
 	// Register a simple hook (LIFO execution)
-	ctx.OnShutdown(func() {
+	// Use the facade helper to avoid manual casting.
+	lifecycle.OnShutdown(ctx, func() {
 		fmt.Println("[Hook 3] Fastest cleanup (runs last)")
 	})
 
 	// Register a slow hook to demonstrate Wait()
-	ctx.OnShutdown(func() {
+	lifecycle.OnShutdown(ctx, func() {
 		fmt.Println("[Hook 2] Slow cleanup starting... (runs 2nd)")
 		time.Sleep(1 * time.Second)
 		fmt.Println("[Hook 2] Slow cleanup finished.")
 	})
 
 	// Dynamic Hook Registration
-	ctx.OnShutdown(func() {
+	lifecycle.OnShutdown(ctx, func() {
 		fmt.Println("[Hook 1] Main cleanup (runs 1st)")
 
 		// You can register more hooks from INSIDE a hook!
 		// They will be executed immediately after this hook returns (LIFO-ish).
-		ctx.OnShutdown(func() {
+		lifecycle.OnShutdown(ctx, func() {
 			fmt.Println("[Hook 1.1] Dynamic sub-task")
 		})
 	})
 
 	// Simulate application work
-	select {
-	case <-ctx.Done():
-		fmt.Printf("\nShutdown signal received! (Reason: %s)\n", ctx.Reason())
-	case <-time.After(10 * time.Second):
-		fmt.Println("\nTimeout! Exiting normally.")
+	// Using the helper Sleep instead of select!
+	if err := lifecycle.Sleep(ctx, 10*time.Second); err != nil {
+		// To check the specific reasons (like IsInterrupted), we might generally just return err.
+		// If we want the Reason string, we'd need to cast, but usually err is enough.
+		// fmt.Printf("\nShutdown signal received! (Reason: %s)\n", sCtx.Reason())
+		fmt.Printf("\nShutdown signal received! (%v)\n", err)
+		return err
 	}
 
-	// CRITICAL: Block until all hooks have finished.
-	// If you forget this, the program might exit while "Hook 2" is still sleeping!
-	fmt.Println("Waiting for hooks...")
-	ctx.Wait()
-	fmt.Println("All cleanups done. Goodbye!")
+	fmt.Println("\nTimeout! Exiting normally.")
+	return nil
 }
