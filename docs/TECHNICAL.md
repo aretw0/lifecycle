@@ -191,7 +191,7 @@ To support **Durable Execution** engines (like Trellis), we provide primitives t
 
 #### Critical Sections (`lifecycle.Do`)
 
-`lifecycle.Do(ctx, fn)` allows executing a function that *cannot be cancelled* by the parent context until it completes.
+`lifecycle.Do(ctx, fn)` allowed executing a function that *cannot be cancelled* by the parent context until it completes. It returns any error produced by the shielded function.
 
 ```mermaid
 sequenceDiagram
@@ -200,7 +200,7 @@ sequenceDiagram
     participant F as Function
     
     P->>D: Call Do(ctx, fn)
-    D->>F: Run fn(shieldedCtx)
+    D->>F: Run fn(shieldedCtx) -> error
     
     note right of P: User hits Ctrl+C
     P--xP: Cancelled!
@@ -208,9 +208,9 @@ sequenceDiagram
     note over D: Do detects cancellation<br/>but WAITS for fn
     
     F->>F: Complete Critical Work
-    F-->>D: Return
+    F-->>D: Return error
     
-    D-->>P: Return ctx.Err() (Canceled)
+    D-->>P: Return error (or Canceled if shielded ctx ignored)
 ```
 
 ---

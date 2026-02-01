@@ -43,7 +43,7 @@ go get github.com/aretw0/lifecycle
   * **Rich Metrics**: Built-in providers for tracking shutdown health, data loss, and shutdown latency.
   * **Stall Detection**: Automatically detects and warns if a shutdown hook is stalled (runs > 5s).
 * **Reliability Primitives** (v1.4):
-  * **Critical Sections**: `lifecycle.Do(ctx, fn)` shields atomic operations from cancellation (deferring the signal) until completion.
+  * **Critical Sections**: `lifecycle.Do(ctx, fn)` shields atomic operations from cancellation and returns any error from the protected function.
   * **Introspection**: `SignalContext.Reason()` to differentiate between "Manual Stop", "Interrupt", or "Timeout".
 * **Worker & Supervisor** (v1.3):
   * **Unified Interface**: Standard `Start`, `Stop`, `Wait` contract for Processes, Goroutines, and Containers.
@@ -81,7 +81,7 @@ import (
 func main() {
     // lifecycle.Run handles context creation, signal listening, and cleanup.
     // It automatically waits for hooks if a signal is received.
-    lifecycle.Run(runApp)
+    lifecycle.Run(lifecycle.Job(runApp))
 }
 
 func runApp(ctx context.Context) error {
