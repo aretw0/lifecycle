@@ -27,6 +27,14 @@ type Provider struct {
 	GoroutinesStarted  int
 	GoroutinesFinished int
 	GoroutinesPanicked int
+	GoroutinesWaiting  int
+
+	// Control Plane metrics
+	EventsEmitted    map[string]int
+	EventsRouted     map[string]int
+	HandlersExecuted map[string]int
+	HandlerErrors    map[string]int
+	HandlerDurations map[string]time.Duration
 }
 
 // Ensure interface compliance
@@ -42,6 +50,11 @@ func New() *Provider {
 		WorkerStarts:      make(map[string]int),
 		WorkerStops:       make(map[string]int),
 		WorkerFails:       make(map[string]int),
+		EventsEmitted:     make(map[string]int),
+		EventsRouted:      make(map[string]int),
+		HandlersExecuted:  make(map[string]int),
+		HandlerErrors:     make(map[string]int),
+		HandlerDurations:  make(map[string]time.Duration),
 	}
 }
 
@@ -142,6 +155,44 @@ func (m *Provider) IncGoroutinePanicked() {
 func (m *Provider) ObserveGoroutineBlockDuration(d time.Duration) {}
 
 func (m *Provider) IncGoroutineWaiting() {
-	// For testing, we might want to track this, but simpler to NoOp or just track calls if needed.
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.GoroutinesWaiting++
 }
-func (m *Provider) DecGoroutineWaiting() {}
+func (m *Provider) DecGoroutineWaiting() {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.GoroutinesWaiting--
+}
+
+// Control Plane Implementations
+
+func (m *Provider) IncEventEmitted(source string) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.EventsEmitted[source]++
+}
+
+func (m *Provider) IncEventRouted(topic string) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.EventsRouted[topic]++
+}
+
+func (m *Provider) IncHandlerExecuted(topic string) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.HandlersExecuted[topic]++
+}
+
+func (m *Provider) IncHandlerError(topic string, err error) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.HandlerErrors[topic]++
+}
+
+func (m *Provider) ObserveHandlerDuration(topic string, d time.Duration) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.HandlerDurations[topic] = d
+}

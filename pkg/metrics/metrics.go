@@ -50,6 +50,13 @@ type Provider interface {
 	// Waiting/Backpressure Gauge
 	IncGoroutineWaiting()
 	DecGoroutineWaiting()
+
+	// Control Plane Metrics (v2.0)
+	IncEventEmitted(source string)
+	IncEventRouted(topic string)
+	IncHandlerExecuted(topic string)
+	IncHandlerError(topic string, err error)
+	ObserveHandlerDuration(topic string, duration time.Duration)
 }
 
 var (
@@ -115,9 +122,35 @@ func (n *NoOpProvider) ObserveGoroutineBlockDuration(d time.Duration) {}
 func (n *NoOpProvider) IncGoroutineWaiting() {}
 func (n *NoOpProvider) DecGoroutineWaiting() {}
 
+func (n *NoOpProvider) IncEventEmitted(source string)                        {}
+func (n *NoOpProvider) IncEventRouted(topic string)                          {}
+func (n *NoOpProvider) IncHandlerExecuted(topic string)                      {}
+func (n *NoOpProvider) IncHandlerError(topic string, err error)              {}
+func (n *NoOpProvider) ObserveHandlerDuration(topic string, d time.Duration) {}
+
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
 type LogProvider struct{}
+
+func (l *LogProvider) IncEventEmitted(source string) {
+	log.Debug("metric incremented", "name", "lifecycle_events_emitted_total", "source", source)
+}
+
+func (l *LogProvider) IncEventRouted(topic string) {
+	log.Debug("metric incremented", "name", "lifecycle_events_routed_total", "topic", topic)
+}
+
+func (l *LogProvider) IncHandlerExecuted(topic string) {
+	log.Debug("metric incremented", "name", "lifecycle_handlers_executed_total", "topic", topic)
+}
+
+func (l *LogProvider) IncHandlerError(topic string, err error) {
+	log.Debug("metric incremented", "name", "lifecycle_handler_errors_total", "topic", topic, "error", err)
+}
+
+func (l *LogProvider) ObserveHandlerDuration(topic string, d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_handler_duration_seconds", "topic", topic, "value", d.Seconds())
+}
 
 func (l *LogProvider) IncSignalReceived(sig string) {
 	log.Debug("metric incremented", "name", "lifecycle_signals_total", "signal", sig)
