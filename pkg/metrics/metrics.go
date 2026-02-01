@@ -26,9 +26,13 @@ type Provider interface {
 	IncSupervisorAdd(supervisorName string)
 	IncSupervisorRemove(supervisorName string)
 	IncBackoffTriggered(childName string, delay time.Duration)
-	IncDataLost(bytes int)
 	ObserveShutdownDuration(workerType string, duration time.Duration)
 	IncForceExitTriggered()
+
+	// Critical Sections
+	IncCriticalSectionStarted()
+	IncCriticalSectionFinished(success bool)
+	ObserveCriticalSectionDuration(duration time.Duration)
 
 	// Container metrics
 	IncContainerStarted(image string)
@@ -79,9 +83,12 @@ func (n *NoOpProvider) IncChildRestart(s, c string)                        {}
 func (n *NoOpProvider) IncSupervisorAdd(s string)                          {}
 func (n *NoOpProvider) IncSupervisorRemove(s string)                       {}
 func (n *NoOpProvider) IncBackoffTriggered(c string, d time.Duration)      {}
-func (n *NoOpProvider) IncDataLost(bytes int)                              {}
 func (n *NoOpProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (n *NoOpProvider) IncForceExitTriggered()                             {}
+
+func (n *NoOpProvider) IncCriticalSectionStarted()                     {}
+func (n *NoOpProvider) IncCriticalSectionFinished(success bool)        {}
+func (n *NoOpProvider) ObserveCriticalSectionDuration(d time.Duration) {}
 
 func (n *NoOpProvider) IncContainerStarted(image string)                       {}
 func (n *NoOpProvider) IncContainerStopped(image string)                       {}
@@ -156,16 +163,24 @@ func (l *LogProvider) IncBackoffTriggered(c string, d time.Duration) {
 	log.Debug("metric observed", "name", "lifecycle_backoff_triggered_seconds", "child", c, "delay", d.Seconds())
 }
 
-func (l *LogProvider) IncDataLost(bytes int) {
-	log.Debug("metric incremented", "name", "lifecycle_data_lost_bytes_total", "bytes", bytes)
-}
-
 func (l *LogProvider) ObserveShutdownDuration(wt string, d time.Duration) {
 	log.Debug("metric observed", "name", "lifecycle_worker_shutdown_duration_seconds", "type", wt, "value", d.Seconds())
 }
 
 func (l *LogProvider) IncForceExitTriggered() {
 	log.Debug("metric incremented", "name", "lifecycle_force_exit_triggered_total")
+}
+
+func (l *LogProvider) IncCriticalSectionStarted() {
+	log.Debug("metric incremented", "name", "lifecycle_critical_section_started_total")
+}
+
+func (l *LogProvider) IncCriticalSectionFinished(success bool) {
+	log.Debug("metric incremented", "name", "lifecycle_critical_section_finished_total", "success", success)
+}
+
+func (l *LogProvider) ObserveCriticalSectionDuration(d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_critical_section_duration_seconds", "value", d.Seconds())
 }
 
 func (l *LogProvider) IncContainerStarted(image string) {

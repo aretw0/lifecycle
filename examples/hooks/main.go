@@ -42,7 +42,7 @@ func main() {
 	// Simulate application work
 	select {
 	case <-ctx.Done():
-		fmt.Println("\nShutdown signal received!")
+		fmt.Printf("\nShutdown signal received! (Reason: %s)\n", ctx.Reason())
 	case <-time.After(10 * time.Second):
 		fmt.Println("\nTimeout! Exiting normally.")
 	}

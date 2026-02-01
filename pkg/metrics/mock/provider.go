@@ -85,7 +85,6 @@ func (m *Provider) IncChildRestart(s, c string) {
 	m.ChildRestarts[c]++
 }
 
-func (m *Provider) IncDataLost(bytes int)                              {}
 func (m *Provider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (m *Provider) IncForceExitTriggered()                             {}
 
@@ -111,3 +110,7 @@ func (m *Provider) IncBackoffTriggered(c string, d time.Duration) {
 	defer m.Mu.Unlock()
 	m.Backoffs[c] = d
 }
+
+func (m *Provider) IncCriticalSectionStarted()                     {}
+func (m *Provider) IncCriticalSectionFinished(success bool)        {}
+func (m *Provider) ObserveCriticalSectionDuration(d time.Duration) {}
