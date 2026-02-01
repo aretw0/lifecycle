@@ -15,7 +15,7 @@ func main() {
 	defer ctx.Stop()
 
 	// 2. Create a Supervisor (The Root)
-	sup := lifecycle.NewSupervisor("root-system", lifecycle.StrategyOneForAll)
+	sup := lifecycle.NewSupervisor("root-system", lifecycle.SupervisorStrategyOneForAll)
 
 	// 3. Add diverse workers
 	// Process Worker

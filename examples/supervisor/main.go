@@ -95,7 +95,7 @@ func main() {
 	}
 
 	// 3. Create Supervisor
-	sup := lifecycle.NewSupervisor("MainSup", lifecycle.StrategyOneForOne,
+	sup := lifecycle.NewSupervisor("MainSup", lifecycle.SupervisorStrategyOneForOne,
 		lifecycle.SupervisorSpec{Name: "Ticker", Factory: tickerFactory},
 		lifecycle.SupervisorSpec{Name: "Crasher", Factory: crasherFactory},
 	)

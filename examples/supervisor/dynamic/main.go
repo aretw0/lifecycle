@@ -22,7 +22,7 @@ func main() {
 	defer ctx.Stop()
 
 	// 2. Create Supervisor
-	sup := lifecycle.NewSupervisor("root", lifecycle.StrategyOneForOne)
+	sup := lifecycle.NewSupervisor("root", lifecycle.SupervisorStrategyOneForOne)
 
 	// 3. Start Supervisor
 	lifecycle.SetLogger(l) // Ensure logger is set? It's global.

@@ -19,7 +19,7 @@ func main() {
 
 	// 3. Define a Supervisor with a restart strategy
 	// We use StrategyOneForOne to demonstrate the Handover Protocol on restart.
-	sup := lifecycle.NewSupervisor("main-supervisor", lifecycle.StrategyOneForOne,
+	sup := lifecycle.NewSupervisor("main-supervisor", lifecycle.SupervisorStrategyOneForOne,
 		lifecycle.SupervisorSpec{
 			Name: "redis",
 			Factory: func() (lifecycle.Worker, error) {

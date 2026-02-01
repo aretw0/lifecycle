@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"context"
 	"io"
+	"os"
 	"os/exec"
 	"time"
 
@@ -10,11 +11,13 @@ import (
 
 	"github.com/aretw0/lifecycle/internal/reliability"
 	"github.com/aretw0/lifecycle/pkg/container"
+	"github.com/aretw0/lifecycle/pkg/control"
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/proc"
 	"github.com/aretw0/lifecycle/pkg/runtime"
 	"github.com/aretw0/lifecycle/pkg/signal"
+	"github.com/aretw0/lifecycle/pkg/sources"
 	"github.com/aretw0/lifecycle/pkg/supervisor"
 	"github.com/aretw0/lifecycle/pkg/termio"
 	"github.com/aretw0/lifecycle/pkg/worker"
@@ -84,7 +87,7 @@ func Sleep(ctx context.Context, d time.Duration) error {
 
 // Run executes the application logic with a managed SignalContext.
 // Alias for pkg/runtime.Run.
-func Run(fn func(context.Context) error, opts ...Option) error {
+func Run(fn func(context.Context) error, opts ...SignalOption) error {
 	return runtime.Run(fn, opts...)
 }
 
@@ -143,13 +146,12 @@ func NewLogMetricsProvider() metrics.Provider {
 type Context = signal.Context
 
 // Option is a functional option for signal configuration.
-type Option = signal.Option
+// Alias for pkg/signal.Option.
+type SignalOption = signal.Option
 
 // SignalState represents the configuration state of the SignalContext.
+// Alias for pkg/signal.State.
 type SignalState = signal.State
-
-// State is an alias for SignalState (backward compatibility).
-type State = SignalState
 
 // SignalStateDiagram returns a Mermaid state diagram string representing the signal context configuration.
 // Alias for pkg/signal.MermaidState.
@@ -220,10 +222,10 @@ func NewMockContainer(id string) Container {
 
 // Handover Constants
 const (
-	// EnvResumeID is the unique session identifier for a worker.
-	EnvResumeID = worker.EnvResumeID
-	// EnvPrevExit is the exit code of the previous execution of this worker.
-	EnvPrevExit = worker.EnvPrevExit
+	// WorkerEnvResumeID is the unique session identifier for a worker.
+	WorkerEnvResumeID = worker.EnvResumeID
+	// WorkerEnvPrevExit is the exit code of the previous execution of this worker.
+	WorkerEnvPrevExit = worker.EnvPrevExit
 )
 
 // Supervisor defines the interface for a supervisor.
@@ -235,10 +237,10 @@ type Supervisor = supervisor.Supervisor
 type SupervisorStrategy = supervisor.Strategy
 
 const (
-	// StrategyOneForOne: If a child process terminates, only that process is restarted.
-	StrategyOneForOne = supervisor.StrategyOneForOne
-	// StrategyOneForAll: If a child process terminates, all other child processes are terminated.
-	StrategyOneForAll = supervisor.StrategyOneForAll
+	// SupervisorStrategyOneForOne: If a child process terminates, only that process is restarted.
+	SupervisorStrategyOneForOne = supervisor.StrategyOneForOne
+	// SupervisorStrategyOneForAll: If a child process terminates, all other child processes are terminated.
+	SupervisorStrategyOneForAll = supervisor.StrategyOneForAll
 )
 
 // SupervisorSpec defines the configuration for a supervised child worker.
@@ -257,4 +259,40 @@ type SupervisorFactory = supervisor.Factory
 // Alias for pkg/supervisor.New.
 func NewSupervisor(name string, strategy SupervisorStrategy, specs ...SupervisorSpec) Supervisor {
 	return supervisor.New(name, strategy, specs...)
+}
+
+// --- Control Plane Aliases (v2.0) ---
+
+// Event is a stimulus that triggers a reaction.
+// Alias for pkg/control.Event.
+type Event = control.Event
+
+// Reaction is an action taken in response to an event.
+// Alias for pkg/control.Reaction.
+type Reaction = control.Reaction
+
+// Source is a producer of events.
+// Alias for pkg/control.Source.
+type Source = control.Source
+
+// Router maps events to reactions.
+// Alias for pkg/control.Router.
+type Router = control.Router
+
+// NewRouter creates a new Control Router.
+// Alias for pkg/control.NewRouter.
+func NewRouter() *Router {
+	return control.NewRouter()
+}
+
+// NewOSSignalSource creates a source that listens for OS signals.
+// Alias for pkg/sources.NewOSSignalSource.
+func NewOSSignalSource(signals ...os.Signal) Source {
+	return sources.NewOSSignalSource(signals...)
+}
+
+// NewWebhookSource creates a source that listens for Webhooks.
+// Alias for pkg/sources.NewWebhookSource.
+func NewWebhookSource() *sources.WebhookSource {
+	return sources.NewWebhookSource()
 }
