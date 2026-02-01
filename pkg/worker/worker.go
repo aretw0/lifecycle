@@ -28,7 +28,16 @@ type Worker interface {
 	String() string
 
 	// State returns the current state of the worker for introspection.
+	// Note: This returns a snapshot; some fields might be empty if not applicable.
 	State() State
+}
+
+// Resumable is an optional interface for workers that support pausing and resuming.
+type Resumable interface {
+	Worker
+	// Pause requests the worker to stop and return a resume token.
+	// This token can be passed to a new worker instance via LIFECYCLE_RESUME_TOKEN.
+	Pause(context.Context) (string, error)
 }
 
 // Status represents the lifecycle state of a worker.
@@ -77,11 +86,12 @@ func (t Type) String() string {
 
 // State represents a snapshot of the worker's status.
 type State struct {
-	Name     string
-	Status   Status
-	PID      int
-	ExitCode int
-	Error    error
-	Metadata map[string]string
-	Children []State
+	Name        string
+	Status      Status
+	PID         int
+	ExitCode    int
+	Error       error
+	ResumeToken string
+	Metadata    map[string]string
+	Children    []State
 }
