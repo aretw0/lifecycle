@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-// TestSpike_BlockingPipe_AbandonShip verifies the "Peek & Abandon" strategy behavior.
+// TestSpike_BlockingPipe_SaveShip verifies the "Data First, Error Second" strategy.
 // We expect that if the context is cancelled while we are blocked in a read,
-// and then the read *completes* (because data arrived), we still return the Interruption error,
-// effectively abandoning the data we just read from the OS buffer.
-func TestSpike_BlockingPipe_AbandonShip(t *testing.T) {
+// and then the read *completes* (because data arrived), we return the data
+// and a nil error. The SUBSEQUENT read must then return the interruption error.
+func TestSpike_BlockingPipe_SaveShip(t *testing.T) {
 	// 1. Create a real OS pipe
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -57,14 +57,21 @@ func TestSpike_BlockingPipe_AbandonShip(t *testing.T) {
 	// 6. Assert Result
 	select {
 	case res := <-resChan:
-		// We expect an error because the context was cancelled.
-		if !IsInterrupted(res.err) {
-			t.Errorf("Expected interruption error, got %v", res.err)
+		// In v1.4, we return data first.
+		if res.err != nil {
+			t.Errorf("Expected nil error for first read with data, got %v", res.err)
 		}
-		if res.n != 0 {
-			// This is the critical "Data Loss" behavior.
-			// Ideally we return 0 bytes to the caller so they handle the error cleanly.
-			t.Errorf("Expected 0 bytes, got %d", res.n)
+		if res.n != 10 {
+			t.Errorf("Expected 10 bytes, got %d", res.n)
+		}
+
+		// 7. Verify subsequent read returns error
+		n, err := reader.Read(make([]byte, 10))
+		if !IsInterrupted(err) {
+			t.Errorf("Expected interruption error on second read, got %v", err)
+		}
+		if n != 0 {
+			t.Errorf("Expected 0 bytes on second read, got %d", n)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Test timed out waiting for read to return")

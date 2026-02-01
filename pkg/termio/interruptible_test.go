@@ -71,11 +71,20 @@ func TestInterruptibleReader_Read_Slow(t *testing.T) {
 	}()
 
 	buf := make([]byte, 2)
-	_, err := r.Read(buf)
+	n, err := r.Read(buf)
 
+	// In v1.4, we return data first if available.
+	if err != nil {
+		t.Errorf("Expected nil error for first read with data, got %v", err)
+	}
+	if n != 2 || string(buf) != "ok" {
+		t.Errorf("Expected 2 bytes 'ok', got %d bytes '%s'", n, string(buf))
+	}
+
+	// SUBSEQUENT read should return ErrInterrupted
+	n, err = r.Read(buf)
 	if !errors.Is(err, ErrInterrupted) {
-		// Note: The implementation checks AFTER read. So this should pass.
-		t.Errorf("Expected ErrInterrupted because we cancelled during read, got %v", err)
+		t.Errorf("Expected ErrInterrupted on second read, got %v", err)
 	}
 }
 

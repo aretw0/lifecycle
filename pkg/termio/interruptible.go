@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-
-	"github.com/aretw0/lifecycle/pkg/log"
-	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
 var ErrInterrupted = errors.New("interrupted")
@@ -42,9 +39,11 @@ func (r *InterruptibleReader) Read(p []byte) (n int, err error) {
 	// Check after returning
 	select {
 	case <-r.cancel:
+		// "Data First, Error Second" strategy:
+		// If we actually read something, we return it NOW and nil error.
+		// The NEXT call to Read() will find the cancellation and return ErrInterrupted.
 		if n > 0 {
-			log.Warn("data lost: context cancelled after successful read", "bytes", n)
-			metrics.GetProvider().IncDataLost(n)
+			return n, nil
 		}
 		return 0, ErrInterrupted
 	default:
