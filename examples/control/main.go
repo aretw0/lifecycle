@@ -4,55 +4,42 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/aretw0/lifecycle"
 )
 
 func main() {
-	// 1. Create the Control Router
-	router := lifecycle.NewRouter()
+	// Level 3: Control Plane
+	// This example demonstrates the Event-Driven architecture of lifecycle v2.
+	// - Routing Events (Webhooks)
+	// - Managed Concurrency (lifecycle.Run)
 
-	// 2. Register generic event handlers
-	router.HandleFunc("signal.*", func(_ context.Context, e lifecycle.Event) error {
-		fmt.Printf("[Router] Received Signal: %s\n", e)
+	// 1. Setup Sources
+	// Generic signals are handled by Run(), but we add a WebhookSource.
+	// Try: curl -X POST http://localhost:8080/reload
+	webSrc := lifecycle.NewWebhookSource(":8080")
+	lifecycle.DefaultRouter.AddSource(webSrc)
+
+	// 2. Register Handlers
+	// Pattern matching works like net/http
+	lifecycle.HandleFunc("webhook.reload", func(ctx context.Context, e lifecycle.Event) error {
+		fmt.Println("🔄 Reload triggered via Webhook!")
+		fmt.Println("APP: Reloading configuration...")
+		time.Sleep(500 * time.Millisecond) // Simulate work
+		fmt.Println("✅ Configuration Reloaded")
 		return nil
 	})
 
-	router.HandleFunc("tick.*", func(ctx context.Context, e lifecycle.Event) error {
-		fmt.Printf("[Router] %s\n", e)
-		return nil
-	})
+	// 3. Start Application
+	fmt.Println("🚀 Control Plane Started. PID:", os.Getpid())
+	fmt.Println("   - Waiting for SIGINT/SIGTERM...")
+	fmt.Println("   - Listening for Webhooks on :8080...")
 
-	// 3. Define the main application job
-	job := lifecycle.Job(func(ctx context.Context) error {
-		fmt.Println("Application started. Press Ctrl+C to exit.")
-
-		// Start generic ticker source
-		// In a real app, this might represent progress of a long running task
-		ticker := lifecycle.NewTickerSource(500 * time.Millisecond)
-		router.AddSource(ticker)
-
-		// Start OS signal source
-		sigSource := lifecycle.NewOSSignalSource(os.Interrupt, syscall.SIGTERM)
-		router.AddSource(sigSource)
-
-		// Create a background task using Managed Concurrency
-		lifecycle.Go(ctx, func(ctx context.Context) error {
-			fmt.Println("[Background] Task started (will run for 2s)")
-			lifecycle.Sleep(ctx, 2*time.Second) // Safe sleep
-			fmt.Println("[Background] Task finished")
-			return nil
-		})
-
-		// Start the router (it blocks until ctx triggers shutdown)
-		return router.Start(ctx)
-	})
-
-	// 4. Run the application
-	if err := lifecycle.Run(job); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	// Run manages the DefaultRouter's lifecycle
+	if err := lifecycle.Run(lifecycle.DefaultRouter); err != nil {
+		fmt.Printf("Exit error: %v\n", err)
 	}
+
+	fmt.Println("👋 Shutdown Complete")
 }
