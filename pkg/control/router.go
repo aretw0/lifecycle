@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
@@ -181,8 +182,7 @@ func (r *Router) Dispatch(ctx context.Context, e Event) {
 	metrics.GetProvider().IncHandlerExecuted(topic)
 	if err := finalHandler.HandleEvent(ctx, e); err != nil {
 		metrics.GetProvider().IncHandlerError(topic, err)
-		// TODO: Hook into pkg/log
-		fmt.Printf("control: handler error for %s: %v\n", topic, err)
+		log.Error("handler error", "topic", topic, "error", err)
 	}
 }
 
