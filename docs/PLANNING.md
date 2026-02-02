@@ -32,7 +32,7 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - [x] **Concurrency**: Keep synchronous default for safety.
   - [x] **Introspection**: `Routes()` to list active bindings for visualization.
 - [ ] **Ecosystem Integration (DX Layer)**:
-  - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize missing/crashed nodes.
+  - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize everything, including missing/crashed nodes.
   - **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.
   - **Unified Observability**: Promote `pkg/metrics` as the standard bridge for Trellis/Loam.
 
