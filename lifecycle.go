@@ -9,7 +9,6 @@ import (
 
 	"log/slog"
 
-	"github.com/aretw0/lifecycle/internal/reliability"
 	"github.com/aretw0/lifecycle/pkg/container"
 	"github.com/aretw0/lifecycle/pkg/control"
 	"github.com/aretw0/lifecycle/pkg/handlers"
@@ -126,11 +125,16 @@ func SetStrictMode(strict bool) {
 	proc.StrictMode = strict
 }
 
-// Do executes a function in a "Critical Section" that delays context cancellation.
-// It wraps the provided function in a shielded context that ignores the parent's cancellation.
-// Alias for internal/reliability.Do.
-func Do(parent context.Context, fn func(ctx context.Context) error) error {
-	return reliability.Do(parent, fn)
+// Do executes a function in a "Safe Executor" (Panic Recovery + Observability).
+// Alias for pkg/runtime.Do.
+func Do(ctx context.Context, fn func(ctx context.Context) error) error {
+	return runtime.Do(ctx, fn)
+}
+
+// DoDetached executes a function in a "Critical Section" (Detached Context).
+// Alias for pkg/runtime.DoDetached.
+func DoDetached(parent context.Context, fn func(ctx context.Context) error) error {
+	return runtime.DoDetached(parent, fn)
 }
 
 // SetLogger overrides the global logger used by the library.
@@ -300,6 +304,12 @@ func NewRouter() *Router {
 	return control.NewRouter()
 }
 
+// Go starts a tracked goroutine.
+// Alias for pkg/runtime.Go.
+func Go(ctx context.Context, fn func(context.Context) error) {
+	runtime.Go(ctx, fn)
+}
+
 // NewOSSignalSource creates a source that listens for OS signals.
 // Alias for pkg/sources.NewOSSignalSource.
 func NewOSSignalSource(signals ...os.Signal) Source {
@@ -322,6 +332,16 @@ func NewShutdownHandler(cancel context.CancelFunc) Handler {
 // Alias for pkg/handlers.NewReload.
 func NewReloadHandler(onReload func(context.Context) error) Handler {
 	return handlers.NewReload(onReload)
+}
+
+// TickEvent represents a periodic time tick.
+// Alias for pkg/sources.TickEvent.
+type TickEvent = sources.TickEvent
+
+// NewTickerSource creates a source that emits periodic events.
+// Alias for pkg/sources.NewTickerSource.
+func NewTickerSource(interval time.Duration) Source {
+	return sources.NewTickerSource(interval)
 }
 
 // --- Stdlib Pattern Helpers ---

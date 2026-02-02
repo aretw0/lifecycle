@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/signal"
@@ -42,17 +43,24 @@ func Job(fn func(context.Context) error) Runnable {
 // It accepts a Runnable (Job, Router, Supervisor) and manages its lifecycle.
 // This is the recommended entry point for main().
 func Run(r Runnable, opts ...signal.Option) error {
-	ctx := signal.NewContext(context.Background(), opts...)
-	defer ctx.Stop()
+	var wg sync.WaitGroup
+	sigCtx := signal.NewContext(context.Background(), opts...)
+	defer sigCtx.Stop()
 
-	err := r.Start(ctx)
+	// Inject the task tracker into the context passed to the application
+	appCtx := WithTaskTracking(sigCtx, &wg)
+
+	err := r.Start(appCtx)
 
 	// If shutdown was triggered by a signal, wait for hooks to complete.
 	// We avoid calling Wait() on normal exit or manual stop, as it would block forever.
-	reason := ctx.Reason()
+	reason := sigCtx.Reason()
 	if reason == signal.ReasonInterrupt || reason == signal.ReasonTerminate {
-		ctx.Wait()
+		sigCtx.Wait()
 	}
+
+	// Wait for all background tasks to finish cleaning up
+	wg.Wait()
 
 	return err
 }

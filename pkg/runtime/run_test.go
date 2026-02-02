@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 // MockRunnable implements Runnable for testing
@@ -65,5 +66,38 @@ func TestRun_RunnableError(t *testing.T) {
 		if err.Error() != expectedErr.Error() {
 			t.Errorf("Expected %v, got %v", expectedErr, err)
 		}
+	}
+}
+
+func TestRun_WaitsForBackgroundTasks(t *testing.T) {
+	// This test verifies that Run waits for goroutines started with lifecycle.Go
+	finished := make(chan struct{})
+
+	job := Job(func(ctx context.Context) error {
+		Go(ctx, func(ctx context.Context) error {
+			time.Sleep(50 * time.Millisecond)
+			close(finished)
+			return nil
+		})
+		return nil
+	})
+
+	start := time.Now()
+	err := Run(job)
+	duration := time.Since(start)
+
+	if err != nil {
+		t.Errorf("Run failed: %v", err)
+	}
+
+	select {
+	case <-finished:
+		// Success
+	default:
+		t.Error("Run returned before background task finished")
+	}
+
+	if duration < 50*time.Millisecond {
+		t.Errorf("Run returned too early: %v", duration)
 	}
 }

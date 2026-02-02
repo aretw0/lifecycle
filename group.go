@@ -3,11 +3,10 @@ package lifecycle
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
+	"github.com/aretw0/lifecycle/pkg/runtime"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -47,25 +46,26 @@ func (g *Group) Go(fn func(ctx context.Context) error) {
 	// Signal that we are attempting to schedule (entering wait queue)
 	metrics.GetProvider().IncGoroutineWaiting()
 
-	g.g.Go(func() (err error) {
-		// We are running, so we are no longer waiting.
-		metrics.GetProvider().DecGoroutineWaiting()
-		metrics.GetProvider().IncGoroutineStarted()
+	// We need to track Goroutine semantics explicitly for Group,
+	// because runtime.Do tracks "Critical Operations" which is slightly different.
+	metrics.GetProvider().IncGoroutineStarted()
+	defer metrics.GetProvider().IncGoroutineFinished()
 
-		defer metrics.GetProvider().IncGoroutineFinished()
+	g.g.Go(func() (err error) {
+		metrics.GetProvider().DecGoroutineWaiting()
 
 		defer func() {
-
 			if r := recover(); r != nil {
+				// runtime.Do() already logged the panic.
+				// We recover it here to return it as an error to the errgroup,
+				// which will cancel the context.
 				metrics.GetProvider().IncGoroutinePanicked()
-				stack := string(debug.Stack())
-				log.Error("lifecycle.Group: panic recovered", "panic", r)
-				// fmt.Printf("DEBUG STACK:\n%s\n", stack) // Optional: dump stack to stdout if logs are swallowed
-				err = fmt.Errorf("panic in lifecycle.Group: %v\nstack: %s", r, stack)
+				err = fmt.Errorf("panic in lifecycle.Group: %v", r)
 			}
 		}()
 
-		return fn(g.ctx)
+		// Use runtime.Do for execution safety
+		return runtime.Do(g.ctx, fn)
 	})
 
 	// Measure backpressure (Time spent blocked by SetLimit)
