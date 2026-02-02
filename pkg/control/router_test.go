@@ -115,3 +115,28 @@ func TestRouter_Middleware(t *testing.T) {
 		}
 	}
 }
+
+func TestRouter_Routes(t *testing.T) {
+	router := NewRouter()
+	router.HandleFunc("route.a", func(_ context.Context, _ Event) error { return nil })
+	router.HandleFunc("route.b", func(_ context.Context, _ Event) error { return nil })
+
+	routes := router.Routes()
+	if len(routes) != 2 {
+		t.Errorf("expected 2 routes, got %d", len(routes))
+	}
+
+	foundA, foundB := false, false
+	for _, r := range routes {
+		if r.Pattern == "route.a" {
+			foundA = true
+		}
+		if r.Pattern == "route.b" {
+			foundB = true
+		}
+	}
+
+	if !foundA || !foundB {
+		t.Error("missing expected routes")
+	}
+}

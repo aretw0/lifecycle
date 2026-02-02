@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"reflect"
+	"runtime"
 	"sync"
 
 	"github.com/aretw0/lifecycle/pkg/metrics"
@@ -182,4 +184,34 @@ func (r *Router) Dispatch(ctx context.Context, e Event) {
 		// TODO: Hook into pkg/log
 		fmt.Printf("control: handler error for %s: %v\n", topic, err)
 	}
+}
+
+// Routes returns a snapshot of the currently registered routes.
+func (r *Router) Routes() []RouteInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	routes := make([]RouteInfo, 0, len(r.routes))
+	for pattern, h := range r.routes {
+		handlerName := "Handler"
+
+		// Attempt to get function name via reflection
+		// We first check if it's a HandlerFunc to get the underlying function
+		if hf, ok := h.(HandlerFunc); ok {
+			handlerName = getFunctionName(hf)
+		} else {
+			// For generic interfaces, we just type name it
+			handlerName = fmt.Sprintf("%T", h)
+		}
+
+		routes = append(routes, RouteInfo{
+			Pattern: pattern,
+			Handler: handlerName,
+		})
+	}
+	return routes
+}
+
+func getFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

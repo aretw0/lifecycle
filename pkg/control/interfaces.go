@@ -32,3 +32,9 @@ type Source interface {
 	// by the caller (Control Router). The implementation should respect the context.
 	Start(ctx context.Context) error
 }
+
+// RouteInfo describes a registered event route.
+type RouteInfo struct {
+	Pattern string
+	Handler string // Name of the handler
+}
