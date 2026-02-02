@@ -25,12 +25,32 @@ type Router struct {
 	isRunning   bool
 }
 
-// NewRouter creates a new control router.
-func NewRouter() *Router {
-	return &Router{
-		routes: make(map[string]Handler),
-		events: make(chan Event, 100), // TODO: Make this configurable?
+// RouterOption configures a Router.
+type RouterOption func(*Router)
+
+// WithEventBuffer sets the size of the event channel buffer.
+// Default is 100.
+func WithEventBuffer(size int) RouterOption {
+	return func(r *Router) {
+		if size < 0 {
+			size = 0
+		}
+		r.events = make(chan Event, size)
 	}
+}
+
+// NewRouter creates a new control router with optional configuration.
+func NewRouter(opts ...RouterOption) *Router {
+	r := &Router{
+		routes: make(map[string]Handler),
+		// Default buffer, can be overwritten by opts
+		events: make(chan Event, 100),
+	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // DefaultRouter is the default instance for package-level helpers.
