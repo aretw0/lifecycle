@@ -361,17 +361,38 @@ router.Use(LoggingMiddleware)
 
 #### 11.3. Introspection
 
-The Router exposes registered routes for visualization/debugging.
+The Router exposes registered routes and its own status via the `Introspectable` interface.
 
 ```go
-routes := router.Routes()
-// [
-//   {Pattern: "signal.*", Handler: "HandlerFunc"},
-//   {Pattern: "webhook/reload", Handler: "ReloadHandler"},
-// ]
+type Introspectable interface {
+    State() any
+}
 ```
 
-#### 11.4. Execution Flow
+Calls to `State()` return a snapshot of the component's internal state (topology, metrics, flags) for visualization tools.
+
+```go
+state := router.State().(RouterState)
+// {Routes: [...], Middlewares: 2, Running: true}
+```
+
+#### 11.4. Suspend & Resume (Durable Execution)
+
+To support **Durable Execution systems**, `lifecycle` introduces `SuspendEvent` and `ResumeEvent` managed by `handlers.SuspendHandler`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Running
+    Running --> Suspended: SuspendEvent
+    Suspended --> Running: ResumeEvent
+    Running --> Graceful: SIGTERM
+    Suspended --> Graceful: SIGTERM
+```
+
+* **Suspend**: Application is asked to pause processing, persist state, and stop accepting new work.
+* **Resume**: Application restarts processing from the persisted state.
+
+#### 11.5. Execution Flow
 
 ```mermaid
 sequenceDiagram
