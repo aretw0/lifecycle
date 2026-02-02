@@ -13,24 +13,25 @@
 
     3. [Signal State Machine](#3-signal-state-machine)
     4. [Context-Aware I/O](#4-context-aware-io--safety)
-    5. [Process Hygiene](#5-process-hygiene)
-    6. [Reliability Primitives (v1.4)](#6-reliability-primitives-v14)
+    5. [Managed Concurrency (v2.0)](#5-managed-concurrency-v20)
+    6. [Process Hygiene](#6-process-hygiene)
+    7. [Reliability Primitives (v1.4)](#7-reliability-primitives-v14)
 
 * [**III. The Supervisor Pattern (The Bridge)**](#iii-the-supervisor-pattern-the-bridge)
 
-    7. [Worker Protocol](#7-worker-protocol)
-    8. [Supervision Tree](#8-supervision-tree)
-    9. [Handover Protocol](#9-handover-protocol)
+    8. [Worker Protocol](#8-worker-protocol)
+    9. [Supervision Tree](#9-supervision-tree)
+    10. [Handover Protocol](#10-handover-protocol)
 
 * [**IV. The Control Plane (v2.x Vision)**](#iv-the-control-plane-v2x-vision)
 
-    10. [Event Router](#10-event-router-source---handler)
-    11. [Managed Concurrency](#11-managed-concurrency-lifecyclegroup)
+    11. [Event Router](#11-event-router-source---handler)
+    12. [Managed Concurrency](#12-managed-concurrency-lifecyclego)
 
 * [**V. Ecosystem & Operations**](#v-ecosystem--operations)
 
-    12. [Introspection & Visualization](#12-introspection--visualization)
-    13. [Observability](#13-observability)
+    13. [Introspection & Visualization](#13-introspection--visualization)
+    14. [Observability](#14-observability)
 
 ---
 
@@ -177,7 +178,52 @@ sequenceDiagram
     end
 ```
 
-### 5. Process Hygiene
+### 5. Managed Concurrency (v2.0)
+
+`lifecycle` provides primitives to manage goroutines safely, ensuring they respect shutdown signals and provide visibility.
+
+#### A. Scoped Execution (`lifecycle.Go`)
+
+The most common pattern. Fire-and-forget but tracked.
+
+* **Context Propagation**: Inherits cancellation from the parent.
+* **Wait Tracking**: `lifecycle.Run` automatically waits for these tasks.
+* **Safety**: Panics are recovered and logged.
+
+```go
+lifecycle.Run(func(ctx context.Context) error {
+    lifecycle.Go(ctx, func(ctx context.Context) error {
+        // Runs in background, but tracked.
+        // If it panics, app stays alive.
+        return nil
+    })
+    return nil
+})
+```
+
+#### B. Safe Executor (`lifecycle.Do`)
+
+Executes a function *synchronously* with safety guarantees.
+
+* **Observability**: Metrics for duration and success/failure.
+* **Recovery**: Captures panics.
+* **Usage**: Used internally by `Go` and `Group`.
+
+#### C. Structured Group (`lifecycle.Group`)
+
+For complex parallelism requiring limits or gang-scheduling.
+
+* **API**: Wrapper around `errgroup.Group`.
+* **Features**: `SetLimit(n)`, panic recovery, and metric tracking.
+
+```go
+g, ctx := lifecycle.NewGroup(ctx)
+g.SetLimit(10)
+g.Go(func(ctx context.Context) error { ... })
+g.Wait()
+```
+
+### 6. Process Hygiene
 
 Ensures child processes do not outlive the parent.
 
@@ -185,33 +231,35 @@ Ensures child processes do not outlive the parent.
 * **Windows**: Uses **Job Objects** (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) to ensure the OS terminates the child tree when the parent handle is closed.
 * **macOS**: Fallback to standard `exec.Cmd`. No OS-level guarantee against zombies on hard crashes.
 
-### 6. Reliability Primitives (v1.4)
+### 7. Reliability Primitives (v1.4)
 
 To support **Durable Execution** engines (like Trellis), we provide primitives that shield critical operations.
 
-#### Critical Sections (`lifecycle.Do`)
+#### Critical Sections (`lifecycle.DoDetached`)
 
-`lifecycle.Do(ctx, fn)` allowed executing a function that *cannot be cancelled* by the parent context until it completes. It returns any error produced by the shielded function.
+`lifecycle.DoDetached(ctx, fn)` (formerly `Do`) allows executing a function that *cannot be cancelled* by the parent context until it completes. It returns any error produced by the shielded function.
 
-```mermaid
-sequenceDiagram
-    participant P as Parent Context
-    participant D as lifecycle.Do
-    participant F as Function
-    
-    P->>D: Call Do(ctx, fn)
-    D->>F: Run fn(shieldedCtx) -> error
-    
-    note right of P: User hits Ctrl+C
-    P--xP: Cancelled!
-    
-    note over D: Do detects cancellation<br/>but WAITS for fn
-    
-    F->>F: Complete Critical Work
-    F-->>D: Return error
-    
-    D-->>P: Return error (or Canceled if shielded ctx ignored)
-```
+> **Note:** `lifecycle.Do(ctx, fn)` now represents a "Safe Executor" that respects cancellation but provides panic recovery and observability. `DoDetached` wraps `Do` with `context.WithoutCancel`.
+
+ ```mermaid
+ sequenceDiagram
+     participant P as Parent Context
+     participant D as lifecycle.DoDetached
+     participant F as Function
+     
+     P->>D: Call DoDetached(ctx, fn)
+     D->>F: Run fn(shieldedCtx) -> error
+     
+     note right of P: User hits Ctrl+C
+     P--xP: Cancelled!
+     
+     note over D: DoDetached detects cancellation<br/>but WAITS for fn
+     
+     F->>F: Complete Critical Work
+     F-->>D: Return error
+     
+     D-->>P: Return error (or Canceled if shielded ctx ignored)
+ ```
 
 ---
 
@@ -220,7 +268,7 @@ sequenceDiagram
 (Introduced in v1.3)
 The Supervisor manages a set of Workers, forming a **Supervision Tree**.
 
-### 7. Worker Protocol
+### 8. Worker Protocol
 
 Uniform interface for `Process`, `Container`, and `Goroutine` management.
 
@@ -245,13 +293,13 @@ sequenceDiagram
     deactivate Worker
 ```
 
-### 8. Supervision Tree
+### 9. Supervision Tree
 
 * **OneForOne**: Restart only the failed child.
 * **OneForAll**: Restart all children if one fails (tight coupling).
 * **Backoff**: Exponential backoff (with jitter) limits restart loops.
 
-### 9. Handover Protocol
+### 10. Handover Protocol
 
 Allows "Durable Execution" across restarts.
 The Supervisor injects environment variables into the restarted worker:
@@ -281,13 +329,13 @@ sequenceDiagram
 (Introduced in v2.0)
 The Control Plane generalized the "Signal" concept into generic "Events".
 
-### 10. Event Router (Source -> Handler)
+### 11. Event Router (Source -> Handler)
 
 The `Router` is the central nervous system of the Control Plane, inspired by `net/http.ServeMux`. It routes generalized `Events` to specialized `Handlers`.
 
 > **Note (Facade)**: The router and handlers are exposed via the top-level `lifecycle` package for ease of use (e.g., `lifecycle.NewRouter()`).
 
-#### 10.1. Mux-Style Pattern Matching
+#### 11.1. Mux-Style Pattern Matching
 
 Routes are defined using string patterns. We support:
 
@@ -301,7 +349,7 @@ router.HandleFunc("signal.*", func(ctx context.Context, e Event) error {
 })
 ```
 
-#### 10.2. Middleware Chains
+#### 11.2. Middleware Chains
 
 Middleware wraps handlers to provide cross-cutting concerns (logging, recovery, tracing).
 
@@ -310,7 +358,19 @@ router.Use(RecoveryMiddleware)
 router.Use(LoggingMiddleware)
 ```
 
-#### 10.3. Execution Flow
+#### 11.3. Introspection
+
+The Router exposes registered routes for visualization/debugging.
+
+```go
+routes := router.Routes()
+// [
+//   {Pattern: "signal.*", Handler: "HandlerFunc"},
+//   {Pattern: "webhook/reload", Handler: "ReloadHandler"},
+// ]
+```
+
+#### 11.4. Execution Flow
 
 ```mermaid
 sequenceDiagram
@@ -327,30 +387,33 @@ sequenceDiagram
     M-->>R: Complete
 ```
 
-### 11. Managed Concurrency (`lifecycle.Group`)
+### 12. Managed Concurrency (`lifecycle.Go`)
 
-To adhere to **Zero Global State**, we avoid global goroutine tracking. Instead, we provide `lifecycle.Group` (similar to `errgroup.Group`) with added safety and observability.
+To adhere to **Zero Config** but safe concurrency, we use **Context Propagation**.
 
 ```go
-g, ctx := lifecycle.NewGroup(mainCtx)
-g.Go(func(ctx context.Context) error {
-    // ... work ...
+// 1. Run injects a TaskTracker into the context
+runtime.Run(func(ctx context.Context) error {
+    // 2. Go() uses the tracker from the context
+    runtime.Go(ctx, func(ctx context.Context) error {
+        // ... safe background work ...
+        return nil
+    })
     return nil
 })
-g.Wait()
 ```
 
 **Features:**
 
-* **Panic Recovery**: Panics are recovered, logged with stack traces, and returned as errors to cancel the group.
-* **Auto-Observability**: Active goroutines are tracked in metrics (`lifecycle_goroutines_started_total`).
-* **Concurrency Limits**: `g.SetLimit(n)` prevents resource exhaustion.
+* **Context-Aware**: `Go` looks for a tracker in `ctx`. If found, it tracks the goroutine.
+* **Leak Prevention**: `Run()` waits for all tracked goroutines to finish before exiting.
+* **Panic Recovery**: Panics are caught, logged, and do not crash the main process.
 
 ---
 
 ## V. Ecosystem & Operations
 
-### 12. Introspection & Visualization
+### 13. Introspection & Visualization
 
 We adopt the **Introspection Pattern**: components expose `State()` methods returning immutable DTOs, which are rendered into diagrams.
 
@@ -364,7 +427,7 @@ We adopt the **Introspection Pattern**: components expose `State()` methods retu
 * 🟢 **Stopped**: Clean exit.
 * 🔴 **Failed**: Crashed/Error.
 
-### 13. Observability
+### 14. Observability
 
 The library is instrumented via `pkg/metrics` and `pkg/log`.
 
