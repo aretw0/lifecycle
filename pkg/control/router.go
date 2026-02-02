@@ -235,3 +235,24 @@ func (r *Router) Routes() []RouteInfo {
 func getFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
+
+// RouterState represents the serializable state of the router.
+type RouterState struct {
+	Routes      []RouteInfo `json:"routes"`
+	Middlewares int         `json:"middlewares"`
+	Sources     int         `json:"sources"`
+	Running     bool        `json:"running"`
+}
+
+// State returns the current state of the router.
+func (r *Router) State() any {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return RouterState{
+		Routes:      r.Routes(),
+		Middlewares: len(r.middlewares),
+		Sources:     len(r.sources),
+		Running:     r.isRunning,
+	}
+}
