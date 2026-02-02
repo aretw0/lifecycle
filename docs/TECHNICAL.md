@@ -1,6 +1,7 @@
 # Technical Architecture
 
 > **Note**: This document describes the architecture of `lifecycle`, spanning its **v1.x Foundation** (Death Management) and the **v2.x Control Plane** (Life Management).
+> For a history of architectural choices, see **[DECISIONS.md](DECISIONS.md)**.
 
 ## Table of Contents
 
@@ -435,3 +436,7 @@ The library is instrumented via `pkg/metrics` and `pkg/log`.
 * **Processes**: `IncProcessStarted`, `IncProcessFailed`
 * **Hooks**: `ObserveHookDuration`
 * **Data Safety**: `IncTerminalUpgrade` (Windows `CONIN$` usage)
+
+## Design Philosophy
+
+For a detailed log of architectural choices (e.g., why "Fail-Closed" is mandatory, why we handle signals by default), please refer to **[DECISIONS.md](DECISIONS.md)**.
