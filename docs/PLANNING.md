@@ -17,12 +17,12 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - [x] `WebhookSource` (Admin HTTP endpoints - Skeleton)
   - [x] `HealthCheckSource` (Promoted from Backlog - Skeleton)
   - [x] `FileWatchSource` (Integration with Loam? - Skeleton)
-  - [ ] **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders without coupling (Headless Timers).
+  - [x] **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders without coupling (Headless Timers).
 - [-] **Lifecycle Handlers (Outputs)**: Dynamic responses to events.
   - [x] `Shutdown` (Current behavior)
   - [x] `HotReload` (Promoted from Backlog: SIGHUP triggers config reload without context cancellation)
   - [ ] `Suspend/Resume` (For Durable Execution)
-- [ ] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
+- [x] **Managed Concurrency (The "lifecycle.Go" Pattern)**:
   - `lifecycle.Go(ctx, fn)`: A helper to spawn goroutines that are automatically tracked, waited on, and shielded from premature Context cancellation. Enforces "Safe Concurrency" by default.
   - *Strategy*: Use a **Global WaitGroup** inside `pkg/runtime`. `Run` will `Wait()` on it after `Runnable` exits but before returning, guaranteeing no leaks. Panics in these goroutines should be caught and logged (metrics), but not crash the app (Recovery). `Supervisor` is reserved for "Services" that need restarts; `lifecycle.Go` is for "Tasks" that need cleanup.
 - [x] **Control Router (Stdlib-Native Mux)**:
@@ -30,7 +30,7 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - [x] **Pattern Matching**: Use `path.Match` (Glob) backend (`signal.*`) and support `regexp` (partial).
   - [x] **Middleware**: `Use(func(next Handler) Handler)` for Logging, Tracing, Recovery.
   - [x] **Concurrency**: Keep synchronous default for safety.
-  - [ ] **Introspection**: `Routes()` to list active bindings for visualization.
+  - [x] **Introspection**: `Routes()` to list active bindings for visualization.
 - [ ] **Ecosystem Integration (DX Layer)**:
   - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize missing/crashed nodes.
   - **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.

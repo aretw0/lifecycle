@@ -64,6 +64,21 @@ go get github.com/aretw0/lifecycle
 * **Managed Concurrency**: `lifecycle.Go(ctx, fn)` for non-leaking goroutines.
 * **Reactions**: `Reload`, `Suspend`, `Scale` alongside `Shutdown`.
 
+### Managed Concurrency (v2.0 Preview)
+
+`lifecycle` now provides primitives to manage goroutines safely, ensuring they respect shutdown signals and provide visibility.
+
+```go
+lifecycle.Run(func(ctx context.Context) error {
+    // Fire-and-forget but tracked and panic-safe
+    lifecycle.Go(ctx, func(ctx context.Context) error {
+        // ...
+        return nil
+    })
+    return nil
+})
+```
+
 ## Usage
 
 ### Signal Context
