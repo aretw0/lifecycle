@@ -28,12 +28,30 @@ type WebhookSource struct {
 	events chan control.Event
 }
 
-// NewWebhookSource creates a new source listening on the given address (e.g., ":8080").
-func NewWebhookSource(addr string) *WebhookSource {
-	return &WebhookSource{
-		addr:   addr,
-		events: make(chan control.Event, 10), // TODO: Make this configurable?
+// WebhookOption configures a WebhookSource.
+type WebhookOption func(*WebhookSource)
+
+// WithWebhookBuffer sets the size of the event channel buffer.
+// Default is 10.
+func WithWebhookBuffer(size int) WebhookOption {
+	return func(s *WebhookSource) {
+		if size < 0 {
+			size = 0
+		}
+		s.events = make(chan control.Event, size)
 	}
+}
+
+// NewWebhookSource creates a new source listening on the given address (e.g., ":8080").
+func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
+	s := &WebhookSource{
+		addr:   addr,
+		events: make(chan control.Event, 10),
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *WebhookSource) Events() <-chan control.Event {

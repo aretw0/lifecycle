@@ -44,16 +44,38 @@ type HealthCheckSource struct {
 	events   chan control.Event
 }
 
+// HealthOption configures a HealthCheckSource.
+type HealthOption func(*HealthCheckSource)
+
+// WithInterval sets the check interval.
+// Default is 30 seconds.
+func WithInterval(d time.Duration) HealthOption {
+	return func(s *HealthCheckSource) {
+		s.Interval = d
+	}
+}
+
+// WithStrategy sets the triggering strategy (Edge vs Level).
+// Default is Edge.
+func WithStrategy(strategy TriggerStrategy) HealthOption {
+	return func(s *HealthCheckSource) {
+		s.Strategy = strategy
+	}
+}
+
 // NewHealthCheckSource creates a new health monitor.
-// TODO: Functional options pattern
-func NewHealthCheckSource(name string, interval time.Duration, check CheckFunc) *HealthCheckSource {
-	return &HealthCheckSource{
+func NewHealthCheckSource(name string, check CheckFunc, opts ...HealthOption) *HealthCheckSource {
+	s := &HealthCheckSource{
 		Name:     name,
-		Interval: interval,
+		Interval: 30 * time.Second, // Default
 		Check:    check,
 		Strategy: TriggerEdge, // Default
 		events:   make(chan control.Event),
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *HealthCheckSource) Events() <-chan control.Event {
