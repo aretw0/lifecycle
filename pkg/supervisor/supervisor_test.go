@@ -491,3 +491,60 @@ func TestSupervisor_CircuitBreaker(t *testing.T) {
 		t.Error("Circuit breaker metric not incremented")
 	}
 }
+
+func TestSupervisor_RestartPolicies(t *testing.T) {
+	helper := newFactoryHelper()
+
+	sup := New("policy-sup", StrategyOneForOne,
+		Spec{
+			Name:          "on-failure-success",
+			Factory:       helper.makeFactory("on-failure-success"),
+			RestartPolicy: RestartOnFailure,
+		},
+		Spec{
+			Name:          "on-failure-fail",
+			Factory:       helper.makeFactory("on-failure-fail"),
+			RestartPolicy: RestartOnFailure,
+		},
+		Spec{
+			Name:          "never",
+			Factory:       helper.makeFactory("never"),
+			RestartPolicy: RestartNever,
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := sup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	// 1. OnFailure with success (exit code 0/nil) -> Should NOT restart
+	w1 := helper.getWorker("on-failure-success")
+	w1.WaitChan <- nil
+	close(w1.WaitChan)
+	time.Sleep(50 * time.Millisecond)
+	if helper.getCount("on-failure-success") > 1 {
+		t.Error("on-failure-success restarted despite successful exit")
+	}
+
+	// 2. OnFailure with failure -> Should restart
+	w2 := helper.getWorker("on-failure-fail")
+	w2.WaitChan <- errors.New("boom")
+	close(w2.WaitChan)
+	time.Sleep(100 * time.Millisecond)
+	if helper.getCount("on-failure-fail") < 2 {
+		t.Error("on-failure-fail failed to restart")
+	}
+
+	// 3. Never -> Should NOT restart regardless of exit
+	w3 := helper.getWorker("never")
+	w3.WaitChan <- errors.New("boom")
+	close(w3.WaitChan)
+	time.Sleep(50 * time.Millisecond)
+	if helper.getCount("never") > 1 {
+		t.Error("never restarted despite RestartNever policy")
+	}
+}

@@ -44,8 +44,10 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
     - [x] `QuiescenceGate`: A reusable primitive (channel-based) for workers that need to pause safely without losing in-flight data. Context-aware since v2.0.
 - **Documentation**:
   - [ ] `RECIPES.md`: A cookbook for common patterns (Interactive Service, Hot Reload, File Watcher).
-- [x] **Shutdown Diagnostics**: Dump goroutine stacks if shutdown timeout is reached (implemented in `pkg/runtime`).
-- [x] **Circuit Breaker**: Implement "MaxRestarts within Duration" logic (implemented in `pkg/supervisor`).
+- [x] **Relational Reliability**:
+  - [x] **Shutdown Diagnostics**: Dump goroutine stacks if shutdown timeout is reached (implemented in `pkg/runtime`).
+  - [x] **Supervisor Circuit Breaker**: Sliding-window restarts limit (implemented in `pkg/supervisor`).
+  - [x] **Supervisor Restart Policies**: Per-child control (`Always`, `OnFailure`, `Never`) verified in `pkg/supervisor`.
 
 ## Backlog
 
@@ -53,7 +55,6 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
 - **Cross-Platform Control Signals**: Research/Implement universal triggers (e.g., named pipes, admin CLI, HTTP) to replace limited OS signals (SIGTSTP/SIGUSR) on Windows/Linux.
 - **Lifecycle Testkit**: Helpers to simulate signals/events and assert state transitions without `time.Sleep` hacks.
 - **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown.
-- **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never).
 - **Priority Shutdown**: Explicit shutdown phases (e.g., "Critical", "Normal").
 
 ## Technical Debt

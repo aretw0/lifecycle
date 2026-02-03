@@ -130,6 +130,7 @@ stateDiagram-v2
 * **Mode: Unsafe (Threshold=0)**: Automatic forced exit is disabled. The user is responsible for process status.
 * **Async Hooks**: `OnShutdown` hooks run concurrently or sequentially (LIFO) depending on configuration, but always *after* context cancellation.
 * **Reasoning**: `ctx.Reason()` differentiates if closure was manual (`Stop()`), signal-based (`Interrupt`), or time-based (`Timeout`).
+* **Shutdown Diagnostics**: If cleanup exceeded `WithShutdownTimeout` (default 2s), the runtime automatically dumps all goroutine stacks to `stderr` to help diagnose hangs.
 
 #### Execution Flow
 
@@ -312,6 +313,8 @@ sequenceDiagram
 
 * **OneForOne**: Restart only the failed child.
 * **OneForAll**: Restart all children if one fails (tight coupling).
+* **Restart Policies**: Per-child control via `Always`, `OnFailure`, or `Never`.
+* **Circuit Breaker**: Sliding-window restarts limit (`MaxRestarts` within `MaxDuration`).
 * **Backoff**: Exponential backoff (with jitter) limits restart loops.
 
 ### 10. Handover Protocol
@@ -416,6 +419,7 @@ stateDiagram-v2
 
 * **Suspend**: Application is asked to pause processing, persist state, and stop accepting new work.
 * **Resume**: Application restarts processing from the persisted state.
+* **Quiescence Safety**: The `QuiescenceGate` primitive is context-aware, ensuring buffered workers can abort instantly if the application shuts down while they are paused.
 
 #### 11.5. Execution Flow
 
