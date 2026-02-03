@@ -32,14 +32,19 @@ func NewSignalContext(parent context.Context, opts ...signal.Option) *signal.Con
 	return signal.NewContext(parent, opts...)
 }
 
-// WithInterrupt configures whether SIGINT (Ctrl+C) should cancel the context.
-// Alias for pkg/signal.WithInterrupt.
+// WithInterrupt is deprecated. Use WithForceExit(1) for default behavior
+// or WithForceExit(0) to disable automatic interruption.
+//
+// Deprecated: SIGINT logic is now controlled by ForceExit threshold.
 func WithInterrupt(cancel bool) signal.Option {
 	return signal.WithInterrupt(cancel)
 }
 
 // WithForceExit configures the threshold of signals required to trigger an immediate os.Exit(1).
-// Set to 0 to disable forced exit. Alias for pkg/signal.WithForceExit.
+// Threshold values:
+// 1 (Default): SIGINT cancels context immediately.
+// n >= 2: SIGINT is captured, os.Exit(1) at n-th signal (Escalation Mode).
+// 0 (Unsafe): Automatic os.Exit(1) is disabled for SIGINT.
 func WithForceExit(threshold int) signal.Option {
 	return signal.WithForceExit(threshold)
 }
@@ -114,10 +119,22 @@ func OnShutdown(ctx context.Context, fn func()) {
 	if sc, ok := ctx.(*signal.Context); ok {
 		sc.OnShutdown(fn)
 	}
-	// If context is not a SignalContext, we could log a warning,
-	// but purely functional options often fail silently or use an interface.
-	// For now, silent allow is arguably least intrusive, but explicit is better.
-	// We'll stick to simple casting for now.
+}
+
+// IsUnsafe returns true if the context is configured to never force exit.
+func IsUnsafe(ctx context.Context) bool {
+	if sc, ok := ctx.(*signal.Context); ok {
+		return sc.IsUnsafe()
+	}
+	return false
+}
+
+// GetForceExitThreshold returns the number of signals required to trigger os.Exit(1).
+func GetForceExitThreshold(ctx context.Context) int {
+	if sc, ok := ctx.(*signal.Context); ok {
+		return sc.ForceExitThreshold()
+	}
+	return 0
 }
 
 // StartProcess starts the specified command with process hygiene (auto-kill on parent exit).
@@ -171,9 +188,17 @@ type Context = signal.Context
 // Alias for pkg/signal.Option.
 type SignalOption = signal.Option
 
-// SignalState represents the configuration state of the SignalContext.
-// Alias for pkg/signal.State.
+// SignalState returns a snapshot of the current configuration.
+// Alias for signal.State.
 type SignalState = signal.State
+
+// GetSignalState returns a snapshot of the context's signal configuration.
+func GetSignalState(ctx context.Context) (SignalState, bool) {
+	if sc, ok := ctx.(*signal.Context); ok {
+		return sc.State(), true
+	}
+	return SignalState{}, false
+}
 
 // SignalStateDiagram returns a Mermaid state diagram string representing the signal context configuration.
 // Alias for pkg/signal.MermaidState.
@@ -388,6 +413,14 @@ type SuspendEvent = control.SuspendEvent
 // Alias for pkg/control.ResumeEvent.
 type ResumeEvent = control.ResumeEvent
 
+// ShutdownEvent is triggered when the application should shut down gracefully.
+// Alias for pkg/control.ShutdownEvent.
+type ShutdownEvent = control.ShutdownEvent
+
+// ClearLineEvent is triggered when an interactive input is interrupted.
+// Alias for pkg/control.ClearLineEvent.
+type ClearLineEvent = control.ClearLineEvent
+
 // NewSuspendHandler creates a new handler for suspend/resume events.
 // Alias for pkg/handlers.NewSuspendHandler.
 func NewSuspendHandler() *SuspendHandler {
@@ -451,3 +484,7 @@ type InputSource = sources.InputSource
 func NewInputSource() *InputSource {
 	return sources.NewInputSource()
 }
+
+// InputEvent represents a generic text command.
+// Alias for pkg/sources.InputEvent.
+type InputEvent = sources.InputEvent
