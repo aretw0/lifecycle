@@ -17,11 +17,11 @@ Writing robust CLI tools in Go is deceptive. Handling `Ctrl+C` correctly implies
 
 `lifecycle` provides:
 
-* **Dual-Signal Context**: A standard pattern to differentiate "Soft Interrupt" vs "Hard Kill".
+* **Smart Signal Strategy**: A standard pattern to differentiate "Soft Interrupt" vs "Hard Kill", with configurable escalation for REPLs and shells.
 * **Context-Aware I/O**: Guarantees that I/O operations respect `context.Context` cancellation, preventing blocked goroutines and leaks.
-* **Process Hygiene**: Prevents "Zombie Processes" and "Eternal Shutdowns" via deterministic timeouts and cleanup strategies.
+* **Process Hygiene**: Prevents "Zombie Processes" and "Eternal Shutdowns" via deterministic timeouts and cleanup strategies (Job Objects/PDeathSig).
 * **Durable Execution**: Reliability primitives that shield critical state transitions from interruption.
-* **Control Plane** (v2): An event-driven router that allows applications to react to external stimuli (Config Changes, Health Checks) without restarting.
+* **Control Plane** (v2): An event-driven router that allows applications to react to external stimuli (Config Changes, Health Checks, Input Commands) without restarting.
 * **Uniformity**: Ensures tools behave identically when the user tries to stop them.
 
 ## Target Audience

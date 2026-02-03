@@ -95,30 +95,39 @@ This section details the internal state machines and I/O handling strategies.
 
 ### 3. Signal State Machine
 
-Our `SignalContext` manages the transition from **Graceful** to **Forced** shutdown.
+Our `SignalContext` manages the transition from **Graceful** to **Forced** shutdown based on a configurable **Force-Exit Threshold**.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Running
     
-    Running --> Graceful: SIGINT/SIGTERM (1st)
+    Running --> Graceful: SIGTERM (1st) or SIGINT (Count == Threshold)
     note right of Graceful
         Context cancelled.
         App starts cleanup.
     end note
 
-    Graceful --> ForceExit: SIGINT/SIGTERM (2nd)
+    Graceful --> ForceExit: Any Signal (Count > Threshold)
     note right of ForceExit
         os.Exit(1) called.
         Immediate termination.
     end note
 
+    Running --> Running: SIGINT (Escalation Mode Threshold >= 2)
+    note left of Running
+        Count < Threshold:
+        ClearLineEvent emitted.
+    end note
+
     ForceExit --> [*]
-    Graceful --> [*]: Natural Cleanup Complete
+    Graceful --> [*]: Natural Cleanup Completes
 ```
 
 **Key Behaviors:**
 
+* **Mode: Industry Standard (Threshold=1)**: The first `SIGINT` (Ctrl+C) or `SIGTERM` cancels the context. The second signal triggers `os.Exit(1)`. This is the default.
+* **Mode: Escalation (Threshold=N)**: `SIGINT` is captured and emitted as an event (`ClearLineEvent`) without cancelling the context. Only the N-th signal triggers `os.Exit(1)`. `SIGTERM` always cancels on the first signal.
+* **Mode: Unsafe (Threshold=0)**: Automatic forced exit is disabled. The user is responsible for process status.
 * **Async Hooks**: `OnShutdown` hooks run concurrently or sequentially (LIFO) depending on configuration, but always *after* context cancellation.
 * **Reasoning**: `ctx.Reason()` differentiates if closure was manual (`Stop()`), signal-based (`Interrupt`), or time-based (`Timeout`).
 
@@ -355,7 +364,18 @@ router.HandleFunc("signal.*", func(ctx context.Context, e Event) error {
 })
 ```
 
-#### 11.2. Middleware Chains
+#### 11.2. Standard Events (Control Plane)
+
+The library provides predefined events for common lifecycle transitions:
+
+| Event | Topic | Trigger | Typical Action |
+| :--- | :--- | :--- | :--- |
+| `SuspendEvent`  | `lifecycle/suspend`    | Escalation logic / API   | Pause workers, persist state. |
+| `ResumeEvent`   | `lifecycle/resume`     | Escalation logic / API   | Resume workers from state.    |
+| `ShutdownEvent` | `lifecycle/shutdown`   | Input: `exit`, `quit`    | Cancel `SignalContext`.       |
+| `ClearLineEvent`| `lifecycle/clear-line` | Ctrl+C Escalation Mode   | Clear CLI prompt, re-print `>`.|
+
+#### 11.3. Middleware Chains
 
 Middleware wraps handlers to provide cross-cutting concerns (logging, recovery, tracing).
 

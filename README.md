@@ -17,10 +17,9 @@ To be the **standard Control Plane** for Infrastructure-Aware Applications (Serv
 ## Project Status & Versioning
 
 > [!IMPORTANT]
-> **v1.x (Current - LTS)**: Focuses strictly on **Death Management** (Graceful Shutdown, Signals, Leak Prevention).
-> This branch is in **Maintenance Mode**. New features target v2.0.
+> **v2.x (Current)**: Introduces the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, Input Commands).
 >
-> **v2.x (Upcoming)**: Will introduce the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, etc).
+> **v1.x (Stable - LTS)**: Focuses strictly on **Death Management** (Graceful Shutdown, Signals, Leak Prevention).
 
 ## Installation
 
@@ -31,8 +30,8 @@ go get github.com/aretw0/lifecycle
 ## Features (Foundation v1)
 
 * **SignalContext**: Differentiates between `SIGINT` (User Interrupt) and `SIGTERM` (System Shutdown).
-  * **SIGINT**: Captured but doesn't cancel context immediately (allows "Wait, are you sure?" logic).
-  * **SIGTERM**: Cancels context immediately (standard graceful shutdown).
+  * **Configurable Thresholds**: Support for "Industry Standard" (Cancel on 1st), "Escalation" (Cancel on Nth), and "Unsafe" (No auto-kill) modes.
+  * **SIGTERM**: Always triggers immediate graceful shutdown (context cancellation).
 * **TermIO**:
   * **InterruptibleReader**: Wraps `io.Reader` to allow `Read()` calls to be abandoned when a context is cancelled (avoids goroutine leaks).
   * **Platform Aware**: Automatically uses `CONIN$` on Windows.
