@@ -12,6 +12,20 @@ import (
 	"github.com/aretw0/lifecycle/pkg/metrics"
 )
 
+type contextKey struct{}
+
+var signalContextKey = contextKey{}
+
+// FromContext retrieves the signal.Context from a possibly wrapped context.
+func FromContext(ctx context.Context) (*Context, bool) {
+	if sc, ok := ctx.Value(signalContextKey).(*Context); ok {
+		return sc, true
+	}
+	// Fallback to type assertion if not using the key yet
+	sc, ok := ctx.(*Context)
+	return sc, ok
+}
+
 // Reason describes why the context was cancelled.
 type Reason string
 
@@ -31,19 +45,33 @@ func (r Reason) String() string {
 // Context wraps a context and captures the signal that cancelled it.
 type Context struct {
 	context.Context
-	Cancel func()
-	start  sync.Once
-	stop   sync.Once
-	sigCh  chan os.Signal
-	sigVal os.Signal
-	reason Reason
-	mu     sync.Mutex
-	// ... fields ...
+	cancel      func()
+	start       sync.Once
+	stop        sync.Once
+	sigCh       chan os.Signal
+	sigVal      os.Signal
+	reason      Reason
+	mu          sync.Mutex
 	opts        options
 	hooks       []func()
 	hooksDone   chan struct{}
 	signalCount int
 	lastSignal  time.Time
+}
+
+// Cancel terminates the context manually.
+func (sc *Context) Cancel() {
+	sc.mu.Lock()
+	if sc.reason == ReasonNone {
+		sc.reason = ReasonManualCancel
+	}
+	sc.mu.Unlock()
+	sc.cancel()
+}
+
+// Shutdown is an alias for Cancel for consistency with other components.
+func (sc *Context) Shutdown() {
+	sc.Cancel()
 }
 
 // ResetSignalCount resets the signal counter and clears the last received signal.
@@ -140,23 +168,15 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 
 	ctx, cancel := context.WithCancel(parent)
 	sc := &Context{
-		Context:   ctx,
 		sigCh:     make(chan os.Signal, 1),
 		hooksDone: make(chan struct{}),
 		reason:    ReasonNone,
 		opts:      o,
+		cancel:    cancel,
 	}
 
-	// Internal Cancel Wrapper
-	// We wrap the context's cancel function to set the ReasonManualCancel if no other reason is set.
-	sc.Cancel = func() {
-		sc.mu.Lock()
-		if sc.reason == ReasonNone {
-			sc.reason = ReasonManualCancel
-		}
-		sc.mu.Unlock()
-		cancel()
-	}
+	// Double-bind: the context contains the sc, and the sc wraps the context.
+	sc.Context = context.WithValue(ctx, signalContextKey, sc)
 
 	sc.start.Do(func() {
 		ossignal.Notify(sc.sigCh, os.Interrupt, syscall.SIGTERM)

@@ -126,16 +126,23 @@ func WithHookTimeout(d time.Duration) signal.Option {
 }
 
 // OnShutdown safely registers a shutdown hook on the context if it supports it.
-// It abstracts the type assertion for *signal.Context.
+// It abstracts the discovery of signal.Context even when wrapped.
 func OnShutdown(ctx context.Context, fn func()) {
-	if sc, ok := ctx.(*signal.Context); ok {
+	if sc, ok := signal.FromContext(ctx); ok {
 		sc.OnShutdown(fn)
+	}
+}
+
+// Shutdown initiates a graceful shutdown of the application.
+func Shutdown(ctx context.Context) {
+	if sc, ok := signal.FromContext(ctx); ok {
+		sc.Shutdown()
 	}
 }
 
 // IsUnsafe returns true if the context is configured to never force exit.
 func IsUnsafe(ctx context.Context) bool {
-	if sc, ok := ctx.(*signal.Context); ok {
+	if sc, ok := signal.FromContext(ctx); ok {
 		return sc.IsUnsafe()
 	}
 	return false
@@ -143,7 +150,7 @@ func IsUnsafe(ctx context.Context) bool {
 
 // GetForceExitThreshold returns the number of signals required to trigger os.Exit(1).
 func GetForceExitThreshold(ctx context.Context) int {
-	if sc, ok := ctx.(*signal.Context); ok {
+	if sc, ok := signal.FromContext(ctx); ok {
 		return sc.ForceExitThreshold()
 	}
 	return 0
@@ -151,7 +158,7 @@ func GetForceExitThreshold(ctx context.Context) int {
 
 // GetSignalState returns a snapshot of the context's signal configuration.
 func GetSignalState(ctx context.Context) (SignalState, bool) {
-	if sc, ok := ctx.(*signal.Context); ok {
+	if sc, ok := signal.FromContext(ctx); ok {
 		return sc.State(), true
 	}
 	return SignalState{}, false

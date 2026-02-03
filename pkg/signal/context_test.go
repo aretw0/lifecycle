@@ -95,7 +95,7 @@ func TestSignalContext_Options(t *testing.T) {
 		// but we can test the handleSignal logic directly.
 		sc := &Context{
 			Context: context.Background(),
-			Cancel:  func() {},
+			cancel:  func() {},
 			opts: options{
 				forceExitThreshold: 2,
 			},
