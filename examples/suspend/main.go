@@ -417,14 +417,17 @@ func main() {
 
 		// Smart Signal Handling: Ctrl+C -> Suspend -> Quit
 		smartHandler := lifecycle.NewSmartSignalHandler(suspendHandler, lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			// Now safe to call directly thanks to internal idempotency in SmartSignalHandler
-			close(quitCh)
+			select {
+			case <-quitCh:
+			default:
+				close(quitCh)
+			}
 			return nil
 		}))
 		router.Handle("Signal(interrupt)", smartHandler)
 
 		// Handle Quit locally
-		router.Handle("input/quit", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+		router.Handle("lifecycle/shutdown", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
 			// For mixed sources, we technically still risk a race if user scripts 'q' + Ctrl+C simultaneously,
 			// but for interactive usage, the SmartSignalHandler protection covers the main "spam" case.
 			select {
@@ -464,11 +467,6 @@ func main() {
 		})
 
 		suspendHandler.OnResume(func(ctx context.Context) error {
-			// Reset here too, just in case a signal woke us up (not applicable here but good practice)
-			if sc, ok := ctx.(*lifecycle.Context); ok {
-				sc.ResetSignalCount()
-			}
-
 			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
 				if err := suspendable.Resume(ctx); err != nil {
 					return err
@@ -493,28 +491,6 @@ func main() {
 			return nil
 		})
 
-		// Wait for interrupts
-		// We use the router to detect the FIRST signal (Suspend)
-		// But we need to poll/check for the "Press again to force quit" warning?
-		// Actually, the router only handles events.
-		// We can add a specialized handler or just let the default "SmartSignalHandler" do its job.
-		// But we want to show a warning.
-		// Let's hook into the SmartSignal behavior? No, that's internal.
-		// We can use a Ticker or just let the logs speak.
-		// The user asked for "Avisa que o próximo vai cancelar".
-		// We can do this by wrapping the Signal Source?
-
-		// Simplest way: The SmartSignalHandler logs "Suspending...".
-		// The Blockers log "Suspending... Press Ctrl+C again...".
-		// The SignalContext logs "force exit threshold reached".
-
-		// Reviewing the logs from Step 276:
-		// "SmartSignalHandler: Suspending..."
-		// "[BLOCKER] Suspending... (I am slow! Press Ctrl+C again 2x to Force Quit...)"
-
-		// This already kind of exists in the Blocker.
-		// But let's verify if we can check the state in the main loop to show a dynamic "FURY METER".
-
 		// UI Loop
 		slog.Info(">>> FACTORY RUNNING <<<")
 		slog.Info("Commands: [s]uspend, [r]esume, [q]uit")
@@ -523,6 +499,35 @@ func main() {
 		autoSuspend := time.NewTimer(10 * time.Second)
 		defer autoSuspend.Stop()
 		autoSuspendActive := true
+
+		// Dedicated Fury Meter Observer
+		// This goroutine watches the signal state and shows warnings faster than the UI loop.
+		go func() {
+			lastCount := 0
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+				if sc, ok := ctx.(*lifecycle.Context); ok {
+					st := sc.State()
+					if st.SignalCount > 0 && st.SignalCount != lastCount && time.Now().Before(st.ResetDeadline) {
+						lastCount = st.SignalCount
+						next := "Quit"
+						if st.SignalCount >= 2 {
+							next = "Force Exit"
+						}
+						slog.Warn("⚠️  SIGNAL DETECTED",
+							"count", st.SignalCount,
+							"next_action", next,
+							"reset_in", time.Until(st.ResetDeadline).Round(100*time.Millisecond))
+					}
+					if time.Now().After(st.ResetDeadline) {
+						lastCount = 0
+					}
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
+		}()
 
 		for {
 			select {
@@ -574,7 +579,7 @@ func main() {
 				}
 			}
 		}
-	}), lifecycle.WithInterrupt(false))
+	}), lifecycle.WithForceExit(2))
 
 	if err != nil {
 		if err != context.Canceled {

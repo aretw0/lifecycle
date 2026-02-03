@@ -10,17 +10,18 @@ It showcases:
 
 ## 🎮 Controls
 
-* **`s` / `Ctrl+C`**: Suspend the factory (Stop production, save state).
-* **`r`**: Resume production.
-* **`q` / `Ctrl+C` (while suspended)**: Quit gracefully.
+* **`s`**: Suspend the factory via input.
+* **`r`**: Resume production via input.
+* **`Ctrl+C` (1st)**: Tries to Suspend gracefully (Escalation Mode).
+* **`Ctrl+C` (2nd)**: **Force Exit** (Immediate Kill).
+* **`q`**: Quit gracefully via input.
 
 ## 🛡️ Safety Net Pattern
 
 This example uses the **Safety Net Pattern** for signal handling:
 
 * **1st `Ctrl+C`**: Tries to Suspend gracefully.
-* **2nd `Ctrl+C`**: Ignored (if already suspending) or Tries to Quit.
-* **3rd `Ctrl+C`**: **Force Exit** (Immediate Kill).
+* **2nd `Ctrl+C`**: **Force Exit** (Immediate Kill).
 
 This ensures that even if the Suspend logic hangs, you can always force-quit the application by mashing `Ctrl+C`.
 
@@ -29,4 +30,4 @@ This ensures that even if the Suspend logic hangs, you can always force-quit the
 See `main.go` for the full implementation, specifically:
 
 * `SmartSignalHandler`: Arbitrates between Suspend and Quit.
-* `lifecycle.WithForceExit(3)`: Configures the safety net threshold.
+* `lifecycle.WithForceExit(2)`: Configures the safety net threshold.
