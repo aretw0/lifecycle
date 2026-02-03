@@ -60,12 +60,9 @@ func NewInputSource(opts ...InputOption) *InputSource {
 			"suspend": control.SuspendEvent{},
 			"r":       control.ResumeEvent{},
 			"resume":  control.ResumeEvent{},
-			// For quit, we don't have a standard event yet in pkg/control that implies "Shutdown"
-			// other than maybe context cancellation, but Source emits events.
-			// Users usually handle specific "quit" logic or we can define a ShutdownEvent.
-			// For now let's emit a generic InputEvent compatible with the example.
-			"q":    InputEvent{Command: "quit"},
-			"quit": InputEvent{Command: "quit"},
+			"q":       control.ShutdownEvent{Reason: "manual"},
+			"quit":    control.ShutdownEvent{Reason: "manual"},
+			"exit":    control.ShutdownEvent{Reason: "manual"},
 		},
 	}
 
@@ -120,13 +117,48 @@ func (s *InputSource) Start(ctx context.Context) error {
 				if err == io.EOF {
 					// "Fake EOF" Protection:
 					// On Windows, Ctrl+C can cause a transient EOF on the read syscall.
-					// We verify if it is persistent.
+					// We tie the "Despair Threshold" to the Signal Context's ForceExit limit.
+					threshold := 3 // Default fallback
+					unsafe := false
+
+					// Check Context State via structural interface (avoid circular imports)
+					if sc, ok := ctx.(interface {
+						IsUnsafe() bool
+						ForceExitThreshold() int
+					}); ok {
+						unsafe = sc.IsUnsafe()
+						if !unsafe {
+							// We allow exactly as many "fake EOFs" as the user allowed signals.
+							// This ensures that if they configured ForceExit(5), the input
+							// source doesn't die on the 4th Ctrl+C.
+							threshold = sc.ForceExitThreshold()
+						}
+					}
+
 					eofCount++
-					if eofCount > 3 {
-						slog.Debug("input source: persistent EOF received, stopping")
+
+					// desisted if we exceeded the threshold and we are not in unsafe mode
+					if eofCount > threshold && !unsafe {
+						slog.Debug("input source: persistent EOF received, stopping", "attempts", eofCount, "limit", threshold)
 						return
 					}
-					slog.Debug("input source: transient EOF (Ctrl+C?), retrying...", "attempt", eofCount)
+
+					slog.Debug("input source: transient EOF (Ctrl+C?), retrying...",
+						"attempt", eofCount,
+						"limit", func() string {
+							if unsafe {
+								return "inf"
+							}
+							return fmt.Sprintf("%d", threshold)
+						}())
+
+					// If we are still running, it means the context didn't cancel on Ctrl+C.
+					// This indicates a REPL-like behavior where we should clear the line.
+					select {
+					case s.events <- control.ClearLineEvent{}:
+					default:
+					}
+
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
