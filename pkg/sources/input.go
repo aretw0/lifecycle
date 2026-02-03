@@ -106,7 +106,7 @@ type InputEvent struct {
 }
 
 func (e InputEvent) String() string {
-	return fmt.Sprintf("input/%s", e.Command)
+	return fmt.Sprintf("command/%s", e.Command)
 }
 
 func (s *InputSource) Events() <-chan control.Event { return s.events }

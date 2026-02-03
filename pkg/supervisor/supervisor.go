@@ -552,24 +552,41 @@ func (s *supervisor) State() worker.State {
 		status = worker.StatusStopped
 	}
 
-	// We iterate over specs to preserve order, or children map?
-	// Specs order is better for visualization.
 	childrenState := make([]worker.State, 0, len(s.specs))
-
 	for _, spec := range s.specs {
-		if child, ok := s.children[spec.Name]; ok {
-			childrenState = append(childrenState, child.State())
-		} else {
-			// Report missing children as Pending to report the full configuration scope,
-			// even if the process is temporarily down or failed.
-			childrenState = append(childrenState, worker.State{
-				Name:   spec.Name,
-				Status: worker.StatusPending,
-				Metadata: map[string]string{
-					"type": spec.Type,
-				},
-			})
+		childState := worker.State{
+			Name: spec.Name,
+			Metadata: map[string]string{
+				"type": spec.Type,
+			},
 		}
+
+		if child, ok := s.children[spec.Name]; ok {
+			st := child.State()
+			childState.Status = st.Status
+			childState.PID = st.PID
+			childState.ExitCode = st.ExitCode
+			childState.Error = st.Error
+			// Merge metadata
+			for k, v := range st.Metadata {
+				childState.Metadata[k] = v
+			}
+		} else {
+			childState.Status = worker.StatusPending
+		}
+
+		// Reliability Metadata
+		if bs, ok := s.backoffStates[spec.Name]; ok {
+			childState.Metadata["restarts"] = fmt.Sprintf("%d", bs.restarts)
+			if !bs.windowStart.IsZero() {
+				childState.Metadata["window_start"] = bs.windowStart.Format(time.RFC3339)
+			}
+			if spec.Backoff.MaxRestarts > 0 && bs.restarts > spec.Backoff.MaxRestarts {
+				childState.Metadata["circuit_breaker"] = "triggered"
+			}
+		}
+
+		childrenState = append(childrenState, childState)
 	}
 
 	return worker.State{

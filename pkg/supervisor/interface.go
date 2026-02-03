@@ -1,6 +1,10 @@
 package supervisor
 
-import "github.com/aretw0/lifecycle/pkg/worker"
+import (
+	"context"
+
+	"github.com/aretw0/lifecycle/pkg/worker"
+)
 
 // Supervisor defines the interface for a managed cluster of workers.
 // It implements the worker.Worker interface, allowing it to be nested.
@@ -12,4 +16,10 @@ type Supervisor interface {
 
 	// Remove terminates and removes a worker from the supervisor.
 	Remove(name string) error
+
+	// Suspend pauses all suspendable children.
+	Suspend(context.Context) error
+
+	// Resume resumes all suspendable children.
+	Resume(context.Context) error
 }

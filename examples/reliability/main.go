@@ -2,56 +2,128 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/aretw0/lifecycle"
 )
 
 func main() {
-	// 1. Setup Signal Context
-	ctx := lifecycle.NewSignalContext(context.Background())
-	defer ctx.Cancel()
+	// 1. Setup Metrics (Log provider for easy viewing)
+	lifecycle.SetMetricsProvider(lifecycle.NewLogMetricsProvider())
 
-	fmt.Println("Example: Reliability Primitives (Critical Sections)")
-	fmt.Println("Press Ctrl+C to test shielding...")
-	fmt.Println("---------------------------------------------------")
+	// 3. Define the "Showcase" Supervisor
+	// This supervisor will manage three types of workers to demonstrate reliability.
 
-	// 2. Simulate normal work
-	work(ctx, "Phase 1: Normal Work")
+	// A. The Stable Worker: Never fails.
+	stableFactory := func() (lifecycle.Worker, error) {
+		return lifecycle.NewWorkerFromFunc("stable-worker", func(ctx context.Context) error {
+			fmt.Println(" [✓] Stable worker started.")
+			<-ctx.Done()
+			fmt.Println(" [✓] Stable worker stopped.")
+			return nil
+		}), nil
+	}
 
-	// 3. Enter Critical Section
-	// Even if you hit Ctrl+C here, the inner function will complete.
-	fmt.Println("\n>>> Entering Critical Section (Shielded) <<<")
-	err := lifecycle.Do(ctx, func(innerCtx context.Context) error {
-		// Attempt to cancel during the critical section?
-		// The innerCtx is NOT cancelled by the parent ctx.
-		work(innerCtx, "Phase 2: Critical Transaction (Commit)")
-		return nil
-	})
+	// B. The Flaky Worker: Retries periodically but will eventually trigger the circuit breaker.
+	flakyFactory := func() (lifecycle.Worker, error) {
+		return lifecycle.NewWorkerFromFunc("flaky-worker", func(ctx context.Context) error {
+			fmt.Println(" [!] Flaky worker starting...")
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(3 * time.Second):
+				fmt.Println(" [!] Flaky worker CRASHING!")
+				return errors.New("temporary failure")
+			}
+		}), nil
+	}
+
+	// C. The Critical Worker: If this fails, the app has issues.
+	criticalFactory := func() (lifecycle.Worker, error) {
+		return lifecycle.NewWorkerFromFunc("critical-worker", func(ctx context.Context) error {
+			fmt.Println(" [★] Critical worker active.")
+			<-ctx.Done()
+			return nil
+		}), nil
+	}
+
+	sup := lifecycle.NewSupervisor("Cluster-A", lifecycle.SupervisorStrategyOneForOne,
+		lifecycle.SupervisorSpec{
+			Name:    "stable-1",
+			Type:    "process",
+			Factory: stableFactory,
+		},
+		lifecycle.SupervisorSpec{
+			Name:    "flaky-api",
+			Type:    "container",
+			Factory: flakyFactory,
+			Backoff: lifecycle.SupervisorBackoff{
+				InitialInterval: 500 * time.Millisecond,
+				MaxInterval:     2 * time.Second,
+				Multiplier:      2.0,
+				MaxRestarts:     3, // Trigger circuit breaker after 3 restarts
+				MaxDuration:     30 * time.Second,
+			},
+		},
+		lifecycle.SupervisorSpec{
+			Name:    "core-logic",
+			Type:    "func",
+			Factory: criticalFactory,
+		},
+	)
+
+	// 4. Setup Interactive Router
+	// We use the router to control the application lives.
+	suspendHandler := lifecycle.NewSuspendHandler()
+
+	router := lifecycle.NewInteractiveRouter(suspendHandler,
+		lifecycle.WithShutdown(func() {
+			fmt.Println("\n [!] Shutdown requested via command.")
+		}),
+		lifecycle.WithCommand("status", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			fmt.Println("--- LIVE TOPOLOGY DIAGRAM ---")
+			fmt.Println(lifecycle.WorkerTreeDiagram(sup.State()))
+			fmt.Println("----------------------------")
+			return nil
+		})),
+	)
+
+	// 5. Wire up the Supervisor to the Suspend/Resume system
+	lifecycle.Handle("lifecycle/suspend", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+		return sup.Suspend(ctx)
+	}))
+	lifecycle.Handle("lifecycle/resume", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+		return sup.Resume(ctx)
+	}))
+
+	// 6. Run Everything
+	fmt.Println("================================================================")
+	fmt.Println(" LIFECYCLE V2.0 - RELIABILITY SHOWCASE")
+	fmt.Println("================================================================")
+	fmt.Println(" This demo shows:")
+	fmt.Println(" 1. Auto-healing (Supervisor)")
+	fmt.Println(" 2. Protection (Circuit Breaker)")
+	fmt.Println(" 3. Introspection (Mermaid via 'status' command)")
+	fmt.Println(" 4. Control (interactive 's' to suspend, 'r' to resume, 'q' to quit)")
+	fmt.Println("================================================================")
+	fmt.Println(" Type 'status' to see the initial tree.")
+
+	err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
+		// Start supervisor in background via lifecycle.Go
+		lifecycle.Go(ctx, func(ctx context.Context) error {
+			return sup.Start(ctx)
+		})
+
+		// Start the interactive router (blocks until 'q' or signals)
+		return router.Start(ctx)
+	}),
+		lifecycle.WithShutdownTimeout(3*time.Second), // Parameterized shutdown diagnostics
+	)
 
 	if err != nil {
-		fmt.Printf("\n>>> Lifecycle Error: %v <<<\n", err)
-	} else {
-		fmt.Println("\n>>> Critical Section Completed Successfully <<<")
-	}
-
-	// 4. Back to normal (or already cancelled if interrupted during shield)
-	if ctx.Err() != nil {
-		fmt.Println("Context was cancelled during the shield! Cleaning up now...")
-	} else {
-		work(ctx, "Phase 3: Cleanup")
-	}
-
-	fmt.Println("Done.")
-}
-
-func work(ctx context.Context, name string) {
-	fmt.Printf("[%s] Starting...\n", name)
-	select {
-	case <-time.After(3 * time.Second):
-		fmt.Printf("[%s] Finished.\n", name)
-	case <-ctx.Done():
-		fmt.Printf("[%s] Cancelled!\n", name)
+		slog.Error("Showcase exited with error", "error", err)
 	}
 }

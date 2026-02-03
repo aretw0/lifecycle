@@ -128,7 +128,11 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 		r.AddSource(sources.NewOSSignalSource(os.Interrupt))
 	}
 	if cfg.enableInput {
-		r.AddSource(sources.NewInputSource())
+		var inputOpts []sources.InputOption
+		for name := range cfg.commands {
+			inputOpts = append(inputOpts, sources.WithInputMapping(name, sources.InputEvent{Command: name}))
+		}
+		r.AddSource(sources.NewInputSource(inputOpts...))
 	}
 
 	return r
