@@ -25,9 +25,10 @@ This example uses the **Safety Net Pattern** for signal handling:
 
 This ensures that even if the Suspend logic hangs, you can always force-quit the application by mashing `Ctrl+C`.
 
-## implementation
+## Implementation
 
-See `main.go` for the full implementation, specifically:
+See `main.go`. This example uses:
 
-* `SmartSignalHandler`: Arbitrates between Suspend and Quit.
-* `lifecycle.WithForceExit(2)`: Configures the safety net threshold.
+* **`lifecycle.NewInteractiveRouter`**: Automatically wires up Input, Signals, and Command handling.
+* **`lifecycle.WithShutdown`**: Defines the clean exit logic (closing internal channels).
+* **`handlers.SuspendHandler`**: Manages the Suspend/Resume state machine.

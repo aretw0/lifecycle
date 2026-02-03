@@ -52,8 +52,9 @@ go get github.com/aretw0/lifecycle
   * **Process Hygiene**: Automatic cleanup of child processes if the parent dies (Job Objects/PDeathSig).
   * **Handover Protocol**: Standardized environment variables (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) to pass context across restarts.
   * **Container Abstraction**: Generic interface to manage containerized workloads without direct SDK dependencies.
-* **DX Helpers** (v1.4):
-  * **`Run`**: One-line `main` entry point (Context + Signal Handling + Cleanup).
+* **DX Helpers** (v1.4 & v2.0):
+  * **`Run`**: One-line `main` entry point with options (`WithLogger`, `WithMetrics`).
+  * **`NewInteractiveRouter`**: Pre-configured router for CLIs (Signals + Input + Commands).
   * **`Sleep`**: Context-aware sleep (returns immediately on cancel).
   * **`OnShutdown`**: Type-safe hook registration without casting.
 

@@ -35,6 +35,10 @@ We recommend exploring these examples in order:
 * **[supervisor/](supervisor/)**: Process Supervision.
   * Managing a tree of child processes (Workers).
   * Restart strategies (OneForOne, etc.).
+* **[suspend/](suspend/)**: Durable Execution (Factory).
+  * **Interactive Router**: Using `NewInteractiveRouter` for boilerplate-free CLI.
+  * **Suspend/Resume**: Persisting state to disk and resuming on restart.
+  * **Smart Signals**: "Double-Tap" logic (Suspend on first Ctrl+C, Force Quit on second).
 
 ## Running Examples
 
