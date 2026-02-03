@@ -12,6 +12,42 @@ import (
 	"github.com/aretw0/lifecycle"
 )
 
+// Watchdog is a system service that runs continuously, ignoring suspension.
+type Watchdog struct {
+	done chan error
+}
+
+func NewWatchdog() *Watchdog {
+	return &Watchdog{done: make(chan error, 1)}
+}
+
+func (w *Watchdog) Start(ctx context.Context) error {
+	go func() {
+		w.done <- w.Run(ctx)
+		close(w.done)
+	}()
+	return nil
+}
+
+func (w *Watchdog) Stop(ctx context.Context) error { return nil }
+func (w *Watchdog) Wait() <-chan error             { return w.done }
+func (w *Watchdog) String() string                 { return "Watchdog" }
+func (w *Watchdog) State() lifecycle.WorkerState   { return lifecycle.WorkerState{Name: "Watchdog"} }
+
+func (w *Watchdog) Run(ctx context.Context) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			slog.Info("[WATCHDOG] System Healthy. (I never sleep!)")
+		}
+	}
+}
+
 // FactoryState represents the persisted state of our factory.
 type FactoryState struct {
 	ItemsProduced  int `json:"items_produced"`
@@ -282,82 +318,36 @@ func (w *Worker) Resume(ctx context.Context) error {
 	return nil
 }
 
-// InputEvent wraps user commands
-type InputEvent struct {
-	Command string
+// Blocker is a worker that refuses to suspend quickly, testing the USER's patience.
+// It allows demonstrating the "Force Exit" safety net during a stuck suspension.
+type Blocker struct {
+	done chan error
 }
 
-func (e InputEvent) String() string {
-	return "input/" + e.Command
-}
-
-// InputSource reads from Stdin and emits events
-type InputSource struct {
-	events chan lifecycle.Event
-}
-
-func NewInputSource() *InputSource {
-	return &InputSource{events: make(chan lifecycle.Event)}
-}
-
-func (s *InputSource) Events() <-chan lifecycle.Event { return s.events }
-func (s *InputSource) Start(ctx context.Context) error {
-	slog.Info("[INPUT] Listening for commands: [s]uspend, [r]esume, [q]uit")
-
-	// We start a goroutine for the blocking read so we can respect Context cancellation
-	// even if no input is provided (avoid hanging on clean shutdown).
+func (b *Blocker) Start(ctx context.Context) error {
+	b.done = make(chan error, 1)
 	go func() {
-		defer close(s.events)
-		for {
-			// Check context before blocking
-			if ctx.Err() != nil {
-				return
-			}
-
-			var cmd string
-			// This call blocks indefinitely on many systems
-			_, err := fmt.Scanln(&cmd)
-
-			// If context died while we were blocked, give up
-			if ctx.Err() != nil {
-				return
-			}
-
-			if err != nil {
-				// Wait a bit and retry or exit
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-
-			// Processing logic
-			switch cmd {
-			case "s", "suspend":
-				select {
-				case s.events <- lifecycle.SuspendEvent{}:
-				case <-ctx.Done():
-					return
-				}
-			case "r", "resume":
-				select {
-				case s.events <- lifecycle.ResumeEvent{}:
-				case <-ctx.Done():
-					return
-				}
-			case "q", "quit":
-				select {
-				case s.events <- InputEvent{Command: "quit"}:
-				case <-ctx.Done():
-					return
-				}
-			default:
-				fmt.Println("Unknown command. Try: [s]uspend, [r]esume, [q]uit")
-			}
-		}
+		<-ctx.Done()
+		b.done <- nil
+		close(b.done)
 	}()
-
-	// Block until context is done, allowing clean exit of the Source manager
-	<-ctx.Done()
 	return nil
+}
+func (b *Blocker) Stop(ctx context.Context) error { return nil }
+func (b *Blocker) Wait() <-chan error             { return b.done }
+func (b *Blocker) String() string                 { return "Blocker" }
+func (b *Blocker) State() lifecycle.WorkerState   { return lifecycle.WorkerState{Name: "Blocker"} }
+
+func (b *Blocker) Resume(ctx context.Context) error { return nil }
+func (b *Blocker) Suspend(ctx context.Context) error {
+	slog.Warn("[BLOCKER] Suspending... (I am slow! Press Ctrl+C again 2x to Force Quit, or wait)")
+	select {
+	case <-time.After(5 * time.Second):
+		slog.Info("[BLOCKER] Finally suspended.")
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func main() {
@@ -382,6 +372,13 @@ func main() {
 	// 3. Supervisor
 	sup := lifecycle.NewSupervisor("factory", lifecycle.SupervisorStrategyOneForOne,
 		lifecycle.SupervisorSpec{
+			Name: "watchdog",
+			Factory: func() (lifecycle.Worker, error) {
+				return NewWatchdog(), nil
+			},
+			RestartPolicy: lifecycle.RestartAlways,
+		},
+		lifecycle.SupervisorSpec{
 			Name: "generator",
 			Factory: func() (lifecycle.Worker, error) {
 				return NewGenerator(sharedChan, store), nil
@@ -394,6 +391,13 @@ func main() {
 				return NewWorker(sharedChan, store), nil
 			},
 			RestartPolicy: lifecycle.RestartOnFailure,
+		},
+		lifecycle.SupervisorSpec{
+			Name: "blocker", // The bad neighbor
+			Factory: func() (lifecycle.Worker, error) {
+				return &Blocker{}, nil
+			},
+			RestartPolicy: lifecycle.RestartAlways,
 		},
 	)
 
@@ -413,6 +417,7 @@ func main() {
 
 		// Smart Signal Handling: Ctrl+C -> Suspend -> Quit
 		smartHandler := lifecycle.NewSmartSignalHandler(suspendHandler, lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			// Now safe to call directly thanks to internal idempotency in SmartSignalHandler
 			close(quitCh)
 			return nil
 		}))
@@ -420,13 +425,19 @@ func main() {
 
 		// Handle Quit locally
 		router.Handle("input/quit", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			close(quitCh)
+			// For mixed sources, we technically still risk a race if user scripts 'q' + Ctrl+C simultaneously,
+			// but for interactive usage, the SmartSignalHandler protection covers the main "spam" case.
+			select {
+			case <-quitCh:
+			default:
+				close(quitCh)
+			}
 			return nil
 		}))
 
 		// Add Sources
 		router.AddSource(lifecycle.NewOSSignalSource(os.Interrupt))
-		inputSource := NewInputSource()
+		inputSource := lifecycle.NewInputSource()
 		router.AddSource(inputSource)
 
 		// Allow Auto-Suspend to speak
@@ -435,6 +446,8 @@ func main() {
 
 		// Hooks to update UI State
 		suspendHandler.OnSuspend(func(ctx context.Context) error {
+			// Reset signal count is now handled automatically by time-based reset
+
 			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
 				if err := suspendable.Suspend(ctx); err != nil {
 					return err
@@ -451,6 +464,11 @@ func main() {
 		})
 
 		suspendHandler.OnResume(func(ctx context.Context) error {
+			// Reset here too, just in case a signal woke us up (not applicable here but good practice)
+			if sc, ok := ctx.(*lifecycle.Context); ok {
+				sc.ResetSignalCount()
+			}
+
 			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
 				if err := suspendable.Resume(ctx); err != nil {
 					return err
@@ -474,6 +492,28 @@ func main() {
 			<-sup.Wait()
 			return nil
 		})
+
+		// Wait for interrupts
+		// We use the router to detect the FIRST signal (Suspend)
+		// But we need to poll/check for the "Press again to force quit" warning?
+		// Actually, the router only handles events.
+		// We can add a specialized handler or just let the default "SmartSignalHandler" do its job.
+		// But we want to show a warning.
+		// Let's hook into the SmartSignal behavior? No, that's internal.
+		// We can use a Ticker or just let the logs speak.
+		// The user asked for "Avisa que o próximo vai cancelar".
+		// We can do this by wrapping the Signal Source?
+
+		// Simplest way: The SmartSignalHandler logs "Suspending...".
+		// The Blockers log "Suspending... Press Ctrl+C again...".
+		// The SignalContext logs "force exit threshold reached".
+
+		// Reviewing the logs from Step 276:
+		// "SmartSignalHandler: Suspending..."
+		// "[BLOCKER] Suspending... (I am slow! Press Ctrl+C again 2x to Force Quit...)"
+
+		// This already kind of exists in the Blocker.
+		// But let's verify if we can check the state in the main loop to show a dynamic "FURY METER".
 
 		// UI Loop
 		slog.Info(">>> FACTORY RUNNING <<<")

@@ -118,5 +118,38 @@ smartHandler := lifecycle.NewSmartSignalHandler(
     }),
 )
 
+
 router.Handle("Signal(interrupt)", smartHandler)
 ```
+
+---
+
+## 🛡️ 5. The Safety Net Pattern (Interactive Robustness)
+
+**Problem**: You are disabling default signal handling (`WithInterrupt(false)`) to use `Ctrl+C` for custom logic (like Suspend), but you are afraid of creating an "unkillable" zombie process if your custom logic fails.
+
+**Solution**: Use `WithForceExit(N)` as a "Deadman Switch".
+
+* **1st Ctrl+C**: Custom Logic (e.g., Suspend).
+* **2nd Ctrl+C**: Custom Logic (or Ignored).
+* **3rd Ctrl+C**: **FORCE EXIT** (Runtime Kill Switch).
+
+```go
+func main() {
+    // ... setup router and custom handlers ...
+    
+    // We DISABLE default context cancellation on Interrupt
+    // because we want to handle it ourselves (e.g. to Suspend).
+    lifecycle.Run(job, 
+        lifecycle.WithInterrupt(false), 
+        
+        // BUT we keep the "Safety Net".
+        // If the user mashes Ctrl+C 3 times, we assume our custom logic is broken
+        // and we force-kill the process.
+        lifecycle.WithForceExit(3),
+    )
+}
+```
+
+> [!TIP]
+> This pattern breaks the "Zombie Process" fear. Even if your `SmartHandler` deadlocks or fails to valid state, the user always has a panic button (Mash Ctrl+C).
