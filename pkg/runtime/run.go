@@ -41,10 +41,20 @@ func Job(fn func(context.Context) error) Runnable {
 
 // Run executes the application logic with a managed SignalContext.
 // It accepts a Runnable (Job, Router, Supervisor) and manages its lifecycle.
+// It accepts generic options (e.g. SignalOption) to configure the runtime.
 // This is the recommended entry point for main().
-func Run(r Runnable, opts ...signal.Option) error {
+func Run(r Runnable, opts ...any) error {
+	var sigOpts []signal.Option
+
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case signal.Option:
+			sigOpts = append(sigOpts, v)
+		}
+	}
+
 	var wg sync.WaitGroup
-	sigCtx := signal.NewContext(context.Background(), opts...)
+	sigCtx := signal.NewContext(context.Background(), sigOpts...)
 	defer sigCtx.Stop()
 
 	// Inject the task tracker into the context passed to the application

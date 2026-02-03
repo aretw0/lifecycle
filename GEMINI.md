@@ -3,7 +3,7 @@
 ## Project Overview
 
 **lifecycle** is a Go library for robust infrastructure signaling and interactive I/O.
-It allows applications to differentiate between "User Interrupts" and "System Terminations" while strictly enforcing leak-free shutdowns.
+It allows applications to differentiate between "User Interrupts" and "System Terminations" while enforcing leak-free shutdowns.
 
 For a detailed breakdown of the problems we solve (Zombie Processes, Blocking I/O, Dual Signals), see **[PRODUCT.md](docs/PRODUCT.md)**.
 

@@ -7,7 +7,7 @@ It unifies Death Management (Signals, Shutdown) with Life Management (Supervisio
 The library is built around three pillars:
 
  1. Signal Context (The Foundation):
-    manages the application's lifecycle, handling OS signals (SIGINT/SIGTERM) and
+    Manages the application's lifecycle, handling OS signals (SIGINT/SIGTERM) and
     propagating cancellation via context.Context.
 
     ctx := lifecycle.NewSignalContext(context.Background())
@@ -22,26 +22,26 @@ The library is built around three pillars:
     sup.Add(spec)
 
  3. Control Plane (The Vision):
-    Decouples "Events" (Triggers) from "Reactions" (Actions) via a Router.
-    This enables dynamic behaviors like Hot Reload, Configuration Updates, etc.
+    Decouples "Events" (Triggers) from "Handlers" (Reactions) via a Router.
+    This allows the application to react to external stimuli (Input, Webhooks) dynamically.
 
     router := lifecycle.NewRouter()
-    router.On("Signal(interrupt)", func(ctx context.Context) error { ... })
+    router.Handle("Signal(interrupt)", handler)
 
 # Root Package Aliases
 
 For convenience, this package exposes the most commonly used types and constructors
-from the internal `pkg/` structure.
+from the internal `pkg/` structure, grouped by functionality:
 
-  - lifecycle.NewSignalContext -> pkg/signal.NewContext
-  - lifecycle.NewGroup         -> group.NewGroup (Root Primitive)
-  - lifecycle.NewSupervisor    -> pkg/supervisor.New
-  - lifecycle.NewRouter        -> pkg/control.NewRouter
-  - lifecycle.Receive          -> pkg/runtime.Receive (Safe Iterator)
+  - Runtime:     lifecycle.Run, lifecycle.Go, lifecycle.Do
+  - Signals:     lifecycle.NewSignalContext, lifecycle.WithForceExit
+  - Supervision: lifecycle.NewSupervisor, lifecycle.NewProcessWorker
+  - Control:     lifecycle.NewRouter, lifecycle.Handle
 
 # Configuration
 
 Configuration is done via Functional Options (SignalOption) and Struct Specs (SupervisorSpec).
-We adopt the "Stdlib Pattern": providing a `DefaultRouter` for convenience ("Managed Global State") while allowing explicit `NewRouter` for strict isolation.
+We adopt the "Stdlib Pattern": providing a `DefaultRouter` for convenience ("Managed Global State")
+while allowing explicit `NewRouter` for strict isolation.
 */
 package lifecycle
