@@ -1,0 +1,99 @@
+package lifecycle
+
+import (
+	"context"
+	"os"
+
+	"github.com/aretw0/lifecycle/pkg/control"
+	"github.com/aretw0/lifecycle/pkg/handlers"
+	"github.com/aretw0/lifecycle/pkg/sources"
+)
+
+// InteractiveOption configures the interactive router.
+type InteractiveOption func(*interactiveConfig)
+
+type interactiveConfig struct {
+	enableInput  bool
+	enableSignal bool
+	commands     map[string]control.Handler
+}
+
+// WithInput enables or disables the standard input source (stdin). Default is true.
+func WithInput(enable bool) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.enableInput = enable
+	}
+}
+
+// WithSignal enables or disables the OS signal source (Interrupt, Term). Default is true.
+func WithSignal(enable bool) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.enableSignal = enable
+	}
+}
+
+// WithCommand adds a custom command handler.
+// Example: WithCommand("stats", statsHandler) will route "command/stats" to statsHandler.
+func WithCommand(name string, handler control.Handler) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.commands[name] = handler
+	}
+}
+
+// NewInteractiveRouter creates a router pre-configured for interactive CLI applications.
+//
+// It wires up:
+//   - OS Signals (Interrupt/Term) -> SmartSignalHandler (Suspend first, then Quit)
+//   - Input (Stdin) -> Router (reads lines as commands)
+//   - Commands: "suspend", "resume" -> SuspendHandler
+//
+// To handle "Quit", it routes "command/quit" to a generic no-op handler.
+// A true shutdown is triggered by the runtime observing the signal context or by a custom
+// handler that cancels a context.
+func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...InteractiveOption) *control.Router {
+	cfg := &interactiveConfig{
+		enableInput:  true,
+		enableSignal: true,
+		commands:     make(map[string]control.Handler),
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	r := control.NewRouter()
+
+	// 1. Standard Routes
+	r.Handle("lifecycle/suspend", suspendHandler)
+	r.Handle("command/suspend", suspendHandler)
+
+	r.Handle("lifecycle/resume", suspendHandler)
+	r.Handle("command/resume", suspendHandler)
+
+	// 2. Custom Commands
+	for name, h := range cfg.commands {
+		r.Handle("command/"+name, h)
+	}
+
+	// 3. Smart Signal Handling
+	// The SmartSignalHandler intercepts SIGINT.
+	// If the system is running, it triggers a Suspend via suspendHandler.
+	// If/When it decides to Quit (e.g. system is already suspended), it delegates to the next handler.
+	// We provide a no-op handler here because the actual "Exit" is often handled by the
+	// runtime observing the signal cancellation propagation or by the user hitting Ctrl+C twice (Force Exit).
+	noOpQuit := control.HandlerFunc(func(ctx context.Context, e control.Event) error {
+		return nil
+	})
+
+	smartHandler := handlers.NewSmartSignalHandler(suspendHandler, noOpQuit)
+	r.Handle("Signal(interrupt)", smartHandler)
+
+	// 4. Sources
+	if cfg.enableSignal {
+		r.AddSource(sources.NewOSSignalSource(os.Interrupt))
+	}
+	if cfg.enableInput {
+		r.AddSource(sources.NewInputSource())
+	}
+
+	return r
+}

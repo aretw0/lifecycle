@@ -464,6 +464,12 @@ func NewSmartSignalHandler(s *SuspendHandler, q Handler) *SmartSignalHandler {
 type ClearLineEvent = control.ClearLineEvent
 
 // ======================================================================================
+// 6a. Interactive Router Helpers
+// ======================================================================================
+
+// See interactive.go for NewInteractiveRouter and related options.
+
+// ======================================================================================
 // 7. Process Management (Low Level)
 // ======================================================================================
 
