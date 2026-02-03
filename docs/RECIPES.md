@@ -98,3 +98,44 @@ router.Handle("source/tick", control.HandlerFunc(func(_ context.Context, e contr
     return nil
 }))
 ```
+
+---
+
+## 🧠 4. Smart Signal Handling (State-Aware Ctrl+C)
+
+**Problem**: You want `Ctrl+C` to have context-aware behavior: Suspend on the first press, Quit on the second (or if already suspended).
+
+**Solution**: Use a custom Handler that checks state before deciding the action.
+
+```go
+type SmartSignalHandler struct {
+    Suspend *lifecycle.SuspendHandler
+    Quit    lifecycle.HandlerFunc
+}
+
+func (h *SmartSignalHandler) Handle(ctx context.Context, e control.Event) error {
+    state := h.Suspend.State().(map[string]any)
+    isSuspended := state["suspended"].(bool)
+
+    if !isSuspended {
+        // First Ctrl+C: Suspend
+        slog.Info("Signal received: Suspending... (Press Ctrl+C again to Quit)")
+        return h.Suspend.HandleEvent(ctx, control.SuspendEvent{})
+    }
+
+    // Second Ctrl+C: Quit
+    slog.Info("Signal received: Quitting...")
+    return h.Quit(ctx, e)
+}
+
+// In main():
+smartHandler := &SmartSignalHandler{
+    Suspend: suspendHandler,
+    Quit: func(ctx context.Context, _ control.Event) error {
+        // close(quitCh) or cancel()
+        return nil
+    },
+}
+
+router.Handle("Signal(interrupt)", smartHandler)
+```
