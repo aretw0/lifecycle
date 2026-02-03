@@ -469,7 +469,8 @@ runtime.Run(func(ctx context.Context) error {
 
 **Features:**
 
-* **Context-Aware**: `Go` looks for a tracker in `ctx`. If found, it tracks the goroutine.
+* **Context-Aware**: `Go` looks for a tracker in `ctx`. If found, it tracks the goroutine via `lifecycle.Run`.
+* **Safe Fallback**: If `Run` is not used, `Go` falls back to a global tracker. You can wait for these tasks with `lifecycle.WaitForGlobal()`.
 * **Leak Prevention**: `Run()` waits for all tracked goroutines to finish before exiting.
 * **Panic Recovery**: Panics are caught, logged, and do not crash the main process.
 

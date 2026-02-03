@@ -1,52 +1,27 @@
-# Examples
+# lifecycle Examples
 
-This directory contains examples demonstrating how to use `lifecycle` across different complexity levels.
+This folder contains runnable examples demonstrating various features of the `lifecycle` library.
 
-## Learning Path
+## Basic Patterns (CLI & Automation)
 
-We recommend exploring these examples in order:
+These examples demonstrate the core "Death Management" features (v1.x). Ideal for CLIs, Scripts, and simple Tools.
 
-### Level 0: The Problem
+* [**basic**](./basic/main.go): The "Hello World" of `lifecycle`. Shows `Run`, `Go`, and `Job`.
+* [**hooks**](./hooks/main.go): How to register and execute synchronous/asynchronous cleanup hooks.
+* [**termio**](./termio/main.go): Safe reading from Stdin (Windows `CONIN$` support) that respects context cancellation.
 
-* **[zombie/](zombie/)**: Demonstrates the problem `lifecycle` solves. A parent process crashes, leaving a child process (Zombie) running forever. `lifecycle` solves this by default.
+## Advanced Patterns (Control Plane v2)
 
-### Level 1: Foundations
+These examples demonstrate "Life Management" capabilities (v2.x). Ideal for Services, Daemons, and Agents.
 
-* **[basic/](basic/)**: The "Hello World".
-  * Setup `lifecycle.Run` to manage the main context.
-  * Use `lifecycle.Go` for safe, tracked concurrency.
-  * Handle standard signals (`SIGINT`, `SIGTERM`).
+* [**suspend**](./suspend/main.go): The full Control Plane experience. Shows Supervisors, Suspend/Resume events, and Durable Execution.
+* [**supervisor**](./supervisor/main.go): Managing a tree of child processes/workers with restart policies.
+* [**repl**](./repl/main.go): Building an interactive REPL that handles signals and custom commands.
 
-### Level 2: Intermediate
+## Recipes
 
-* **[hooks/](hooks/)**: Graceful Shutdown.
-  * Registering `OnShutdown` hooks.
-  * Managing hook timeouts and dependencies.
-* **[termio/](termio/)**: Safe Input/Output.
-  * Handling `Ctrl+C` interrupt during blocking `Read()` calls on Windows/Linux.
-  * Preventing "Batch Job Terminate?" prompts on Windows.
+Specific solutions to common problems.
 
-### Level 3: Advanced
-
-* **[control/](control/)**: The Control Plane (v2.x).
-  * Event-Driven architecture (`Router`).
-  * Handling `Webhook` events (e.g., Hot Reload).
-  * Introspection and custom Event sources.
-* **[supervisor/](supervisor/)**: Process Supervision.
-  * Managing a tree of child processes (Workers).
-  * Restart strategies (OneForOne, etc.).
-* **[suspend/](suspend/)**: Durable Execution (Factory).
-  * **Interactive Router**: Using `NewInteractiveRouter` for boilerplate-free CLI.
-  * **Suspend/Resume**: Persisting state to disk and resuming on restart.
-  * **Smart Signals**: "Double-Tap" logic (Suspend on first Ctrl+C, Force Quit on second).
-
-## Running Examples
-
-```bash
-# Basic
-go run ./examples/basic
-
-# Control Plane
-go run ./examples/control
-# In another terminal: curl -X POST http://localhost:8080/reload
-```
+* [**zombie**](./zombie/README.md): Demonstrating Process Hygiene (Job Objects / PDeathSig) to ensure child processes die with the parent.
+* [**reliability**](./reliability/main.go): Using `lifecycle.Do` for safe execution.
+* [**observability**](./observability/main.go): Visualizing the system state with Mermaid.

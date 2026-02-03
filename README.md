@@ -79,9 +79,9 @@ lifecycle.Run(func(ctx context.Context) error {
 })
 ```
 
-## Usage
+## Quick Start (The Golden Path)
 
-### Signal Context
+For 99% of CLI applications, you just need `lifecycle.Run`. It handles signals, context cancellation, and cleanup automatically.
 
 ```go
 package main
@@ -94,109 +94,112 @@ import (
 )
 
 func main() {
-    // lifecycle.Run handles context creation, signal listening, and cleanup.
-    // It automatically waits for hooks if a signal is received.
-    lifecycle.Run(lifecycle.Job(runApp))
-}
+    // 1. Wrap your logic in a Job
+    // 2. lifecycle.Run manages the boring "Death Management" stuff
+    lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
+        fmt.Println("App started. Press Ctrl+C to exit.")
+        
+        // 3. Use lifecycle.Go to spawn safe, tracked background tasks
+        lifecycle.Go(ctx, func(ctx context.Context) error {
+            // This goroutine is automatically waited for on shutdown
+            // Panics are caught and logged, preventing crashes
+            select {
+            case <-ctx.Done():
+                return nil
+            case <-time.After(5 * time.Second):
+                fmt.Println("Task complete")
+                return nil
+            }
+        })
 
-func runApp(ctx context.Context) error {
-    // 1. Frictionless Hook Registration
-    lifecycle.OnShutdown(ctx, func() {
-        fmt.Println("Cleanup: Database closed")
+        // 4. Wait for interrupt
+        <-ctx.Done()
+        fmt.Println("Shutting down...")
+        return nil
+    }))
+}
+```
+
+## Basic Patterns (CLI & Automation)
+
+### 1. Robust Input (Windows Safe)
+
+Reading from Stdin on Windows is tricky. `lifecycle` solves the "Ctrl+C kills the prompt" problem by automatically using `CONIN$`.
+
+```go
+// Smart Open (handles Windows CONIN$)
+reader, _ := lifecycle.OpenTerminal()
+defer reader.Close()
+
+// Wrap to respect context cancellation (prevents blocked Read calls)
+r := lifecycle.NewInterruptibleReader(reader, ctx.Done())
+
+buf := make([]byte, 1024)
+n, err := r.Read(buf)
+if lifecycle.IsInterrupted(err) {
+    return // Clean exit
+}
+```
+
+### 2. Graceful Hooks
+
+Register cleanup functions that run *after* the context is cancelled but *before* the process exits.
+
+```go
+lifecycle.OnShutdown(ctx, func() {
+    db.Close()
+    fmt.Println("Cleanup done locally")
+})
+```
+
+## Advanced Patterns (Control Plane v2)
+
+For complex long-running services/agents that need dynamic behavior (Hot Reload, Supervisors).
+
+### 1. Managed Concurrency & Global Fallback
+
+`lifecycle.Go(ctx, fn)` is designed to work within `lifecycle.Run`. However, if you use it in a standalone script, it safely falls back to a **Global Task Tracker**.
+
+```go
+func main() {
+    ctx := context.Background()
+    
+    // Works safely even without lifecycle.Run
+    lifecycle.Go(ctx, func(ctx context.Context) error {
+        // ...
+        return nil
     })
-
-    // 2. Safe Sleep (Regret Window)
-    // Returns immediately if Ctrl+C is pressed.
-    if err := lifecycle.Sleep(ctx, 10*time.Second); err != nil {
-        return err
-    }
     
-    return nil
+    // Explicitly wait for global tasks (required without Run)
+    lifecycle.WaitForGlobal()
 }
 ```
 
-### Interruptible I/O
+### 2. Supervisor & Workers
+
+Manage long-running processes, containers, or goroutines with restarts and hygiene.
 
 ```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/aretw0/lifecycle"
+// Create a Supervisor with a "OneForOne" restart strategy
+sup := lifecycle.NewSupervisor("agent", lifecycle.SupervisorStrategyOneForOne,
+    lifecycle.NewProcessWorker("pinger", "ping", "1.1.1.1"),
+    lifecycle.NewWorkerFromFunc("metrics", metricsLoop),
 )
 
-func main() {
-    ctx := context.Background() // or SignalContext
-    
-    // Smart Open (handles Windows CONIN$)
-    reader, _ := lifecycle.OpenTerminal()
-    
-    // Wrap to respect context cancellation
-    r := lifecycle.NewInterruptibleReader(reader, ctx.Done())
-
-    buf := make([]byte, 1024)
-    n, err := r.Read(buf)
-    if lifecycle.IsInterrupted(err) {
-        fmt.Println("Read cancelled!")
-        return
-    }
-    fmt.Printf("Read: %s\n", buf[:n])
-}
+sup.Start(ctx)
+<-ctx.Done()
+sup.Stop(context.Background())
 ```
 
-### Worker Protocol (v1.3)
-
-Manage long-running processes, containers, or goroutines with a uniform interface, hygiene, and handover support.
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/aretw0/lifecycle"
-)
-
-func main() {
-    ctx := lifecycle.NewSignalContext(context.Background())
-    defer ctx.Stop()
-
-    // 1. Process Worker (Fail-Closed hygiene automatically applied)
-    worker := lifecycle.NewProcessWorker("pinger", "ping", "127.0.0.1")
-
-    // 2. Handover Protocol (Access resume info in child process via env)
-    // resumeID := os.Getenv(lifecycle.EnvResumeID)
-
-    // Async Start
-    worker.Start(ctx)
-
-    // Wait for shutdown or worker exit
-    select {
-    case <-ctx.Done():
-        worker.Stop(context.Background()) // Graceful stop
-    case <-worker.Wait():
-        fmt.Println("Worker finished!")
-    }
-}
-```
-
-### System Introspection (v1.3)
+### 3. System Introspection
 
 Generate live architecture diagrams of your running application.
 
 ```go
-// Get current snapshots
-sigState := ctx.State()
-workState := supervisor.State()
-
-// Generate Mermaid "Unified Dashboard"
-diagram := lifecycle.SystemDiagram(sigState, workState)
+// Generate Mermaid Dashboard
+diagram := lifecycle.SystemDiagram(ctx.State(), supervisor.State())
 fmt.Println(diagram)
 ```
-
-> [!NOTE]
-> We use **state diagrams** (`stateDiagram-v2`) for behavior/FSM and **flowcharts** (`graph TD`) for topology/trees.
 
 ## Metrics Palette
 
