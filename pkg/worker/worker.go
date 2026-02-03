@@ -94,6 +94,17 @@ func (t Type) String() string {
 	}
 }
 
+const (
+	// MetadataType identifies the kind of worker (supervisor, process, etc.)
+	MetadataType = "type"
+	// MetadataRestarts tracks the number of times a worker was restarted.
+	MetadataRestarts = "restarts"
+	// MetadataWindowStart marks the start of the current reliability monitoring window.
+	MetadataWindowStart = "window_start"
+	// MetadataCircuitBreaker indicates if the circuit breaker has been triggered.
+	MetadataCircuitBreaker = "circuit_breaker"
+)
+
 // State represents a snapshot of the worker's status.
 type State struct {
 	Name        string

@@ -557,7 +557,7 @@ func (s *supervisor) State() worker.State {
 		childState := worker.State{
 			Name: spec.Name,
 			Metadata: map[string]string{
-				"type": spec.Type,
+				worker.MetadataType: spec.Type,
 			},
 		}
 
@@ -577,12 +577,13 @@ func (s *supervisor) State() worker.State {
 
 		// Reliability Metadata
 		if bs, ok := s.backoffStates[spec.Name]; ok {
-			childState.Metadata["restarts"] = fmt.Sprintf("%d", bs.restarts)
+			childState.Metadata[worker.MetadataRestarts] = fmt.Sprintf("%d", bs.restarts)
 			if !bs.windowStart.IsZero() {
-				childState.Metadata["window_start"] = bs.windowStart.Format(time.RFC3339)
+				childState.Metadata[worker.MetadataWindowStart] = bs.windowStart.Format(time.RFC3339)
 			}
 			if spec.Backoff.MaxRestarts > 0 && bs.restarts > spec.Backoff.MaxRestarts {
-				childState.Metadata["circuit_breaker"] = "triggered"
+				childState.Metadata[worker.MetadataCircuitBreaker] = "triggered"
+				childState.Status = worker.StatusFailed // Correct the status from Pending to Failed
 			}
 		}
 
@@ -594,7 +595,7 @@ func (s *supervisor) State() worker.State {
 		Status:   status,
 		Children: childrenState,
 		Metadata: map[string]string{
-			"type": "supervisor",
+			worker.MetadataType: "supervisor",
 		},
 	}
 }
