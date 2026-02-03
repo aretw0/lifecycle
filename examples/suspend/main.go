@@ -20,13 +20,14 @@ type FactoryState struct {
 
 const (
 	StateFile  = "factory_state.json"
-	TargetGoal = 20
+	TargetGoal = 100
 )
 
 // Store manages persistence.
 type Store struct {
 	mu    sync.Mutex
 	state FactoryState
+	path  string
 }
 
 func (s *Store) Save(ctx context.Context) error {
@@ -38,23 +39,37 @@ func (s *Store) Save(ctx context.Context) error {
 		return err
 	}
 
-	slog.Info("[STORE] Persisting state to disk...", "items", s.state)
+	slog.Info("[STORE] Persisting state to disk...", "items", s.state, "path", s.path)
 	// Simulate I/O latency
 	time.Sleep(100 * time.Millisecond)
-	return os.WriteFile(StateFile, bytes, 0644)
+	return os.WriteFile(s.path, bytes, 0644)
 }
 
 func (s *Store) Load() {
-	bytes, err := os.ReadFile(StateFile)
+	if s.path == "" {
+		s.path = StateFile
+	}
+	bytes, err := os.ReadFile(s.path)
 	if err == nil {
 		json.Unmarshal(bytes, &s.state)
+		// CRITICAL RECOVERY:
+		// If items were Produced but not Processed, they were in the in-memory channel
+		// and are now lost due to restart. We must "Rewind" production to ensure
+		// they are re-generated.
+		if s.state.ItemsProduced > s.state.ItemsProcessed {
+			slog.Warn("[STORE] Detected in-flight items lost during restart. Rewinding.",
+				"produced", s.state.ItemsProduced,
+				"processed", s.state.ItemsProcessed,
+				"rewind_to", s.state.ItemsProcessed)
+			s.state.ItemsProduced = s.state.ItemsProcessed
+		}
 		slog.Info("[STORE] Loaded previous state", "state", s.state)
 	}
 }
 
 func (s *Store) Cleanup() {
 	slog.Info("[STORE] Goal reached! Cleaning up state file.")
-	os.Remove(StateFile)
+	os.Remove(s.path)
 }
 
 // Generator produces raw materials.
@@ -64,12 +79,28 @@ type Generator struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
 	store  *Store
+	done   chan error
 }
 
-func NewGenerator(store *Store) *Generator {
+// Satisfy worker.Suspendable
+func (g *Generator) Start(ctx context.Context) error {
+	go func() {
+		// Run blocks until context is cancelled or goal met
+		g.done <- g.Run(ctx)
+		close(g.done)
+	}()
+	return nil
+}
+func (g *Generator) Stop(ctx context.Context) error { return nil }
+func (g *Generator) Wait() <-chan error             { return g.done }
+func (g *Generator) String() string                 { return "Generator" }
+func (g *Generator) State() lifecycle.WorkerState   { return lifecycle.WorkerState{Name: "Generator"} }
+
+func NewGenerator(output chan int, store *Store) *Generator {
 	g := &Generator{
-		output: make(chan int),
+		output: output,
 		store:  store,
+		done:   make(chan error, 1),
 	}
 	g.cond = sync.NewCond(&g.mu)
 	return g
@@ -88,7 +119,7 @@ func (g *Generator) Run(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		default:
 		}
 
@@ -96,7 +127,9 @@ func (g *Generator) Run(ctx context.Context) error {
 		g.store.mu.Lock()
 		if g.store.state.ItemsProduced >= TargetGoal {
 			g.store.mu.Unlock()
-			return nil // Goal reached
+			slog.Info("[GENERATOR] Target reached. Stopping.")
+			// Supervisor will NOT restart us because we return nil (RestartOnFailure).
+			return nil
 		}
 		g.store.state.ItemsProduced++
 		item := g.store.state.ItemsProduced
@@ -107,14 +140,14 @@ func (g *Generator) Run(ctx context.Context) error {
 		select {
 		case g.output <- item:
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(2000 * time.Millisecond)
 	}
 }
 
-func (g *Generator) Pause(ctx context.Context) error {
+func (g *Generator) Suspend(ctx context.Context) error {
 	g.mu.Lock()
 	g.paused = true
 	g.mu.Unlock()
@@ -131,34 +164,55 @@ func (g *Generator) Resume(ctx context.Context) error {
 
 // Worker processes materials.
 type Worker struct {
-	input  <-chan int
-	store  *Store
-	paused bool
-	mu     sync.Mutex
+	input    <-chan int
+	store    *Store
+	paused   bool
+	pauseReq bool
+	mu       sync.Mutex
+	cond     *sync.Cond
+	done     chan error
 }
 
+// Satisfy worker.Suspendable
+func (w *Worker) Start(ctx context.Context) error {
+	go func() {
+		w.done <- w.Run(ctx)
+		close(w.done)
+	}()
+	return nil
+}
+func (w *Worker) Stop(ctx context.Context) error { return nil }
+func (w *Worker) Wait() <-chan error             { return w.done }
+func (w *Worker) String() string                 { return "Worker" }
+func (w *Worker) State() lifecycle.WorkerState   { return lifecycle.WorkerState{Name: "Worker"} }
+
 func NewWorker(input <-chan int, store *Store) *Worker {
-	return &Worker{
+	w := &Worker{
 		input: input,
 		store: store,
+		done:  make(chan error, 1),
 	}
+	w.cond = sync.NewCond(&w.mu)
+	return w
 }
 
 func (w *Worker) Run(ctx context.Context) error {
 	slog.Info("[WORKER] Waiting for work...")
 	for {
-		// Check pause BEFORE taking new work
 		w.mu.Lock()
-		if w.paused {
-			w.mu.Unlock()
-			// If paused, we just spin/sleep briefly in this simple example
-			// In a real app we'd use a Cond or channel like Generator
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(100 * time.Millisecond):
-				continue
-			}
+
+		// 1. Quiescence Check
+		// If a pause was requested, we stop HERE, before taking new work.
+		// We set paused=true and broadcast to wake up Suspend().
+		if w.pauseReq {
+			w.paused = true
+			w.cond.Broadcast()
+			slog.Info("[WORKER] Quiescent. Paused.")
+		}
+
+		for w.paused {
+			w.cond.Wait()
+			slog.Info("[WORKER] Resuming...")
 		}
 		w.mu.Unlock()
 
@@ -171,11 +225,9 @@ func (w *Worker) Run(ctx context.Context) error {
 
 			// Simulate "Heavy" work that must finish even if Suspend hits
 			select {
-			case <-time.After(800 * time.Millisecond):
+			case <-time.After(1500 * time.Millisecond):
 			case <-ctx.Done():
-				// Even if context cancels, we might want to finish?
-				// For this demo, we respect context.
-				return nil
+				return ctx.Err()
 			}
 
 			w.store.mu.Lock()
@@ -186,20 +238,37 @@ func (w *Worker) Run(ctx context.Context) error {
 			slog.Info("[WORKER] Finished item", "id", item)
 
 			if count >= TargetGoal {
-				return nil // We are done
+				return nil
 			}
 
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }
 
-func (w *Worker) Pause(ctx context.Context) error {
+// Suspend blocks until the worker is actually paused.
+func (w *Worker) Suspend(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	slog.Info("[WORKER] Pause requested. Will finish current job (if any) then stop.")
-	w.paused = true
+
+	slog.Info("[WORKER] Suspend requested. Waiting for quiescent state...")
+	w.pauseReq = true
+
+	// Wait until the worker loop confirms it is paused
+	for !w.paused {
+		// Verify context to avoid hanging forever
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		// Use a temporary release of lock or Wait?
+		// Worker does w.cond.Broadcast() when entering pause.
+		// But cond.Wait() requires lock. We have it.
+		w.cond.Wait()
+	}
+
+	slog.Info("[WORKER] Suspended successfully.")
 	return nil
 }
 
@@ -207,19 +276,87 @@ func (w *Worker) Resume(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	slog.Info("[WORKER] Resuming processing.")
+	w.pauseReq = false
 	w.paused = false
+	w.cond.Broadcast()
 	return nil
 }
 
-// Watchdog never sleeps.
-func Watchdog(ctx context.Context) error {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+// InputEvent wraps user commands
+type InputEvent struct {
+	Command string
+}
 
-	// Use lifecycle.Receive to handle context cancellation automatically
-	for range lifecycle.Receive(ctx, ticker.C) {
-		slog.Info("[WATCHDOG] System Healthy. (I never sleep!)")
-	}
+func (e InputEvent) String() string {
+	return "input/" + e.Command
+}
+
+// InputSource reads from Stdin and emits events
+type InputSource struct {
+	events chan lifecycle.Event
+}
+
+func NewInputSource() *InputSource {
+	return &InputSource{events: make(chan lifecycle.Event)}
+}
+
+func (s *InputSource) Events() <-chan lifecycle.Event { return s.events }
+func (s *InputSource) Start(ctx context.Context) error {
+	slog.Info("[INPUT] Listening for commands: [s]uspend, [r]esume, [q]uit")
+
+	// We start a goroutine for the blocking read so we can respect Context cancellation
+	// even if no input is provided (avoid hanging on clean shutdown).
+	go func() {
+		defer close(s.events)
+		for {
+			// Check context before blocking
+			if ctx.Err() != nil {
+				return
+			}
+
+			var cmd string
+			// This call blocks indefinitely on many systems
+			_, err := fmt.Scanln(&cmd)
+
+			// If context died while we were blocked, give up
+			if ctx.Err() != nil {
+				return
+			}
+
+			if err != nil {
+				// Wait a bit and retry or exit
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			// Processing logic
+			switch cmd {
+			case "s", "suspend":
+				select {
+				case s.events <- lifecycle.SuspendEvent{}:
+				case <-ctx.Done():
+					return
+				}
+			case "r", "resume":
+				select {
+				case s.events <- lifecycle.ResumeEvent{}:
+				case <-ctx.Done():
+					return
+				}
+			case "q", "quit":
+				select {
+				case s.events <- InputEvent{Command: "quit"}:
+				case <-ctx.Done():
+					return
+				}
+			default:
+				fmt.Println("Unknown command. Try: [s]uspend, [r]esume, [q]uit")
+			}
+		}
+	}()
+
+	// Block until context is done, allowing clean exit of the Source manager
+	<-ctx.Done()
 	return nil
 }
 
@@ -229,104 +366,174 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, opts)))
 
 	// 1. Persistence
-	store := &Store{}
+	statePath := StateFile
+	if _, err := os.Stat("examples/suspend"); err == nil {
+		statePath = "examples/suspend/" + StateFile
+	}
+	store := &Store{path: statePath}
 	store.Load()
 
 	// 2. Control Plane
 	suspendHandler := lifecycle.NewSuspendHandler()
 
-	// Generators & Workers
-	gen := NewGenerator(store)
-	worker := NewWorker(gen.output, store)
+	// Shared communication
+	sharedChan := make(chan int)
 
-	// 3. Hooks (The Glue)
-	suspendHandler.OnSuspend(func(ctx context.Context) error {
-		// Ordering matters! Pause input first.
-		if err := gen.Pause(ctx); err != nil {
-			return err
-		}
-		if err := worker.Pause(ctx); err != nil {
-			return err
-		}
-		return store.Save(ctx)
-	})
+	// 3. Supervisor
+	sup := lifecycle.NewSupervisor("factory", lifecycle.SupervisorStrategyOneForOne,
+		lifecycle.SupervisorSpec{
+			Name: "generator",
+			Factory: func() (lifecycle.Worker, error) {
+				return NewGenerator(sharedChan, store), nil
+			},
+			RestartPolicy: lifecycle.RestartOnFailure,
+		},
+		lifecycle.SupervisorSpec{
+			Name: "worker",
+			Factory: func() (lifecycle.Worker, error) {
+				return NewWorker(sharedChan, store), nil
+			},
+			RestartPolicy: lifecycle.RestartOnFailure,
+		},
+	)
 
-	suspendHandler.OnResume(func(ctx context.Context) error {
-		// Resume worker first, then generator
-		if err := worker.Resume(ctx); err != nil {
-			return err
-		}
-		return gen.Resume(ctx)
-	})
-
-	// 4. Router (Trigger Mapping)
-	router := lifecycle.NewRouter()
-	router.Handle("lifecycle/suspend", suspendHandler) // Triggered via signals or manually
-	router.Handle("lifecycle/resume", suspendHandler)
-
-	// We use a standard "Simulator" goroutine to trigger events
-	// to make the example self-driving and cross-platform (Windows/Linux).
-
-	simSource := make(chan lifecycle.Event)
-	router.AddSource(&ChannelSource{Ch: simSource})
-
-	// 5. Run Logic
+	// 4. Run Logic (Interactive with Input)
 	err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
-		// Start Router
-		lifecycle.Go(ctx, router.Start)
+		// Channels to synchronize UI
+		suspendedCh := make(chan struct{})
+		resumedCh := make(chan struct{})
+		quitCh := make(chan struct{})
 
-		// Start Watchdog
-		lifecycle.Go(ctx, Watchdog)
+		// Router Setup
+		router := lifecycle.NewRouter()
 
-		// Start Worker
-		lifecycle.Go(ctx, worker.Run)
+		// Map internal events to Handlers
+		router.Handle("lifecycle/suspend", suspendHandler)
+		router.Handle("lifecycle/resume", suspendHandler)
+		router.Handle("Signal(interrupt)", suspendHandler) // Keep Ctrl+C support just in case
 
-		// Start Generator
-		lifecycle.Go(ctx, gen.Run)
+		// Handle Quit locally
+		router.Handle("input/quit", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			close(quitCh)
+			return nil
+		}))
 
-		// Start Simulator (The "User" hitting buttons)
-		lifecycle.Go(ctx, func(ctx context.Context) error {
-			// Wait a bit, then suspend
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(3 * time.Second):
+		// Add Sources
+		router.AddSource(lifecycle.NewOSSignalSource(os.Interrupt))
+		inputSource := NewInputSource()
+		router.AddSource(inputSource)
+
+		// Allow Auto-Suspend to speak
+		simSource := make(chan lifecycle.Event)
+		router.AddSource(&ChannelSource{Ch: simSource})
+
+		// Hooks to update UI State
+		suspendHandler.OnSuspend(func(ctx context.Context) error {
+			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
+				if err := suspendable.Suspend(ctx); err != nil {
+					return err
+				}
 			}
-
-			slog.Warn(">>> SIMULATING USER: SUSPEND COMMAND <<<")
-			simSource <- lifecycle.SuspendEvent{} // Internal event
-
-			// Wait while suspended
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(3 * time.Second):
+			if err := store.Save(ctx); err != nil {
+				return err
 			}
-
-			slog.Warn(">>> SIMULATING USER: RESUME COMMAND <<<")
-			simSource <- lifecycle.ResumeEvent{}
-
+			select {
+			case suspendedCh <- struct{}{}:
+			default:
+			}
 			return nil
 		})
 
-		// Wait for completion (Polling the store state)
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		for range lifecycle.Receive(ctx, ticker.C) {
-			store.mu.Lock()
-			count := store.state.ItemsProcessed
-			store.mu.Unlock()
-			if count >= TargetGoal {
-				slog.Info("GOAL REACHED! Shutting down factory.")
-				store.Cleanup()
-				return nil // Causes lifecycle.Run to exit cleanly
+		suspendHandler.OnResume(func(ctx context.Context) error {
+			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
+				if err := suspendable.Resume(ctx); err != nil {
+					return err
+				}
+			}
+			select {
+			case resumedCh <- struct{}{}:
+			default:
+			}
+			return nil
+		})
+
+		// Start Components
+		lifecycle.Go(ctx, router.Start)
+		if err := sup.Start(ctx); err != nil {
+			return err
+		}
+		defer sup.Stop(context.WithoutCancel(ctx))
+
+		lifecycle.Go(ctx, func(ctx context.Context) error {
+			<-sup.Wait()
+			return nil
+		})
+
+		// UI Loop
+		slog.Info(">>> FACTORY RUNNING <<<")
+		slog.Info("Commands: [s]uspend, [r]esume, [q]uit")
+		slog.Info("Auto-Suspend in 10s (unless you interact)")
+
+		autoSuspend := time.NewTimer(10 * time.Second)
+		defer autoSuspend.Stop()
+		autoSuspendActive := true
+
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+
+			case <-quitCh:
+				fmt.Println("👋 Quitting via command...")
+				return nil
+
+			case <-autoSuspend.C:
+				if !autoSuspendActive {
+					continue
+				}
+				// Check goal
+				store.mu.Lock()
+				done := store.state.ItemsProcessed >= TargetGoal
+				store.mu.Unlock()
+				if !done {
+					slog.Warn(">>> AUTO-SUSPEND TRIGGERED <<<")
+					simSource <- lifecycle.SuspendEvent{}
+				}
+
+			case <-suspendedCh:
+				// Reset Loop State for UI
+				autoSuspend.Stop()
+				if autoSuspendActive {
+					fmt.Println("\n🛑 SYSTEM SUSPENDED (Auto).")
+				} else {
+					fmt.Println("\n🛑 SYSTEM SUSPENDED (Manual).")
+				}
+				fmt.Println("👉 Commands: [r]esume | [q]uit")
+
+			case <-resumedCh:
+				// User interacted to resume, so WE DISABLE Auto-Suspend
+				autoSuspendActive = false
+				fmt.Println("\n🟢 SYSTEM RESUMED.")
+				fmt.Println("👉 Manual Mode Active. Commands: [s]uspend | [q]uit")
+
+			// Check Goal
+			case <-time.After(1 * time.Second):
+				store.mu.Lock()
+				count := store.state.ItemsProcessed
+				store.mu.Unlock()
+				if count >= TargetGoal {
+					slog.Info("🏆 GOAL REACHED! Shutting down factory.")
+					store.Cleanup()
+					return nil
+				}
 			}
 		}
-		return nil
-	}))
+	}), lifecycle.WithInterrupt(false))
 
 	if err != nil {
-		fmt.Printf("Factory exited with error: %v\n", err)
+		if err != context.Canceled {
+			fmt.Printf("Factory exited with error: %v\n", err)
+		}
 	}
 }
 
