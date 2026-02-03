@@ -347,10 +347,32 @@ func NewOSSignalSource(signals ...os.Signal) Source {
 // Alias for pkg/sources.InputSource.
 type InputSource = sources.InputSource
 
+// InputOption configures the InputSource.
+// Alias for pkg/sources.InputOption.
+type InputOption = sources.InputOption
+
 // NewInputSource creates a new source that listens for standard CLI commands.
 // Alias for pkg/sources.NewInputSource.
-func NewInputSource() *InputSource {
-	return sources.NewInputSource()
+func NewInputSource(opts ...InputOption) *InputSource {
+	return sources.NewInputSource(opts...)
+}
+
+// WithUnknownHandler configures a custom handler for unknown commands.
+// Alias for pkg/sources.WithUnknownHandler.
+func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {
+	return sources.WithUnknownHandler(fn)
+}
+
+// WithInputMapping adds a custom command mapping.
+// Alias for pkg/sources.WithInputMapping.
+func WithInputMapping(key string, event control.Event) InputOption {
+	return sources.WithInputMapping(key, event)
+}
+
+// WithInputBackoff configures the duration to wait before retrying interruptions or errors.
+// Alias for pkg/sources.WithInputBackoff.
+func WithInputBackoff(d time.Duration) InputOption {
+	return sources.WithInputBackoff(d)
 }
 
 // InputEvent represents a generic text command.
@@ -371,10 +393,26 @@ func NewTickerSource(interval time.Duration) Source {
 // Alias for pkg/sources.HealthCheckSource.
 type HealthCheckSource = sources.HealthCheckSource
 
+// HealthOption configures a HealthCheckSource.
+// Alias for pkg/sources.HealthOption.
+type HealthOption = sources.HealthOption
+
 // NewHealthCheckSource creates a new health monitor.
 // Alias for pkg/sources.NewHealthCheckSource.
-func NewHealthCheckSource(name string, check sources.CheckFunc, opts ...sources.HealthOption) *HealthCheckSource {
+func NewHealthCheckSource(name string, check sources.CheckFunc, opts ...HealthOption) *HealthCheckSource {
 	return sources.NewHealthCheckSource(name, check, opts...)
+}
+
+// WithHealthInterval sets the check interval.
+// Alias for pkg/sources.WithHealthInterval.
+func WithHealthInterval(d time.Duration) HealthOption {
+	return sources.WithHealthInterval(d)
+}
+
+// WithHealthStrategy sets the triggering strategy (Edge vs Level).
+// Alias for pkg/sources.WithHealthStrategy.
+func WithHealthStrategy(strategy sources.TriggerStrategy) HealthOption {
+	return sources.WithHealthStrategy(strategy)
 }
 
 // FileWatchSource watches for file changes via polling.

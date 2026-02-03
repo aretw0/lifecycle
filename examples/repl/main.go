@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aretw0/lifecycle"
 	"github.com/aretw0/lifecycle/pkg/control"
@@ -34,9 +35,24 @@ func main() {
 	)
 	defer ctx.Stop()
 
-	// 2. Setup Router and InputSource
-	router := lifecycle.NewRouter()
-	input := lifecycle.NewInputSource()
+	// 2. Setup Handlers & Router
+	suspendHandler := lifecycle.NewSuspendHandler()
+
+	// Use NewInteractiveRouter but disable default input so we can inject our custom one
+	router := lifecycle.NewInteractiveRouter(suspendHandler,
+		lifecycle.WithInput(false), // We will add our own source below
+	)
+
+	// Create custom InputSource with our UnknownHandler
+	input := lifecycle.NewInputSource(
+		lifecycle.WithUnknownHandler(func(cmd string, known []string) {
+			slog.Warn("Unknown command received",
+				"command", cmd,
+				"available", known,
+			)
+			fmt.Printf(" [!] '%s' is not valid. Try one of: %v\n> ", cmd, known)
+		}),
+	)
 	router.AddSource(input)
 
 	// 3. Define Shell State
