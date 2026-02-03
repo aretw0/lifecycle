@@ -401,6 +401,16 @@ func NewWebhookSource(addr string) *sources.WebhookSource {
 	return sources.NewWebhookSource(addr)
 }
 
+// ChannelSource adapts a generic Go channel to the Source interface.
+// Alias for pkg/sources.ChannelSource.
+type ChannelSource = sources.ChannelSource
+
+// NewChannelSource creates a new source that reads from the given channel.
+// Alias for pkg/sources.NewChannelSource.
+func NewChannelSource(ch <-chan Event) *ChannelSource {
+	return sources.NewChannelSource(ch)
+}
+
 // ======================================================================================
 // 6. Handlers (Event Reactions)
 // ======================================================================================

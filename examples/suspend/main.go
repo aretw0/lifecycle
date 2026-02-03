@@ -446,7 +446,7 @@ func main() {
 
 		// Allow Auto-Suspend to speak
 		simSource := make(chan lifecycle.Event)
-		router.AddSource(&ChannelSource{Ch: simSource})
+		router.AddSource(lifecycle.NewChannelSource(simSource))
 
 		// Hooks to update UI State
 		// 1. Wire up the Business Logic (Supervisor) using the new helper
@@ -585,15 +585,4 @@ func main() {
 			fmt.Printf("Factory exited with error: %v\n", err)
 		}
 	}
-}
-
-// ChannelSource adapts a channel to the Source interface
-type ChannelSource struct {
-	Ch <-chan lifecycle.Event
-}
-
-func (s *ChannelSource) Events() <-chan lifecycle.Event { return s.Ch }
-func (s *ChannelSource) Start(ctx context.Context) error {
-	<-ctx.Done()
-	return nil
 }
