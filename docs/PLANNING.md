@@ -35,6 +35,14 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize everything, including missing/crashed nodes.
   - **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.
   - **Unified Observability**: Promote `pkg/metrics` as the standard bridge for Trellis/Loam.
+- [ ] Ergonomics & Interactions (The "Human" Layer)
+  - **Focus**: Reduce boilerplate for interactive applications and robust worker patterns.
+  - **Interactive Sources**:
+    - [ ] `InputSource`: Standardize CLI command inputs (`q`, `s`, `r`) with detached readers to avoid blocking shutdown.
+  - **Worker Pattern Helpers**:
+    - [ ] `QuiescenceGate`: A reusable primitive (`sync.Cond` wrapper) for workers that need to pause safely without losing in-flight data.
+- **Documentation**:
+  - [ ] `RECIPES.md`: A cookbook for common patterns (Interactive Service, Hot Reload, File Watcher).
 
 ## Backlog
 
