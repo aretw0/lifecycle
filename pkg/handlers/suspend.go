@@ -7,6 +7,7 @@ import (
 
 	"github.com/aretw0/lifecycle/pkg/control"
 	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
 // SuspendHook is a function called when a suspend/resume event occurs.
@@ -38,6 +39,13 @@ func (h *SuspendHandler) OnResume(fn SuspendHook) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.onResume = append(h.onResume, fn)
+}
+
+// Manage registers a worker.Suspendable component to be managed by this handler.
+// It automatically wires up the Suspend and Resume methods to the respective events.
+func (h *SuspendHandler) Manage(s worker.Suspendable) {
+	h.OnSuspend(s.Suspend)
+	h.OnResume(s.Resume)
 }
 
 // HandleEvent processes SuspendEvent and ResumeEvent.

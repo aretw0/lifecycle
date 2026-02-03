@@ -448,14 +448,13 @@ func main() {
 		router.AddSource(&ChannelSource{Ch: simSource})
 
 		// Hooks to update UI State
-		suspendHandler.OnSuspend(func(ctx context.Context) error {
-			// Reset signal count is now handled automatically by time-based reset
+		// 1. Wire up the Business Logic (Supervisor) using the new helper
+		if suspendable, ok := sup.(lifecycle.Suspendable); ok {
+			suspendHandler.Manage(suspendable)
+		}
 
-			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
-				if err := suspendable.Suspend(ctx); err != nil {
-					return err
-				}
-			}
+		// 2. Wire up Persistence & UI (Side Effects)
+		suspendHandler.OnSuspend(func(ctx context.Context) error {
 			if err := store.Save(ctx); err != nil {
 				return err
 			}
@@ -467,11 +466,6 @@ func main() {
 		})
 
 		suspendHandler.OnResume(func(ctx context.Context) error {
-			if suspendable, ok := sup.(lifecycle.Suspendable); ok {
-				if err := suspendable.Resume(ctx); err != nil {
-					return err
-				}
-			}
 			select {
 			case resumedCh <- struct{}{}:
 			default:
