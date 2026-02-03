@@ -37,6 +37,7 @@ from the internal `pkg/` structure.
   - lifecycle.NewGroup         -> group.NewGroup (Root Primitive)
   - lifecycle.NewSupervisor    -> pkg/supervisor.New
   - lifecycle.NewRouter        -> pkg/control.NewRouter
+  - lifecycle.Receive          -> pkg/runtime.Receive (Safe Iterator)
 
 # Configuration
 

@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"context"
 	"io"
+	"iter"
 	"os"
 	"os/exec"
 	"time"
@@ -312,6 +313,13 @@ func NewRouter(opts ...RouterOption) *Router {
 // Alias for pkg/runtime.Go.
 func Go(ctx context.Context, fn func(context.Context) error) {
 	runtime.Go(ctx, fn)
+}
+
+// Receive creates a push iterator that yields values from the channel until
+// the context is cancelled or the channel is closed.
+// Alias for pkg/runtime.Receive.
+func Receive[V any](ctx context.Context, ch <-chan V) iter.Seq[V] {
+	return runtime.Receive(ctx, ch)
 }
 
 // NewOSSignalSource creates a source that listens for OS signals.
