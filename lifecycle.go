@@ -204,6 +204,10 @@ func WorkerStateDiagram(s WorkerState) string {
 // Alias for pkg/worker.Worker.
 type Worker = worker.Worker
 
+// Suspendable defines a worker that can pause its execution in-place without exiting.
+// Alias for pkg/worker.Suspendable.
+type Suspendable = worker.Suspendable
+
 // NewProcessWorker creates a new Process worker for the given command.
 // Alias for pkg/worker.NewProcessWorker.
 func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
@@ -266,6 +270,16 @@ type SupervisorSpec = supervisor.Spec
 // SupervisorBackoff defines the retry policy for failed children.
 // Alias for pkg/supervisor.Backoff.
 type SupervisorBackoff = supervisor.Backoff
+
+// SupervisorRestartPolicy defines when a child worker should be restarted.
+// Alias for pkg/supervisor.RestartPolicy.
+type SupervisorRestartPolicy = supervisor.RestartPolicy
+
+const (
+	RestartAlways    = supervisor.RestartAlways
+	RestartOnFailure = supervisor.RestartOnFailure
+	RestartNever     = supervisor.RestartNever
+)
 
 // SupervisorFactory is a function that creates a new worker instance.
 // Alias for pkg/supervisor.Factory.

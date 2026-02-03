@@ -37,12 +37,25 @@ type Backoff struct {
 	ResetDuration time.Duration
 }
 
+// RestartPolicy defines when a child worker should be restarted.
+type RestartPolicy string
+
+const (
+	// RestartAlways: Always restart the worker, regardless of exit reason (default).
+	RestartAlways RestartPolicy = "Always"
+	// RestartOnFailure: Restart only if the worker exits with an error.
+	RestartOnFailure RestartPolicy = "OnFailure"
+	// RestartNever: Never restart the worker.
+	RestartNever RestartPolicy = "Never"
+)
+
 // Spec defines the configuration for a supervised child worker.
 type Spec struct {
-	Name    string
-	Type    string // "process", "container", "func" (optional, for diagrams)
-	Factory Factory
-	Backoff Backoff
+	Name          string
+	Type          string // "process", "container", "func" (optional, for diagrams)
+	Factory       Factory
+	Backoff       Backoff
+	RestartPolicy RestartPolicy
 }
 
 type backoffState struct {
@@ -239,6 +252,30 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 // handleOneForOne handles the restart logic for a single child.
 // MUST hold lock.
 func (s *supervisor) handleOneForOne(ctx context.Context, exit childExit, failedSpec Spec) {
+	// Apply Restart Policy
+	shouldRestart := false
+	policy := failedSpec.RestartPolicy
+	if policy == "" {
+		policy = RestartAlways // Default
+	}
+
+	switch policy {
+	case RestartAlways:
+		shouldRestart = true
+	case RestartOnFailure:
+		if exit.err != nil {
+			shouldRestart = true
+		} else {
+			log.Info("worker finished successfully, not restarting", "child", exit.name)
+		}
+	case RestartNever:
+		log.Info("worker finished, not restarting (policy=Never)", "child", exit.name)
+	}
+
+	if !shouldRestart {
+		return
+	}
+
 	metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForOne))
 	metrics.GetProvider().IncChildRestart(s.name, exit.name)
 
@@ -513,4 +550,55 @@ func (s *supervisor) State() worker.State {
 			"type": "supervisor",
 		},
 	}
+}
+
+// Suspend pauses all suspendable children.
+func (s *supervisor) Suspend(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	log.Info("suspending supervisor", "name", s.name)
+
+	var errs []error
+	// Suspend in reverse order (LIFO) to respect dependencies
+	for i := len(s.specs) - 1; i >= 0; i-- {
+		name := s.specs[i].Name
+		if child, ok := s.children[name]; ok {
+			if suspendable, ok := child.(worker.Suspendable); ok {
+				if err := suspendable.Suspend(ctx); err != nil {
+					errs = append(errs, fmt.Errorf("child %s suspend failed: %w", name, err))
+				}
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
+// Resume resumes all suspendable children.
+func (s *supervisor) Resume(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	log.Info("resuming supervisor", "name", s.name)
+
+	var errs []error
+	// Resume in startup order (FIFO)
+	for _, spec := range s.specs {
+		if child, ok := s.children[spec.Name]; ok {
+			if suspendable, ok := child.(worker.Suspendable); ok {
+				if err := suspendable.Resume(ctx); err != nil {
+					errs = append(errs, fmt.Errorf("child %s resume failed: %w", spec.Name, err))
+				}
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
 }

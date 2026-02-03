@@ -40,6 +40,16 @@ type Resumable interface {
 	Pause(context.Context) (string, error)
 }
 
+// Suspendable defines a worker that can pause its execution in-place without exiting.
+// Unlike Resumable (which implies a restart/handover), Suspendable implies freezing state.
+type Suspendable interface {
+	Worker
+	// Suspend pauses the worker's processing. It must be non-blocking.
+	Suspend(context.Context) error
+	// Resume restarts the worker's processing.
+	Resume(context.Context) error
+}
+
 // Status represents the lifecycle state of a worker.
 type Status string
 
