@@ -146,10 +146,10 @@ func buildNodeLabel(s State, icon string) string {
 	}
 
 	// Reliability Metadata
-	if restarts, ok := s.Metadata["restarts"]; ok && restarts != "0" {
+	if restarts, ok := s.Metadata[MetadataRestarts]; ok && restarts != "0" {
 		labelParts = append(labelParts, fmt.Sprintf("🔄 Restarts: %s", restarts))
 	}
-	if cb, ok := s.Metadata["circuit_breaker"]; ok && cb == "triggered" {
+	if cb, ok := s.Metadata[MetadataCircuitBreaker]; ok && cb == "triggered" {
 		labelParts = append(labelParts, "<b>🚫 CIRCUIT BREAKER</b>")
 	}
 
