@@ -6,9 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/control"
+	"github.com/aretw0/lifecycle/pkg/termio"
 )
 
 // InputSource reads commands from an io.Reader (like Stdin) and maps them to lifecycle Events.
@@ -43,8 +45,15 @@ func WithInputMapping(key string, event control.Event) InputOption {
 
 // NewInputSource creates a new source for interactive commands.
 func NewInputSource(opts ...InputOption) *InputSource {
+	// Default to a smart terminal reader if possible
+	reader, err := termio.Open()
+	if err != nil {
+		slog.Debug("failed to open terminal", "error", err)
+		reader = os.Stdin
+	}
+
 	s := &InputSource{
-		r:      os.Stdin,
+		r:      reader,
 		events: make(chan control.Event),
 		mappings: map[string]control.Event{
 			"s":       control.SuspendEvent{},
@@ -88,44 +97,74 @@ func (s *InputSource) Start(ctx context.Context) error {
 		defer close(s.events)
 		defer close(readerDone)
 
+		// Use a manual read loop for maximum robustness against random interrupts (Ctrl+C on Windows)
+		// bufio.Scanner is "sticky" on errors/EOF, which is bad if valid input comes after an interrupt.
+		buffer := make([]byte, 1024)
+		var lineBuilder strings.Builder
+		eofCount := 0
+
 		for {
-			// Check context before trying to read
+			// Check context
 			if ctx.Err() != nil {
 				return
 			}
 
-			// We use a simple buffer reading loop.
-			// Ideally we'd use a proper termio reader but for "Simple Command Input"
-			// standard string reading is often what users want.
-			var cmd string
-			_, err := fmt.Fscanln(s.r, &cmd)
+			n, err := s.r.Read(buffer)
 
-			// If we were cancelled during the read, we just exit (and leak this blocked read if Reader doesn't support SetReadDeadline)
+			// Handle Context Cancellation (Priority)
 			if ctx.Err() != nil {
 				return
 			}
 
 			if err != nil {
 				if err == io.EOF {
-					return
+					// "Fake EOF" Protection:
+					// On Windows, Ctrl+C can cause a transient EOF on the read syscall.
+					// We verify if it is persistent.
+					eofCount++
+					if eofCount > 3 {
+						slog.Debug("input source: persistent EOF received, stopping")
+						return
+					}
+					slog.Debug("input source: transient EOF (Ctrl+C?), retrying...", "attempt", eofCount)
+					time.Sleep(100 * time.Millisecond)
+					continue
 				}
-				// Retry on temp error, but don't hot loop
+				// Other errors: Log and retry with backoff
+				slog.Debug("input source: read error (retrying)", "error", err)
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 
-			event, ok := s.mappings[cmd]
-			if !ok {
-				// Default behavior: Emit as InputEvent? Or just log?
-				// Let's log for now to match the example ergonomics
-				fmt.Printf("Unknown command: %q. Try: [s]uspend, [r]esume, [q]uit\n", cmd)
-				continue
-			}
+			// Successful read: Reset EOF counter
+			eofCount = 0
 
-			select {
-			case s.events <- event:
-			case <-ctx.Done():
-				return
+			// Process read bytes
+			chunk := buffer[:n]
+			for _, b := range chunk {
+				if b == '\n' || b == '\r' {
+					// Line complete
+					cmd := strings.TrimSpace(lineBuilder.String())
+					lineBuilder.Reset()
+
+					if cmd == "" {
+						continue
+					}
+
+					event, ok := s.mappings[cmd]
+					if !ok {
+						fmt.Printf("Unknown command: %q. Try: [s]uspend, [r]esume, [q]uit\n", cmd)
+						continue
+					}
+
+					select {
+					case s.events <- event:
+					case <-ctx.Done():
+						return
+					}
+				} else {
+					lineBuilder.WriteByte(b)
+				}
 			}
 		}
 	}()
