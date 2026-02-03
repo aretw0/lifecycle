@@ -82,6 +82,11 @@ Internal state changes are not black boxes. They are exposed via:
 * **Metrics**: Counts and Histograms for every signal, hook, and I/O event.
 * **Introspection**: Immutable `State()` methods that allow the application to visualize its own topology.
 
+#### 2.5. Main-Driven Shutdown
+
+The lifecycle is bound to the **Main Job** (`lifecycle.Run(fn)`).
+When the main function returns, the application is considered **Complete**. `lifecycle` automatically cancels the Global Context, signaling all background tasks (`lifecycle.Go`, `Supervisor`) to shut down immediately. This prevents "Orphaned Processes" where a finished CLI tool hangs indefinitely waiting for a metrics reporter.
+
 ---
 
 ## II. Core Mechanics (Death Management)
