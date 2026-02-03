@@ -24,7 +24,8 @@ This document logs significant architectural decisions for the `lifecycle` proje
 
 * **Status**: Accepted
 * **Context**: Goroutine leaks occur when developers forget to `Wait()` on a `WaitGroup` or fail to propagate cancellation.
-* **Decision**: `lifecycle.Go(ctx, fn)` automatically tracks goroutines embedded in the Context. `lifecycle.Run` waits for all tracked goroutines to finish before returning.
+* **Decision**: `lifecycle.Go(ctx, fn)` automatically tracks goroutines. `lifecycle.Run` waits for all tracked goroutines to finish before returning.
+* **Implementation Note**: Since ADR-0006, this is powered by context value discovery, ensuring it works even when the context is wrapped by telemetry/middle-tier providers.
 * **Consequences**: Zero configuration required for safe concurrency.
 
 ## ADR-0004: Event-Driven Control Plane (v2.0)
@@ -40,3 +41,24 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Context**: Setting up a robust interactive CLI (Standard signals + detached Stdin reader + common commands) requires significant boilerplate (~50 lines of wiring).
 * **Decision**: Provide a `NewInteractiveRouter` preset that encapsulates standard source wiring (OS Signals, Input) and standard command routing (q/quit/suspend/resume).
 * **Rationale**: Drastically improves Developer Experience (DX) and ensures consistency across tools in the ecosystem without sacrificing flexibility (configurable via options).
+
+## ADR-0006: Context-Aware Signal Discovery (Pattern)
+
+* **Status**: Accepted
+* **Context**: Application contexts are often wrapped by middle-tier providers (e.g., Task Tracking, Tracing). Simple type assertions to `*signal.Context` fail in these scenarios, breaking core library features like `OnShutdown`.
+* **Decision**: Implement a **Value-Based Discovery Path**. Use a private context key to store and retrieve the `signal.Context` pointer. Provide a robust `FromContext(ctx)` helper that handles both direct pointers and wrapped values.
+* **Consequences**: Ensures library resilience when integrated with other heavy-weight frameworks or complex diagnostic wrappers.
+
+## ADR-0007: Standardized Observation Metadata
+
+* **Status**: Accepted
+* **Context**: Introspection (Diagrams, Metrics, Logs) needs consistent keys (e.g., `restarts`, `circuit_breaker`) to provide a unified "Single Pane of Glass" view. Hardcoded strings across packages lead to drift and broken diagrams.
+* **Decision**: Standardize metadata keys as **typed constants in `pkg/worker`**. All components (Supervisor, Diagram Engine, Metrics) must use these constants instead of literal strings.
+* **Consequences**: Centralizes the introspection "schema", making it trivial to update the visual representation across all interfaces.
+
+## ADR-0008: Programmatic Shutdown Facade
+
+* **Status**: Accepted
+* **Context**: Handlers and Jobs often need to trigger the same graceful termination sequence as an OS Signal (e.g., a "quit" command in a REPL).
+* **Decision**: Provide an explicit `lifecycle.Shutdown(ctx)` facade.
+* **Rationale**: This abstracts the complex context discovery and cancellation logic, providing a high-level API for internal application control that mirrors external signals.

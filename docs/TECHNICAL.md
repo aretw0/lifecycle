@@ -24,7 +24,7 @@
     9. [Supervision Tree](#9-supervision-tree)
     10. [Handover Protocol](#10-handover-protocol)
 
-* [**IV. The Control Plane (v2.x Vision)**](#iv-the-control-plane-v2x-vision)
+* [**IV. The Control Plane (v2.x)**](#iv-the-control-plane-v2x)
 
     11. [Event Router](#11-event-router-source---handler)
     12. [Managed Concurrency](#12-managed-concurrency-lifecyclego)
@@ -316,6 +316,9 @@ sequenceDiagram
 * **Restart Policies**: Per-child control via `Always`, `OnFailure`, or `Never`.
 * **Circuit Breaker**: Sliding-window restarts limit (`MaxRestarts` within `MaxDuration`).
 * **Backoff**: Exponential backoff (with jitter) limits restart loops.
+* **Introspection Metadata**: Supervisors attach reliability metrics to their state:
+  * `restarts`: Total restart count for the child.
+  * `circuit_breaker`: Set to `triggered` if the max restarts threshold is exceeded.
 
 ### 10. Handover Protocol
 
@@ -342,7 +345,7 @@ sequenceDiagram
 
 ---
 
-## IV. The Control Plane (v2.x Vision)
+## IV. The Control Plane (v2.x)
 
 (Introduced in v2.0)
 The Control Plane generalized the "Signal" concept into generic "Events".
@@ -507,4 +510,4 @@ The library is instrumented via `pkg/metrics` and `pkg/log`.
 
 ## Design Philosophy
 
-For a detailed log of architectural choices (e.g., why "Fail-Closed" is mandatory, why we handle signals by default), please refer to **[DECISIONS.md](DECISIONS.md)**.
+For a detailed log of architectural choices, please refer to **[DECISIONS.md](DECISIONS.md)**.

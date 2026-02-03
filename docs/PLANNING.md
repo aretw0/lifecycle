@@ -31,10 +31,10 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - [x] **Middleware**: `Use(func(next Handler) Handler)` for Logging, Tracing, Recovery.
   - [x] **Concurrency**: Keep synchronous default for safety.
   - [x] **Introspection**: `Routes()` to list active bindings for visualization.
-- [ ] **Ecosystem Integration (DX Layer)**:
-  - **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize everything, including missing/crashed nodes.
-  - **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.
-  - **Unified Observability**: Promote `pkg/metrics` as the standard bridge for Trellis/Loam.
+- [x] **Ecosystem Integration (DX Layer)**:
+  - [ ] **Visualization 2.0 (Overlay Pattern)**: Separate Topology (Static) from Status (Dynamic) to visualize everything, including missing/crashed nodes.
+  - [ ] **Universal Introspection**: Public `Introspectable` interface (`State() any`) for generic adapters.
+  - [ ] **Unified Observability**: Promote `pkg/metrics` as the standard bridge for Trellis/Loam.
 - [x] Ergonomics & Interactions (The "Human" Layer)
   - **Focus**: Reduce boilerplate for interactive applications and robust worker patterns.
   - **Interactive Sources**:
@@ -43,7 +43,7 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
   - **Worker Pattern Helpers**:
     - [x] `QuiescenceGate`: A reusable primitive (channel-based) for workers that need to pause safely without losing in-flight data. Context-aware since v2.0.
 - **Documentation**:
-  - [ ] `RECIPES.md`: A cookbook for common patterns (Interactive Service, Hot Reload, File Watcher).
+  - [x] `RECIPES.md`: A cookbook for common patterns (Interactive Service, Hot Reload, File Watcher).
 - [x] **Relational Reliability**:
   - [x] **Shutdown Diagnostics**: Dump goroutine stacks if shutdown timeout is reached (implemented in `pkg/runtime`).
   - [x] **Supervisor Circuit Breaker**: Sliding-window restarts limit (implemented in `pkg/supervisor`).
