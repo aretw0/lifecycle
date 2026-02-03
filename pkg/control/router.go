@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"reflect"
-	"runtime"
 	"sync"
 
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
+	"github.com/aretw0/lifecycle/pkg/runtime"
 )
 
 // Middleware wraps a Handler.
@@ -128,20 +127,11 @@ func (r *Router) Start(ctx context.Context) error {
 			defer wg.Done()
 			// Forward events from source to router
 			// We iterate until src.Events() is closed or ctx is done
-			for {
+			for e := range runtime.Receive(ctx, src.Events()) {
 				select {
+				case r.events <- e:
 				case <-ctx.Done():
-					return // Context cancelled, stop reading
-				case e, ok := <-src.Events():
-					if !ok {
-						return // Channel closed, stop reading
-					}
-					// Forward event
-					select {
-					case r.events <- e:
-					case <-ctx.Done():
-						return // Context cancelled while sending
-					}
+					return // Context cancelled while sending
 				}
 			}
 		}(s)
@@ -227,7 +217,7 @@ func (r *Router) Routes() []RouteInfo {
 		// Attempt to get function name via reflection
 		// We first check if it's a HandlerFunc to get the underlying function
 		if hf, ok := h.(HandlerFunc); ok {
-			handlerName = getFunctionName(hf)
+			handlerName = runtime.GetFunctionName(hf)
 		} else {
 			// For generic interfaces, we just type name it
 			handlerName = fmt.Sprintf("%T", h)
@@ -239,10 +229,6 @@ func (r *Router) Routes() []RouteInfo {
 		})
 	}
 	return routes
-}
-
-func getFunctionName(i interface{}) string {
-	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
 // RouterState represents the serializable state of the router.
