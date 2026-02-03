@@ -24,7 +24,7 @@ func TestNewHealthCheckSource(t *testing.T) {
 		{
 			name: "CustomInterval",
 			opts: []HealthOption{
-				WithInterval(5 * time.Second),
+				WithHealthInterval(5 * time.Second),
 			},
 			wantInterval: 5 * time.Second,
 			wantStrategy: TriggerEdge,
@@ -32,7 +32,7 @@ func TestNewHealthCheckSource(t *testing.T) {
 		{
 			name: "CustomStrategy",
 			opts: []HealthOption{
-				WithStrategy(TriggerLevel),
+				WithHealthStrategy(TriggerLevel),
 			},
 			wantInterval: 30 * time.Second,
 			wantStrategy: TriggerLevel,
@@ -40,8 +40,8 @@ func TestNewHealthCheckSource(t *testing.T) {
 		{
 			name: "Mixed",
 			opts: []HealthOption{
-				WithInterval(10 * time.Minute),
-				WithStrategy(TriggerLevel),
+				WithHealthInterval(10 * time.Minute),
+				WithHealthStrategy(TriggerLevel),
 			},
 			wantInterval: 10 * time.Minute,
 			wantStrategy: TriggerLevel,

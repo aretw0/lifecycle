@@ -103,7 +103,7 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 		})
 	}
 
-	// 3. Resolve Quit Logic
+	// 4. Resolve Quit Logic
 	// Precedence:
 	// 1. Explicit WithCommand("quit", ...)
 	// 2. WithShutdown(...) convenience helper
@@ -123,7 +123,7 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 	smartHandler := handlers.NewSmartSignalHandler(suspendHandler, quitHandler)
 	r.Handle("Signal(interrupt)", smartHandler)
 
-	// 4. Sources
+	// 5. Sources
 	if cfg.enableSignal {
 		r.AddSource(sources.NewOSSignalSource(os.Interrupt))
 	}

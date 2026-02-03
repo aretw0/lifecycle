@@ -47,17 +47,17 @@ type HealthCheckSource struct {
 // HealthOption configures a HealthCheckSource.
 type HealthOption func(*HealthCheckSource)
 
-// WithInterval sets the check interval.
+// WithHealthInterval sets the check interval.
 // Default is 30 seconds.
-func WithInterval(d time.Duration) HealthOption {
+func WithHealthInterval(d time.Duration) HealthOption {
 	return func(s *HealthCheckSource) {
 		s.Interval = d
 	}
 }
 
-// WithStrategy sets the triggering strategy (Edge vs Level).
+// WithHealthStrategy sets the triggering strategy (Edge vs Level).
 // Default is Edge.
-func WithStrategy(strategy TriggerStrategy) HealthOption {
+func WithHealthStrategy(strategy TriggerStrategy) HealthOption {
 	return func(s *HealthCheckSource) {
 		s.Strategy = strategy
 	}
