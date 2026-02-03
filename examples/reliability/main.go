@@ -75,30 +75,6 @@ func main() {
 		},
 	)
 
-	// 4. Setup Interactive Router
-	// We use the router to control the application lives.
-	suspendHandler := lifecycle.NewSuspendHandler()
-
-	router := lifecycle.NewInteractiveRouter(suspendHandler,
-		lifecycle.WithShutdown(func() {
-			fmt.Println("\n [!] Shutdown requested via command.")
-		}),
-		lifecycle.WithCommand("status", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			fmt.Println("--- LIVE TOPOLOGY DIAGRAM ---")
-			fmt.Println(lifecycle.WorkerTreeDiagram(sup.State()))
-			fmt.Println("----------------------------")
-			return nil
-		})),
-	)
-
-	// 5. Wire up the Supervisor to the Suspend/Resume system
-	lifecycle.Handle("lifecycle/suspend", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-		return sup.Suspend(ctx)
-	}))
-	lifecycle.Handle("lifecycle/resume", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-		return sup.Resume(ctx)
-	}))
-
 	// 6. Run Everything
 	fmt.Println("================================================================")
 	fmt.Println(" LIFECYCLE V2.0 - RELIABILITY SHOWCASE")
@@ -112,6 +88,30 @@ func main() {
 	fmt.Println(" Type 'status' to see the initial tree.")
 
 	err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
+		// Setup Interactive Router
+		suspendHandler := lifecycle.NewSuspendHandler()
+
+		router := lifecycle.NewInteractiveRouter(suspendHandler,
+			lifecycle.WithShutdown(func() {
+				fmt.Println("\n [!] Shutdown requested via command.")
+				lifecycle.Shutdown(ctx)
+			}),
+			lifecycle.WithCommand("status", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+				fmt.Println("--- LIVE TOPOLOGY DIAGRAM ---")
+				fmt.Println(lifecycle.WorkerTreeDiagram(sup.State()))
+				fmt.Println("----------------------------")
+				return nil
+			})),
+		)
+
+		// Wire up the Supervisor to the Suspend/Resume system
+		lifecycle.Handle("lifecycle/suspend", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			return sup.Suspend(ctx)
+		}))
+		lifecycle.Handle("lifecycle/resume", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			return sup.Resume(ctx)
+		}))
+
 		// Start supervisor in background via lifecycle.Go
 		lifecycle.Go(ctx, func(ctx context.Context) error {
 			return sup.Start(ctx)
