@@ -15,6 +15,11 @@
 //	router := control.NewRouter()
 //	state := router.State() // Returns RouterState DTO
 //
+// # Interactive Applications
+//
+// For CLI tools, the package offers NewInteractiveRouter (moved to root package as a helper)
+// which pre-wires InputSource (Stdin) and SmartSignalHandler.
+//
 // # Suspend and Resume
 //
 // The package supports "Durable Execution" semantics via SuspendEvent and ResumeEvent.
