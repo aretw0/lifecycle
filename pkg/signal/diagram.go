@@ -16,7 +16,7 @@ func MermaidState(s State) string {
 
 	// Transition to Graceful
 	signals := "SIGTERM"
-	if s.InterruptCancel {
+	if s.ForceExitThreshold == 1 {
 		signals = "SIGINT/SIGTERM"
 	}
 	sb.WriteString(fmt.Sprintf("    Running --> Graceful: %s\n", signals))

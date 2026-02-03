@@ -15,20 +15,18 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "Default",
 			state: State{
-				InterruptCancel:    true,
-				ForceExitThreshold: 2,
+				ForceExitThreshold: 1,
 				HookTimeout:        5 * time.Second,
 			},
 			contains: []string{
 				"Running --> Graceful: SIGINT/SIGTERM",
 				"Timeout: 5s",
-				"Graceful --> ForceExit: Signal x2",
+				"Graceful --> ForceExit: Signal x1",
 			},
 		},
 		{
 			name: "NoInterrupt",
 			state: State{
-				InterruptCancel:    false,
 				ForceExitThreshold: 2,
 				HookTimeout:        5 * time.Second,
 			},
@@ -39,7 +37,6 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "NoForceExit",
 			state: State{
-				InterruptCancel:    true,
 				ForceExitThreshold: 0,
 				HookTimeout:        100 * time.Millisecond,
 			},
@@ -50,8 +47,7 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "StoppingHighlight",
 			state: State{
-				InterruptCancel:    true,
-				ForceExitThreshold: 2,
+				ForceExitThreshold: 1,
 				HookTimeout:        5 * time.Second,
 				Stopping:           true,
 			},

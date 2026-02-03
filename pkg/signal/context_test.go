@@ -71,7 +71,20 @@ func TestSignalContext_Options(t *testing.T) {
 
 		select {
 		case <-ctx.Done():
-			t.Error("Context should NOT be cancelled by Interrupt when WithInterrupt(false)")
+			t.Error("Context should NOT be cancelled by Interrupt when WithForceExit(0)")
+		case <-time.After(100 * time.Millisecond):
+			// Success
+		}
+	})
+
+	t.Run("WithForceExit_Escalation", func(t *testing.T) {
+		ctx := NewContext(context.Background(), WithForceExit(3))
+		defer ctx.Stop()
+
+		ctx.sigCh <- os.Interrupt
+		select {
+		case <-ctx.Done():
+			t.Error("Context should NOT be cancelled by first Interrupt when threshold is 3")
 		case <-time.After(100 * time.Millisecond):
 			// Success
 		}
@@ -108,18 +121,18 @@ func TestSignalContext_Stop(t *testing.T) {
 }
 
 func TestShouldCancel(t *testing.T) {
-	sc := &Context{opts: options{interruptCancel: true}}
+	sc := &Context{opts: options{forceExitThreshold: 1}}
 
 	if !sc.shouldCancel(syscall.SIGTERM) {
 		t.Error("SIGTERM should always cancel")
 	}
 	if !sc.shouldCancel(os.Interrupt) {
-		t.Error("SIGINT should cancel when interruptCancel is true")
+		t.Error("SIGINT should cancel when forceExitThreshold is 1")
 	}
 
-	sc.opts.interruptCancel = false
+	sc.opts.forceExitThreshold = 2
 	if sc.shouldCancel(os.Interrupt) {
-		t.Error("SIGINT should NOT cancel when interruptCancel is false")
+		t.Error("SIGINT should NOT cancel when forceExitThreshold is > 1")
 	}
 }
 

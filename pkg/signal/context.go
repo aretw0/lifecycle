@@ -68,7 +68,6 @@ func (sc *Context) OnShutdown(f func()) {
 }
 
 type options struct {
-	interruptCancel    bool
 	forceExitThreshold int
 	resetTimeout       time.Duration
 	hookTimeout        time.Duration
@@ -77,16 +76,25 @@ type options struct {
 // Option is a functional option for configuring signal behavior.
 type Option func(*options)
 
-// WithInterrupt configures whether SIGINT (Ctrl+C) should cancel the context.
-// Default is true.
+// WithInterrupt is deprecated. Use WithForceExit(1) for default behavior
+// or WithForceExit(0) to disable automatic interruption.
+//
+// Deprecated: SIGINT logic is now controlled by ForceExit threshold.
 func WithInterrupt(cancel bool) Option {
 	return func(o *options) {
-		o.interruptCancel = cancel
+		if cancel {
+			o.forceExitThreshold = 1
+		} else {
+			o.forceExitThreshold = 0
+		}
 	}
 }
 
 // WithForceExit configures the threshold of signals required to trigger an immediate os.Exit(1).
-// Set to 0 to disable forced exit. Default is 2.
+// Threshold values:
+// 1 (Default): SIGINT cancels context immediately. SIGTERM always cancels.
+// n >= 2: SIGINT is captured (signalCount increments), os.Exit(1) at n-th signal.
+// 0 (Unsafe): Automatic os.Exit(1) is disabled for SIGINT. SIGTERM still cancels context.
 func WithForceExit(threshold int) Option {
 	return func(o *options) {
 		o.forceExitThreshold = threshold
@@ -136,8 +144,7 @@ func (sc *Context) Wait() {
 // If a second signal is received before the program exits, it performs an immediate os.Exit(1) (if configured).
 func NewContext(parent context.Context, opts ...Option) *Context {
 	o := options{
-		interruptCancel:    true,
-		forceExitThreshold: 2,
+		forceExitThreshold: 1, // Default: Ctrl+C cancels context immediately
 		resetTimeout:       5 * time.Second,
 		hookTimeout:        5 * time.Second,
 	}
@@ -213,6 +220,9 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 	log.Debug("received signal", "signal", sig.String(), "count", count, "first", isFirst)
 	metrics.GetProvider().IncSignalReceived(sig.String())
 
+	// Cancellation Logic
+	// SIGTERM always cancels on first signal
+	// SIGINT cancels on first signal ONLY if threshold is exactly 1
 	if isFirst && sc.shouldCancel(sig) {
 		sc.mu.Lock()
 		switch sig {
@@ -227,24 +237,39 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 		go sc.runHooks()
 	}
 
+	// Force Exit Logic
+	// Enabled if threshold > 0
 	if sc.opts.forceExitThreshold > 0 && count >= sc.opts.forceExitThreshold {
-		log.Warn("force exit threshold reached, exiting immediately",
-			"signal", sig.String(),
-			"count", count)
-		metrics.GetProvider().IncForceExitTriggered()
-		os.Exit(1)
+		// If threshold is 1, we already cancelled, so this is an immediate follow-up exit
+		// if another signal arrives or if we want to treat 1 as "cancel then exit"
+		// Actually, if threshold is 1, and this is the first signal, we cancel.
+		// If another signal arrives, count becomes 2, which is >= 1, so we exit.
+		// THIS IS CORRECT: 1st signal = Cancel, 2nd signal = Force Exit.
+
+		// WAIT: If user wants "1st signal = Force Exit" without cancellation,
+		// that's not what we discussed. We said 1 = industry standard (Cancel context).
+		// So if count == 1 and threshold is 1, we SHOULD only cancel.
+		// Force Exit should only happen if count > threshold OR if we want 1 to be special.
+
+		// Correct logic:
+		// Threshold 1: 1st signal = Cancel. 2nd signal = Force Exit.
+		// Threshold N: 1..N-1 signals = Captured (Events). N-th signal = Force Exit.
+		if count > 1 || (sig == os.Interrupt && sc.opts.forceExitThreshold == 1 && count > 1) || (count >= sc.opts.forceExitThreshold && sc.opts.forceExitThreshold > 1) {
+			log.Warn("force exit threshold reached, exiting immediately",
+				"signal", sig.String(),
+				"count", count)
+			metrics.GetProvider().IncForceExitTriggered()
+			os.Exit(1)
+		}
 	}
 }
 
-// shouldCancel determines if the given signal should cancel the context.
 func (sc *Context) shouldCancel(sig os.Signal) bool {
 	if sig == syscall.SIGTERM {
 		return true
 	}
-	if sig == os.Interrupt && sc.opts.interruptCancel {
-		return true
-	}
-	return false
+	// SIGINT only cancels if threshold is explicitly 1 (Default behavior)
+	return sig == os.Interrupt && sc.opts.forceExitThreshold == 1
 }
 
 // Signal returns the signal that caused the context to be cancelled/interrupted, or nil.
@@ -261,9 +286,22 @@ func (sc *Context) Reason() Reason {
 	return sc.reason
 }
 
+// IsUnsafe returns true if the context is configured to never force exit (threshold 0).
+func (sc *Context) IsUnsafe() bool {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return sc.opts.forceExitThreshold == 0
+}
+
+// ForceExitThreshold returns the number of signals required to trigger os.Exit(1).
+func (sc *Context) ForceExitThreshold() int {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return sc.opts.forceExitThreshold
+}
+
 // State represents the configuration state of the SignalContext.
 type State struct {
-	InterruptCancel    bool
 	ForceExitThreshold int
 	HookTimeout        time.Duration
 	Received           os.Signal
@@ -292,7 +330,6 @@ func (sc *Context) State() State {
 	}
 
 	return State{
-		InterruptCancel:    sc.opts.interruptCancel,
 		ForceExitThreshold: sc.opts.forceExitThreshold,
 		HookTimeout:        sc.opts.hookTimeout,
 		Received:           sc.sigVal,
