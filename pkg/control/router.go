@@ -128,11 +128,20 @@ func (r *Router) Start(ctx context.Context) error {
 			defer wg.Done()
 			// Forward events from source to router
 			// We iterate until src.Events() is closed or ctx is done
-			for e := range src.Events() {
+			for {
 				select {
-				case r.events <- e:
 				case <-ctx.Done():
-					return
+					return // Context cancelled, stop reading
+				case e, ok := <-src.Events():
+					if !ok {
+						return // Channel closed, stop reading
+					}
+					// Forward event
+					select {
+					case r.events <- e:
+					case <-ctx.Done():
+						return // Context cancelled while sending
+					}
 				}
 			}
 		}(s)
