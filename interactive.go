@@ -16,6 +16,7 @@ type interactiveConfig struct {
 	enableInput  bool
 	enableSignal bool
 	commands     map[string]control.Handler
+	shutdownFunc func()
 }
 
 // WithInput enables or disables the standard input source (stdin). Default is true.
@@ -37,6 +38,14 @@ func WithSignal(enable bool) InteractiveOption {
 func WithCommand(name string, handler control.Handler) InteractiveOption {
 	return func(c *interactiveConfig) {
 		c.commands[name] = handler
+	}
+}
+
+// WithShutdown registers a function to be called when a "quit" or "shutdown" event occurs.
+// This simplifies wiring up the main loop exit mechanism (e.g. closing a quit channel).
+func WithShutdown(fn func()) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.shutdownFunc = fn
 	}
 }
 
@@ -84,7 +93,34 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 		return nil
 	})
 
-	smartHandler := handlers.NewSmartSignalHandler(suspendHandler, noOpQuit)
+	// Resolve Quit Handler: User provided "WithShutdown" -> "WithCommand" -> No-Op
+	var quitHandler control.Handler = noOpQuit
+
+	if cfg.shutdownFunc != nil {
+		quitHandler = control.HandlerFunc(func(ctx context.Context, e control.Event) error {
+			cfg.shutdownFunc()
+			return nil
+		})
+	}
+
+	// 3. Resolve Quit Logic
+	// Precedence:
+	// 1. Explicit WithCommand("quit", ...)
+	// 2. WithShutdown(...) convenience helper
+	// 3. Default No-Op (relies on Signal Force Exit)
+
+	if h, ok := cfg.commands["quit"]; ok {
+		quitHandler = h
+	}
+
+	// Route "lifecycle/shutdown" (emitted by 'q'/'quit' in InputSource) to the resolved quit handler
+	r.Handle("lifecycle/shutdown", quitHandler)
+	// Route "command/quit" if not already set (if using WithShutdown)
+	if _, ok := cfg.commands["quit"]; !ok {
+		r.Handle("command/quit", quitHandler)
+	}
+
+	smartHandler := handlers.NewSmartSignalHandler(suspendHandler, quitHandler)
 	r.Handle("Signal(interrupt)", smartHandler)
 
 	// 4. Sources

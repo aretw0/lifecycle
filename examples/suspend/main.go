@@ -409,40 +409,12 @@ func main() {
 		resumedCh := make(chan struct{})
 		quitCh := make(chan struct{})
 
-		// Router Setup
-		router := lifecycle.NewRouter()
-
-		// Map internal events to Handlers
-		router.Handle("lifecycle/suspend", suspendHandler)
-		router.Handle("lifecycle/resume", suspendHandler)
-
-		// Smart Signal Handling: Ctrl+C -> Suspend -> Quit
-		smartHandler := lifecycle.NewSmartSignalHandler(suspendHandler, lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			select {
-			case <-quitCh:
-			default:
+		router := lifecycle.NewInteractiveRouter(suspendHandler,
+			// Custom "Quit" wiring (Simple closure)
+			lifecycle.WithShutdown(func() {
 				close(quitCh)
-			}
-			return nil
-		}))
-		router.Handle("Signal(interrupt)", smartHandler)
-
-		// Handle Quit locally
-		router.Handle("lifecycle/shutdown", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			// For mixed sources, we technically still risk a race if user scripts 'q' + Ctrl+C simultaneously,
-			// but for interactive usage, the SmartSignalHandler protection covers the main "spam" case.
-			select {
-			case <-quitCh:
-			default:
-				close(quitCh)
-			}
-			return nil
-		}))
-
-		// Add Sources
-		router.AddSource(lifecycle.NewOSSignalSource(os.Interrupt))
-		inputSource := lifecycle.NewInputSource()
-		router.AddSource(inputSource)
+			}),
+		)
 
 		// Allow Auto-Suspend to speak
 		simSource := make(chan lifecycle.Event)
