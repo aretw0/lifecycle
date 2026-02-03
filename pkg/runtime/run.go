@@ -52,6 +52,10 @@ func Run(r Runnable, opts ...signal.Option) error {
 
 	err := r.Start(appCtx)
 
+	// Explicitly cancel the context to signal background workers (lifecycle.Go) to stop.
+	// This ensures that when the main function exits, the application shuts down cleanly.
+	sigCtx.Cancel()
+
 	// If shutdown was triggered by a signal, wait for hooks to complete.
 	// We avoid calling Wait() on normal exit or manual stop, as it would block forever.
 	reason := sigCtx.Reason()
