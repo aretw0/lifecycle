@@ -352,8 +352,8 @@ func (b *Blocker) Suspend(ctx context.Context) error {
 
 func main() {
 	// 0. Logging
-	opts := &slog.HandlerOptions{Level: slog.LevelDebug}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, opts)))
+	// Logger is now configured via lifecycle.Run options, but we create it here for local usage too.
+	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	// 1. Persistence
 	statePath := StateFile
@@ -402,6 +402,7 @@ func main() {
 	)
 
 	// 4. Run Logic (Interactive with Input)
+	// Configuration (Logger, Signals) is now passed declaratively to Run.
 	err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
 		// Channels to synchronize UI
 		suspendedCh := make(chan struct{})
@@ -482,6 +483,7 @@ func main() {
 
 		lifecycle.Go(ctx, func(ctx context.Context) error {
 			<-sup.Wait()
+			l.Debug("supervisor finished")
 			return nil
 		})
 
@@ -573,7 +575,10 @@ func main() {
 				}
 			}
 		}
-	}), lifecycle.WithForceExit(2))
+	}),
+		lifecycle.WithLogger(l),
+		lifecycle.WithForceExit(2),
+	)
 
 	if err != nil {
 		if err != context.Canceled {

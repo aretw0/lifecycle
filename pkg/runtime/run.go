@@ -5,6 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
+	"github.com/aretw0/lifecycle/pkg/log"
+	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/signal"
 )
 
@@ -18,6 +22,20 @@ func Sleep(ctx context.Context, d time.Duration) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// option structs
+type loggerOpt struct{ l *slog.Logger }
+type metricsOpt struct{ p metrics.Provider }
+
+// WithLogger returns an option to configure the global logger.
+func WithLogger(l *slog.Logger) any {
+	return loggerOpt{l: l}
+}
+
+// WithMetrics returns an option to configure the global metrics provider.
+func WithMetrics(p metrics.Provider) any {
+	return metricsOpt{p: p}
 }
 
 // Runnable defines a long-running process that can be started with a context.
@@ -41,20 +59,26 @@ func Job(fn func(context.Context) error) Runnable {
 
 // Run executes the application logic with a managed SignalContext.
 // It accepts a Runnable (Job, Router, Supervisor) and manages its lifecycle.
-// It accepts generic options (e.g. SignalOption) to configure the runtime.
+// It accepts generic options (e.g. SignalOption, WithLogger, WithMetrics) to configure the runtime.
 // This is the recommended entry point for main().
 func Run(r Runnable, opts ...any) error {
 	var sigOpts []signal.Option
 
+	// Apply configuration options
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case signal.Option:
 			sigOpts = append(sigOpts, v)
+		case loggerOpt:
+			log.SetLogger(v.l)
+		case metricsOpt:
+			metrics.SetProvider(v.p)
 		}
 	}
 
 	var wg sync.WaitGroup
 	sigCtx := signal.NewContext(context.Background(), sigOpts...)
+	defer sigCtx.Stop()
 	defer sigCtx.Stop()
 
 	// Inject the task tracker into the context passed to the application

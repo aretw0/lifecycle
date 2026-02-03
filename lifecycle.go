@@ -507,11 +507,23 @@ func SetLogger(l *slog.Logger) {
 	log.SetLogger(l)
 }
 
+// WithLogger returns a RunOption to configure the global logger.
+// Alias for pkg/runtime.WithLogger.
+func WithLogger(l *slog.Logger) any {
+	return runtime.WithLogger(l)
+}
+
 // SetMetricsProvider overrides the global metrics provider.
 // This allowing bridging library metrics to Prometheus, OTEL, etc.
 // Alias for pkg/metrics.SetProvider.
 func SetMetricsProvider(p metrics.Provider) {
 	metrics.SetProvider(p)
+}
+
+// WithMetrics returns a RunOption to configure the global metrics provider.
+// Alias for pkg/runtime.WithMetrics.
+func WithMetrics(p metrics.Provider) any {
+	return runtime.WithMetrics(p)
 }
 
 // NewLogMetricsProvider returns a metrics provider that logs to the current logger.
