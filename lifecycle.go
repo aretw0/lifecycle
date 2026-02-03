@@ -388,6 +388,16 @@ func NewSuspendHandler() *SuspendHandler {
 	return handlers.NewSuspendHandler()
 }
 
+// SmartSignalHandler implements "Double-Tap" signal logic (Suspend -> Quit).
+// Alias for pkg/handlers.SmartSignalHandler.
+type SmartSignalHandler = handlers.SmartSignalHandler
+
+// NewSmartSignalHandler creates a new smart signal handler.
+// Alias for pkg/handlers.NewSmartSignalHandler.
+func NewSmartSignalHandler(s *SuspendHandler, q Handler) *SmartSignalHandler {
+	return handlers.NewSmartSignalHandler(s, q)
+}
+
 // HealthCheckSource runs a periodic health check.
 // Alias for pkg/sources.HealthCheckSource.
 type HealthCheckSource = sources.HealthCheckSource

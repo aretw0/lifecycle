@@ -410,7 +410,13 @@ func main() {
 		// Map internal events to Handlers
 		router.Handle("lifecycle/suspend", suspendHandler)
 		router.Handle("lifecycle/resume", suspendHandler)
-		router.Handle("Signal(interrupt)", suspendHandler) // Keep Ctrl+C support just in case
+
+		// Smart Signal Handling: Ctrl+C -> Suspend -> Quit
+		smartHandler := lifecycle.NewSmartSignalHandler(suspendHandler, lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			close(quitCh)
+			return nil
+		}))
+		router.Handle("Signal(interrupt)", smartHandler)
 
 		// Handle Quit locally
 		router.Handle("input/quit", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {

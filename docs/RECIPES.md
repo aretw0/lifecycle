@@ -43,7 +43,7 @@ func main() {
         return nil 
     }))
 
-    // 3. Define Worker (See 'Quiescent Worker' pattern below)
+    // 3. Define Worker (See implementation in 'The Quiescent Worker Pattern' section below)
     // ...
 
     // 4. Run Loop
@@ -108,34 +108,15 @@ router.Handle("source/tick", control.HandlerFunc(func(_ context.Context, e contr
 **Solution**: Use a custom Handler that checks state before deciding the action.
 
 ```go
-type SmartSignalHandler struct {
-    Suspend *lifecycle.SuspendHandler
-    Quit    lifecycle.HandlerFunc
-}
-
-func (h *SmartSignalHandler) Handle(ctx context.Context, e control.Event) error {
-    state := h.Suspend.State().(map[string]any)
-    isSuspended := state["suspended"].(bool)
-
-    if !isSuspended {
-        // First Ctrl+C: Suspend
-        slog.Info("Signal received: Suspending... (Press Ctrl+C again to Quit)")
-        return h.Suspend.HandleEvent(ctx, control.SuspendEvent{})
-    }
-
-    // Second Ctrl+C: Quit
-    slog.Info("Signal received: Quitting...")
-    return h.Quit(ctx, e)
-}
-
 // In main():
-smartHandler := &SmartSignalHandler{
-    Suspend: suspendHandler,
-    Quit: func(ctx context.Context, _ control.Event) error {
-        // close(quitCh) or cancel()
+smartHandler := lifecycle.NewSmartSignalHandler(
+    suspendHandler, 
+    lifecycle.HandlerFunc(func(ctx context.Context, _ control.Event) error {
+        // Quit Logic
+        close(quitCh)
         return nil
-    },
-}
+    }),
+)
 
 router.Handle("Signal(interrupt)", smartHandler)
 ```
