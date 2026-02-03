@@ -44,6 +44,12 @@ func WithForceExit(threshold int) signal.Option {
 	return signal.WithForceExit(threshold)
 }
 
+// WithResetTimeout configures the duration after which the signal count resets.
+// Alias for pkg/signal.WithResetTimeout.
+func WithResetTimeout(d time.Duration) signal.Option {
+	return signal.WithResetTimeout(d)
+}
+
 // WithHookTimeout configures the duration after which a running hook produces a warning log.
 // Alias for pkg/signal.WithHookTimeout.
 func WithHookTimeout(d time.Duration) signal.Option {
@@ -435,3 +441,13 @@ func HandleFunc(pattern string, handler func(context.Context, Event) error) {
 // DefaultRouter is the default instance for package-level helpers.
 // Alias for pkg/control.DefaultRouter.
 var DefaultRouter = control.DefaultRouter
+
+// InputSource reads from Stdin and emits events.
+// Alias for pkg/sources.InputSource.
+type InputSource = sources.InputSource
+
+// NewInputSource creates a new source that listens for standard CLI commands.
+// Alias for pkg/sources.NewInputSource.
+func NewInputSource() *InputSource {
+	return sources.NewInputSource()
+}

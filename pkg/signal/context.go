@@ -31,16 +31,30 @@ func (r Reason) String() string {
 // Context wraps a context and captures the signal that cancelled it.
 type Context struct {
 	context.Context
-	Cancel    func()
-	start     sync.Once
-	stop      sync.Once
-	sigCh     chan os.Signal
-	sigVal    os.Signal
-	reason    Reason
-	mu        sync.Mutex
-	opts      options
-	hooks     []func()
-	hooksDone chan struct{}
+	Cancel func()
+	start  sync.Once
+	stop   sync.Once
+	sigCh  chan os.Signal
+	sigVal os.Signal
+	reason Reason
+	mu     sync.Mutex
+	// ... fields ...
+	opts        options
+	hooks       []func()
+	hooksDone   chan struct{}
+	signalCount int
+	lastSignal  time.Time
+}
+
+// ResetSignalCount resets the signal counter and clears the last received signal.
+// This is useful for "Smart Handlers" that successfully handle a signal (e.g. Suspend)
+// and want to reset the "Force Exit" threshold.
+func (sc *Context) ResetSignalCount() {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.signalCount = 0
+	sc.sigVal = nil
+	log.Debug("signal count reset")
 }
 
 // OnShutdown registers a function to be called when the context receives a shutdown signal.
@@ -56,6 +70,7 @@ func (sc *Context) OnShutdown(f func()) {
 type options struct {
 	interruptCancel    bool
 	forceExitThreshold int
+	resetTimeout       time.Duration
 	hookTimeout        time.Duration
 }
 
@@ -78,6 +93,15 @@ func WithForceExit(threshold int) Option {
 	}
 }
 
+// WithResetTimeout configures the duration after which the signal count resets.
+// If a signal is received after this duration from the previous one, it is treated as a new sequence.
+// Default is 5 seconds.
+func WithResetTimeout(d time.Duration) Option {
+	return func(o *options) {
+		o.resetTimeout = d
+	}
+}
+
 // WithHookTimeout configures the duration after which a running hook produces a warning log.
 // Default is 5 seconds.
 func WithHookTimeout(d time.Duration) Option {
@@ -95,6 +119,7 @@ func (sc *Context) Stop() {
 			sc.reason = ReasonManualStop
 		}
 		sc.mu.Unlock()
+		// Restore default signal handling
 		ossignal.Stop(sc.sigCh)
 		close(sc.sigCh)
 	})
@@ -113,6 +138,7 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 	o := options{
 		interruptCancel:    true,
 		forceExitThreshold: 2,
+		resetTimeout:       5 * time.Second,
 		hookTimeout:        5 * time.Second,
 	}
 	for _, opt := range opts {
@@ -149,14 +175,17 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 
 // monitor runs the signal monitoring loop.
 func (sc *Context) monitor() {
-	count := 0
 	for {
 		select {
 		case sig, ok := <-sc.sigCh:
 			if !ok {
 				return
 			}
-			count++
+			sc.mu.Lock()
+			sc.signalCount++
+			count := sc.signalCount
+			sc.mu.Unlock()
+
 			sc.handleSignal(sig, count)
 
 		case <-sc.Context.Done():
@@ -169,6 +198,15 @@ func (sc *Context) monitor() {
 func (sc *Context) handleSignal(sig os.Signal, count int) {
 	sc.mu.Lock()
 	isFirst := sc.sigVal == nil
+
+	// Reset logic
+	if !sc.lastSignal.IsZero() && time.Since(sc.lastSignal) > sc.opts.resetTimeout {
+		sc.signalCount = 1
+		count = 1
+		log.Debug("signal count reset due to timeout")
+	}
+	sc.lastSignal = time.Now()
+
 	sc.sigVal = sig
 	sc.mu.Unlock()
 
@@ -232,6 +270,8 @@ type State struct {
 	Reason             Reason
 	Stopping           bool
 	Enabled            bool // True if the signal monitor is active
+	SignalCount        int
+	ResetDeadline      time.Time
 }
 
 // State returns a snapshot of the current configuration.
@@ -246,6 +286,11 @@ func (sc *Context) State() State {
 	default:
 	}
 
+	var deadline time.Time
+	if !sc.lastSignal.IsZero() {
+		deadline = sc.lastSignal.Add(sc.opts.resetTimeout)
+	}
+
 	return State{
 		InterruptCancel:    sc.opts.interruptCancel,
 		ForceExitThreshold: sc.opts.forceExitThreshold,
@@ -257,7 +302,9 @@ func (sc *Context) State() State {
 		// We can check if the channel is closed or nil, but checking the channel itself is tricky without a lock/select.
 		// However, in Stop(), we close the channel.
 		// A reliable way is checking if sigCh is closed.
-		Enabled: isChannelOpen(sc.sigCh),
+		Enabled:       isChannelOpen(sc.sigCh),
+		SignalCount:   sc.signalCount,
+		ResetDeadline: deadline,
 	}
 }
 
