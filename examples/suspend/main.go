@@ -215,14 +215,12 @@ func (w *Worker) Resume(ctx context.Context) error {
 func Watchdog(ctx context.Context) error {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			slog.Info("[WATCHDOG] System Healthy. (I never sleep!)")
-		}
+
+	// Use lifecycle.Receive to handle context cancellation automatically
+	for range lifecycle.Receive(ctx, ticker.C) {
+		slog.Info("[WATCHDOG] System Healthy. (I never sleep!)")
 	}
+	return nil
 }
 
 func main() {
@@ -313,21 +311,18 @@ func main() {
 
 		// Wait for completion (Polling the store state)
 		ticker := time.NewTicker(1 * time.Second)
-		for {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-ticker.C:
-				store.mu.Lock()
-				count := store.state.ItemsProcessed
-				store.mu.Unlock()
-				if count >= TargetGoal {
-					slog.Info("GOAL REACHED! Shutting down factory.")
-					store.Cleanup()
-					return nil // Causes lifecycle.Run to exit cleanly
-				}
+		defer ticker.Stop()
+		for range lifecycle.Receive(ctx, ticker.C) {
+			store.mu.Lock()
+			count := store.state.ItemsProcessed
+			store.mu.Unlock()
+			if count >= TargetGoal {
+				slog.Info("GOAL REACHED! Shutting down factory.")
+				store.Cleanup()
+				return nil // Causes lifecycle.Run to exit cleanly
 			}
 		}
+		return nil
 	}))
 
 	if err != nil {
