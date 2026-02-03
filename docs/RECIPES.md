@@ -8,7 +8,7 @@ This document contains common architectural patterns and "recipes" for building 
 
 **Problem**: You want a long-running worker (e.g., consumer, processor) that can be controlled interactively via a CLI (Ctrl+C, Commands) without losing data.
 
-**Solution**: Combine `Supervisor` for reliability, `InputSource` for control, and `Quiescence` for safe pausing.
+**Solution**: Use the `NewInteractiveRouter` preset to handle standard boilerplate, and `SuspendHandler` to manage worker state.
 
 ```go
 package main
@@ -16,19 +16,51 @@ package main
 import (
     "context"
     "fmt"
-    "log/slog"
+    "github.com/aretw0/lifecycle"
+)
+
+func main() {
+    // 1. Setup Suspend Logic
+    suspendHandler := lifecycle.NewSuspendHandler()
+    suspendHandler.OnSuspend(func(ctx context.Context) error {
+        fmt.Println("Washing in-flight data...")
+        return nil
+    })
+
+    // 2. Setup Interactive Router (The Easy Way)
+    router := lifecycle.NewInteractiveRouter(suspendHandler,
+        lifecycle.WithShutdown(func() {
+            fmt.Println("Cleaning up before exit...")
+        }),
+    )
+
+    // 3. Run
+    lifecycle.Run(router)
+}
+```
+
+---
+
+## 🏗️ 1.1 Manual Router Setup (Advanced)
+
+If you need full control over every source and middleware, you can still wire everything manually.
+
+```go
+package main
+
+import (
+    "context"
     "os"
     "github.com/aretw0/lifecycle"
     "github.com/aretw0/lifecycle/pkg/sources"
     "github.com/aretw0/lifecycle/pkg/control"
-    // "github.com/aretw0/lifecycle/pkg/worker" (Theoretical helper)
 )
 
 func main() {
     // 1. Setup Router & Sources
     router := lifecycle.NewRouter()
     
-    // Listen for OS Signals (Ctrl+C as fallback)
+    // Listen for OS Signals
     router.AddSource(lifecycle.NewOSSignalSource(os.Interrupt))
     
     // Listen for Interactive Commands (s=Suspend, r=Resume, q=Quit)
@@ -38,22 +70,13 @@ func main() {
     suspendHandler := lifecycle.NewSuspendHandler()
     router.Handle("lifecycle/suspend", suspendHandler)
     router.Handle("lifecycle/resume", suspendHandler)
-    router.Handle("input/quit", control.HandlerFunc(func(ctx context.Context, _ control.Event) error {
-        // Trigger Shutdown logic here
+    router.Handle("command/quit", control.HandlerFunc(func(ctx context.Context, _ control.Event) error {
+        // Shutdown logic
         return nil 
     }))
 
-    // 3. Define Worker (See implementation in 'The Quiescent Worker Pattern' section below)
-    // ...
-
-    // 4. Run Loop
-    err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
-        lifecycle.Go(ctx, router.Start)
-        
-        // Block until done
-        <-ctx.Done()
-        return nil
-    }))
+    // 3. Run
+    lifecycle.Run(router)
 }
 ```
 
@@ -138,12 +161,11 @@ router.Handle("Signal(interrupt)", smartHandler)
 func main() {
     // ... setup router and custom handlers ...
     
-    // We DISABLE default context cancellation on Interrupt
-    // because we want to handle it ourselves (e.g. to Suspend).
+    // We use a "Deadman Switch" configuration.
+    // Setting ForceExit > 1 has two effects:
+    // 1. DISABLES default context cancellation on the 1st Ctrl+C (allowing manual handling).
+    // 2. ENABLES runtime Force Exit on the Nth Ctrl+C (Safety Net).
     lifecycle.Run(job, 
-        lifecycle.WithInterrupt(false), 
-        
-        // BUT we keep the "Safety Net".
         // If the user mashes Ctrl+C 3 times, we assume our custom logic is broken
         // and we force-kill the process.
         lifecycle.WithForceExit(3),

@@ -18,7 +18,7 @@ This document logs significant architectural decisions for the `lifecycle` proje
     1. **Safety**: Prevents beginners from creating unkillable processes.
     2. **Standards**: `SIGTERM` compliance is mandatory for Kubernetes/Docker.
     3. **Expectation**: For most Services and CLIs, `SIGINT` means "Stop", not "Clear line".
-* **Exception**: Interactive Shells/REPLs. In these specific cases, developers **MUST** explicitly disable global handling (`signal.WithInterrupt(false)`) and handle signals locally to avoid killing the session on `Ctrl+C`.
+* **Exception**: Interactive Shells/REPLs. In these specific cases, developers **MUST** explicitly disable global handling (`signal.WithForceExit(0)`) and handle signals locally to avoid killing the session on `Ctrl+C`.
 
 ## ADR-0003: Managed Concurrency (Zero Config)
 
@@ -33,3 +33,10 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Context**: As the library evolves from "Death Management" to "Lifecycle Management", we need to handle non-terminal events (Reload, Suspend).
 * **Decision**: Adopt an Event-Driven Architecture. Decouple **Sources** (Signals, Webhooks, Tickers) from **Handlers** via a standardized `Router`.
 * **Consequences**: Allows for infinite extensibility without polluting the core `Run` loop.
+
+## ADR-0005: Interactive Router Preset
+
+* **Status**: Accepted
+* **Context**: Setting up a robust interactive CLI (Standard signals + detached Stdin reader + common commands) requires significant boilerplate (~50 lines of wiring).
+* **Decision**: Provide a `NewInteractiveRouter` preset that encapsulates standard source wiring (OS Signals, Input) and standard command routing (q/quit/suspend/resume).
+* **Rationale**: Drastically improves Developer Experience (DX) and ensures consistency across tools in the ecosystem without sacrificing flexibility (configurable via options).

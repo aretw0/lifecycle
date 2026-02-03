@@ -125,14 +125,6 @@ func WithHookTimeout(d time.Duration) signal.Option {
 	return signal.WithHookTimeout(d)
 }
 
-// WithInterrupt is deprecated. Use WithForceExit(1) for default behavior
-// or WithForceExit(0) to disable automatic interruption.
-//
-// Deprecated: SIGINT logic is now controlled by ForceExit threshold.
-func WithInterrupt(cancel bool) signal.Option {
-	return signal.WithInterrupt(cancel)
-}
-
 // OnShutdown safely registers a shutdown hook on the context if it supports it.
 // It abstracts the type assertion for *signal.Context.
 func OnShutdown(ctx context.Context, fn func()) {

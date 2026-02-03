@@ -12,44 +12,9 @@ import (
 	"github.com/aretw0/lifecycle"
 )
 
-// MockWorker implements worker.Worker for testing.
-type MockWorker struct {
-	Name  string
-	Logic func(ctx context.Context) error
-
-	waitChan chan error
-}
-
-func (w *MockWorker) Start(ctx context.Context) error {
-	w.waitChan = make(chan error, 1)
-	go func() {
-		defer close(w.waitChan)
-		w.waitChan <- w.Logic(ctx)
-	}()
-	return nil
-}
-
-func (w *MockWorker) Stop(ctx context.Context) error {
-	// Our Logic should handle context cancellation, so manual stop isn't strictly needed
-	// unless we want to force something.
-	return nil
-}
-
-func (w *MockWorker) Wait() <-chan error {
-	return w.waitChan
-}
-
-func (w *MockWorker) String() string {
-	return w.Name
-}
-
-func (w *MockWorker) State() lifecycle.WorkerState {
-	return lifecycle.WorkerState{Name: w.Name, Status: lifecycle.WorkerStatusRunning}
-}
-
 func main() {
 	// 1. Setup Lifecycle
-	ctx := lifecycle.NewSignalContext(context.Background(), lifecycle.WithInterrupt(true))
+	ctx := lifecycle.NewSignalContext(context.Background())
 
 	metricProvider := lifecycle.NewLogMetricsProvider()
 	lifecycle.SetMetricsProvider(metricProvider)
@@ -61,37 +26,31 @@ func main() {
 
 	// 2. Define Worker Factories
 	tickerFactory := func() (lifecycle.Worker, error) {
-		return &MockWorker{
-			Name: "Ticker",
-			Logic: func(ctx context.Context) error {
-				ticker := time.NewTicker(500 * time.Millisecond)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-ctx.Done():
-						return nil
-					case t := <-ticker.C:
-						fmt.Printf("[%s] Tick: %v\n", "Ticker", t.Format(time.Kitchen))
-					}
-				}
-			},
-		}, nil
-	}
-
-	crasherFactory := func() (lifecycle.Worker, error) {
-		return &MockWorker{
-			Name: "Crasher",
-			Logic: func(ctx context.Context) error {
-				fmt.Println("[Crasher] I will crash in 2 seconds...")
+		return lifecycle.NewWorkerFromFunc("Ticker", func(ctx context.Context) error {
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+			for {
 				select {
 				case <-ctx.Done():
 					return nil
-				case <-time.After(2 * time.Second):
-					fmt.Println("[Crasher] BOOM!")
-					return errors.New("unexpected crash")
+				case t := <-ticker.C:
+					fmt.Printf("[%s] Tick: %v\n", "Ticker", t.Format(time.Kitchen))
 				}
-			},
-		}, nil
+			}
+		}), nil
+	}
+
+	crasherFactory := func() (lifecycle.Worker, error) {
+		return lifecycle.NewWorkerFromFunc("Crasher", func(ctx context.Context) error {
+			fmt.Println("[Crasher] I will crash in 2 seconds...")
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(2 * time.Second):
+				fmt.Println("[Crasher] BOOM!")
+				return errors.New("unexpected crash")
+			}
+		}), nil
 	}
 
 	// 3. Create Supervisor

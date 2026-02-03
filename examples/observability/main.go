@@ -30,8 +30,7 @@ func main() {
 	// Here we use the defaults, but we could do:
 	// lifecycle.NewSignalContext(context.Background(), lifecycle.WithForceExit(3))
 	ctx := lifecycle.NewSignalContext(context.Background(),
-		lifecycle.WithInterrupt(true), // Default: Ctrl+C cancels
-		lifecycle.WithForceExit(2),    // Default: 2nd signal force exits
+		lifecycle.WithForceExit(2), // Default: 2nd signal force exits
 	)
 	defer ctx.Stop()
 

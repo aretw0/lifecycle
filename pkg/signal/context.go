@@ -76,20 +76,6 @@ type options struct {
 // Option is a functional option for configuring signal behavior.
 type Option func(*options)
 
-// WithInterrupt is deprecated. Use WithForceExit(1) for default behavior
-// or WithForceExit(0) to disable automatic interruption.
-//
-// Deprecated: SIGINT logic is now controlled by ForceExit threshold.
-func WithInterrupt(cancel bool) Option {
-	return func(o *options) {
-		if cancel {
-			o.forceExitThreshold = 1
-		} else {
-			o.forceExitThreshold = 0
-		}
-	}
-}
-
 // WithForceExit configures the threshold of signals required to trigger an immediate os.Exit(1).
 // Threshold values:
 // 1 (Default): SIGINT cancels context immediately. SIGTERM always cancels.

@@ -16,7 +16,6 @@ func main() {
 	defer ctx.Stop()
 
 	// 2. Define our worker
-	// 2. Define our worker
 	// We use 'ping' as a universally available long-running process for this example.
 	// Arguments are adjusted for Windows (using -n) vs Linux/macOS (using -c).
 

@@ -8,12 +8,29 @@ import (
 	"github.com/aretw0/lifecycle/pkg/control"
 )
 
+const (
+	// WithForceExit(0) disables the killswitch.
+	THRESHOLD_UNSAFE = 0
+	// WithForceExit(3) enables the killswitch.
+	THRESHOLD_SAFE = 3
+)
+
+func printHelp(forceExitThreshold int) {
+	fmt.Println("Commands: any text... | exit | quit")
+	fmt.Println("Behavior: Ctrl+C clears the line (like a real shell)")
+	if forceExitThreshold <= 0 {
+		fmt.Println("Unsafe Mode: WithForceExit(0) - Killswitch disabled")
+	} else {
+		fmt.Printf("Safe Mode: WithForceExit(%d) - Killswitch enabled\n", forceExitThreshold)
+	}
+	fmt.Println("> ")
+}
+
 func main() {
-	// 1. Setup Signal Context with WithInterrupt(false)
-	// This means Ctrl+C won't cancel the context automatically.
+	// 1. Setup Signal Context wlifecycle.WithForceExit(0), // REPL mode: Handled manuallys means Ctrl+C won't cancel the context automatically.
 	// We also set WithForceExit(3) so the user can still kill it with 3x Ctrl+C.
 	ctx := lifecycle.NewSignalContext(context.Background(),
-		lifecycle.WithForceExit(0),
+		lifecycle.WithForceExit(THRESHOLD_SAFE),
 	)
 	defer ctx.Stop()
 
@@ -24,10 +41,7 @@ func main() {
 
 	// 3. Define Shell State
 	fmt.Println("🚀 REPL STARTED")
-	fmt.Println("Commands: any text... | exit | quit")
-	fmt.Println("Behavior: Ctrl+C clears the line (like a real shell)")
-	fmt.Println("Unsafe Mode: WithForceExit(0) - Killswitch disabled")
-	fmt.Print("> ")
+	printHelp(lifecycle.GetForceExitThreshold(ctx))
 
 	// 4. Handle Events
 	// We use HandleFunc to register functions

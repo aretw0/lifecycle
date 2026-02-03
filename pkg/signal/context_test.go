@@ -63,8 +63,8 @@ func TestSignalContext_Reason(t *testing.T) {
 }
 
 func TestSignalContext_Options(t *testing.T) {
-	t.Run("WithInterrupt_False", func(t *testing.T) {
-		ctx := NewContext(context.Background(), WithInterrupt(false))
+	t.Run("WithForceExit_0", func(t *testing.T) {
+		ctx := NewContext(context.Background(), WithForceExit(0))
 		defer ctx.Stop()
 
 		ctx.sigCh <- os.Interrupt
