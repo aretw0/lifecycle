@@ -17,11 +17,12 @@ type Provider struct {
 	Backoffs      map[string]time.Duration
 
 	// Additional counters for verification
-	SupervisorAdds    map[string]int
-	SupervisorRemoves map[string]int
-	WorkerStarts      map[string]int
-	WorkerStops       map[string]int
-	WorkerFails       map[string]int
+	SupervisorAdds         map[string]int
+	SupervisorRemoves      map[string]int
+	WorkerStarts           map[string]int
+	WorkerStops            map[string]int
+	WorkerFails            map[string]int
+	CircuitBreakerTriggers map[string]int
 
 	// Goroutine metrics
 	GoroutinesStarted  int
@@ -49,19 +50,20 @@ var _ metrics.Provider = (*Provider)(nil)
 
 func New() *Provider {
 	return &Provider{
-		Restarts:          make(map[string]int),
-		ChildRestarts:     make(map[string]int),
-		Backoffs:          make(map[string]time.Duration),
-		SupervisorAdds:    make(map[string]int),
-		SupervisorRemoves: make(map[string]int),
-		WorkerStarts:      make(map[string]int),
-		WorkerStops:       make(map[string]int),
-		WorkerFails:       make(map[string]int),
-		EventsEmitted:     make(map[string]int),
-		EventsRouted:      make(map[string]int),
-		HandlersExecuted:  make(map[string]int),
-		HandlerErrors:     make(map[string]int),
-		HandlerDurations:  make(map[string]time.Duration),
+		Restarts:               make(map[string]int),
+		ChildRestarts:          make(map[string]int),
+		Backoffs:               make(map[string]time.Duration),
+		SupervisorAdds:         make(map[string]int),
+		SupervisorRemoves:      make(map[string]int),
+		WorkerStarts:           make(map[string]int),
+		WorkerStops:            make(map[string]int),
+		WorkerFails:            make(map[string]int),
+		CircuitBreakerTriggers: make(map[string]int),
+		EventsEmitted:          make(map[string]int),
+		EventsRouted:           make(map[string]int),
+		HandlersExecuted:       make(map[string]int),
+		HandlerErrors:          make(map[string]int),
+		HandlerDurations:       make(map[string]time.Duration),
 	}
 }
 
@@ -112,6 +114,11 @@ func (m *Provider) IncChildRestart(s, c string) {
 
 func (m *Provider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (m *Provider) IncForceExitTriggered()                             {}
+func (m *Provider) IncCircuitBreakerTriggered(c string) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.CircuitBreakerTriggers[c]++
+}
 
 func (m *Provider) IncContainerStarted(image string)                       {}
 func (m *Provider) IncContainerStopped(image string)                       {}

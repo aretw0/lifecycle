@@ -439,3 +439,55 @@ func TestSupervisor_DynamicTopology(t *testing.T) {
 		t.Error("Remove unknown should error")
 	}
 }
+
+func TestSupervisor_CircuitBreaker(t *testing.T) {
+	helper := newFactoryHelper()
+	mm := mock.New()
+	original := metrics.GetProvider()
+	metrics.SetProvider(mm)
+	defer metrics.SetProvider(original)
+
+	backoff := Backoff{
+		MaxRestarts: 3,
+		MaxDuration: 1 * time.Second,
+	}
+
+	sup := New("breaker-sup", StrategyOneForOne,
+		Spec{
+			Name:    "flaky-worker",
+			Factory: helper.makeFactory("flaky-worker"),
+			Backoff: backoff,
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := sup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	// Trigger 4 failures quickly
+	for i := 0; i < 4; i++ {
+		w := helper.getWorker("flaky-worker")
+		if w == nil {
+			t.Fatalf("Worker not found at iteration %d", i)
+		}
+		w.WaitChan <- errors.New("boom")
+		close(w.WaitChan)
+		time.Sleep(50 * time.Millisecond) // Wait for supervisor to process and restart
+	}
+
+	// The 4th failure should trigger the breaker and stop restarts
+	time.Sleep(100 * time.Millisecond)
+
+	count := helper.getCount("flaky-worker")
+	if count > 4 {
+		t.Errorf("Circuit breaker failed to stop restarts. Count=%d", count)
+	}
+
+	if mm.CircuitBreakerTriggers["flaky-worker"] == 0 {
+		t.Error("Circuit breaker metric not incremented")
+	}
+}

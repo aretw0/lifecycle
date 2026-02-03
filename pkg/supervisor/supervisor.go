@@ -35,6 +35,11 @@ type Backoff struct {
 	Multiplier      float64
 	// ResetDuration is the time the child must run successfully to reset the backoff.
 	ResetDuration time.Duration
+	// MaxRestarts is the maximum number of restarts allowed within MaxDuration.
+	// If 0, no limit is enforced.
+	MaxRestarts int
+	// MaxDuration is the time window for MaxRestarts.
+	MaxDuration time.Duration
 }
 
 // RestartPolicy defines when a child worker should be restarted.
@@ -62,6 +67,8 @@ type backoffState struct {
 	currentInterval time.Duration
 	lastFailure     time.Time
 	lastStart       time.Time
+	restarts        int       // Restarts in current window
+	windowStart     time.Time // Start of current window
 }
 
 // supervisor manages a set of worker processes.
@@ -278,6 +285,29 @@ func (s *supervisor) handleOneForOne(ctx context.Context, exit childExit, failed
 
 	metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForOne))
 	metrics.GetProvider().IncChildRestart(s.name, exit.name)
+
+	// Circuit Breaker Logic
+	if failedSpec.Backoff.MaxRestarts > 0 && failedSpec.Backoff.MaxDuration > 0 {
+		bs := s.backoffStates[exit.name]
+		now := time.Now()
+
+		// If window expired, reset
+		if bs.windowStart.IsZero() || now.Sub(bs.windowStart) > failedSpec.Backoff.MaxDuration {
+			bs.windowStart = now
+			bs.restarts = 1
+		} else {
+			bs.restarts++
+			if bs.restarts > failedSpec.Backoff.MaxRestarts {
+				log.Error("circuit breaker triggered: too many restarts",
+					"supervisor", s.name,
+					"child", exit.name,
+					"restarts", bs.restarts,
+					"window", failedSpec.Backoff.MaxDuration)
+				metrics.GetProvider().IncCircuitBreakerTriggered(exit.name)
+				return // Stop restarting
+			}
+		}
+	}
 
 	// Backoff Strategy
 	delay := s.nextBackoff(exit.name, failedSpec.Backoff)

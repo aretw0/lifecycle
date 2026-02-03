@@ -10,47 +10,48 @@ import (
 // It ensures the worker finishes its current unit of work before pausing.
 type QuiescenceGate struct {
 	mu           sync.Mutex
-	cond         *sync.Cond
 	pauseRequest bool
 	paused       bool
+	resumeCh     chan struct{} // Channel used to signal resume
+	quiescedCh   chan struct{} // Channel used to signal that worker reached quiescence
 }
 
 // NewQuiescenceGate creates a new gate ready for use.
 func NewQuiescenceGate() *QuiescenceGate {
-	g := &QuiescenceGate{}
-	g.cond = sync.NewCond(&g.mu)
-	return g
+	return &QuiescenceGate{
+		resumeCh:   make(chan struct{}),
+		quiescedCh: make(chan struct{}),
+	}
 }
 
 // Check should be called by the Worker before starting a new unit of work.
-// If a pause was requested, this method blocks until resumed.
-// Returns an error if context is cancelled while waiting.
+// If a pause was requested, this method blocks until resumed or context is cancelled.
 func (g *QuiescenceGate) Check(ctx context.Context) error {
 	g.mu.Lock()
-	defer g.mu.Unlock()
 
-	// If pause was requested, enter paused state
-	if g.pauseRequest {
-		slog.Debug("lifecycle: worker quiescence reached, pausing")
-		g.paused = true
-		g.cond.Broadcast() // Wake up any WaitPaused callers
+	// If no pause requested, just proceed
+	if !g.pauseRequest {
+		g.mu.Unlock()
+		return nil
 	}
 
-	for g.paused {
-		// Check context before/during wait to avoid hanging
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
+	// Wait for resume or cancellation
+	slog.Debug("lifecycle: worker quiescence reached, pausing")
+	g.paused = true
+	resCh := g.resumeCh
+	close(g.quiescedCh)
+	g.quiescedCh = make(chan struct{})
+	g.mu.Unlock()
 
-		// TODO: cond.Wait() doesn't respect context cancellation automatically.
-		// To be truly robust we'd need a separate channel or periodic check.
-		// For now, we rely on Resume/Broadcast to wake us up, or external cancellation
-		// if the worker loop checks context periodically.
-		// A robust implementation might use a WaitWithContext pattern if needed.
-		g.cond.Wait()
+	select {
+	case <-resCh:
+		g.mu.Lock()
+		g.paused = false
+		g.mu.Unlock()
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
-	return nil
 }
 
 // RequestPause signals the worker to pause at the next safe opportunity.
@@ -58,22 +59,24 @@ func (g *QuiescenceGate) RequestPause() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.pauseRequest = true
-	// We don't broadcast here because we are asking the worker to notice flag...
-	// but if the worker is currently blocked on Check() (already paused), strictly it wouldn't be.
 }
 
 // WaitPaused blocks until the worker has actually entered the paused state.
 func (g *QuiescenceGate) WaitPaused(ctx context.Context) error {
 	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	for !g.paused {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		g.cond.Wait()
+	if g.paused {
+		g.mu.Unlock()
+		return nil
 	}
-	return nil
+	qCh := g.quiescedCh
+	g.mu.Unlock()
+
+	select {
+	case <-qCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Resume wakes up the worker.
@@ -81,8 +84,12 @@ func (g *QuiescenceGate) Resume() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	if !g.pauseRequest {
+		return
+	}
+
 	slog.Debug("lifecycle: resuming worker")
 	g.pauseRequest = false
-	g.paused = false
-	g.cond.Broadcast() // Wake up the worker blocked in Check()
+	close(g.resumeCh)
+	g.resumeCh = make(chan struct{})
 }

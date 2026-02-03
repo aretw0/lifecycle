@@ -41,19 +41,19 @@ Focus: Transform `lifecycle` from a "Shutdown Manager" into a dynamic "Applicati
     - [x] `InputSource`: Standardize CLI command inputs (`q`, `s`, `r`) with detached readers to avoid blocking shutdown. Tied to `ForceExit` threshold for resilience on Windows.
     - [x] **Interactive Router**: `NewInteractiveRouter` preset to wire up signals, input, and generic commands (suspend/resume/quit).
   - **Worker Pattern Helpers**:
-    - [ ] `QuiescenceGate`: A reusable primitive (`sync.Cond` wrapper) for workers that need to pause safely without losing in-flight data.
+    - [x] `QuiescenceGate`: A reusable primitive (channel-based) for workers that need to pause safely without losing in-flight data. Context-aware since v2.0.
 - **Documentation**:
   - [ ] `RECIPES.md`: A cookbook for common patterns (Interactive Service, Hot Reload, File Watcher).
+- [x] **Shutdown Diagnostics**: Dump goroutine stacks if shutdown timeout is reached (implemented in `pkg/runtime`).
+- [x] **Circuit Breaker**: Implement "MaxRestarts within Duration" logic (implemented in `pkg/supervisor`).
 
 ## Backlog
 
 - **Raw Mode Helpers**: Consider wrapping `x/term` Raw Mode enter/restore logic.
 - **Cross-Platform Control Signals**: Research/Implement universal triggers (e.g., named pipes, admin CLI, HTTP) to replace limited OS signals (SIGTSTP/SIGUSR) on Windows/Linux.
-- **Shutdown Diagnostics**: Dump goroutine stacks or waitgroup state if shutdown timeout (ForceExit) is triggered, to aid debugging hangs.
 - **Lifecycle Testkit**: Helpers to simulate signals/events and assert state transitions without `time.Sleep` hacks.
 - **Parallel Hooks**: Research "Parallel Hooks with Dependency Mapping" for high-performance shutdown.
 - **Supervisor Spec**: Allow defining per-child restart policies (Always, OnFailure, Never).
-- **Circuit Breaker**: Implement "MaxRestarts within Duration" logic (Erlang style).
 - **Priority Shutdown**: Explicit shutdown phases (e.g., "Critical", "Normal").
 
 ## Technical Debt

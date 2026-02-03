@@ -2,10 +2,11 @@ package runtime
 
 import (
 	"context"
+	"log/slog"
+	"os"
+	stdruntime "runtime"
 	"sync"
 	"time"
-
-	"log/slog"
 
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
@@ -27,6 +28,7 @@ func Sleep(ctx context.Context, d time.Duration) error {
 // option structs
 type loggerOpt struct{ l *slog.Logger }
 type metricsOpt struct{ p metrics.Provider }
+type shutdownTimeoutOpt struct{ d time.Duration }
 
 // WithLogger returns an option to configure the global logger.
 func WithLogger(l *slog.Logger) any {
@@ -36,6 +38,13 @@ func WithLogger(l *slog.Logger) any {
 // WithMetrics returns an option to configure the global metrics provider.
 func WithMetrics(p metrics.Provider) any {
 	return metricsOpt{p: p}
+}
+
+// WithShutdownTimeout returns an option to configure the diagnostic timeout during shutdown.
+// If the application doesn't finish within this duration, it dumps goroutine stacks.
+// Default is 2s.
+func WithShutdownTimeout(d time.Duration) any {
+	return shutdownTimeoutOpt{d: d}
 }
 
 // Runnable defines a long-running process that can be started with a context.
@@ -63,6 +72,7 @@ func Job(fn func(context.Context) error) Runnable {
 // This is the recommended entry point for main().
 func Run(r Runnable, opts ...any) error {
 	var sigOpts []signal.Option
+	diagTimeout := 2 * time.Second
 
 	// Apply configuration options
 	for _, opt := range opts {
@@ -73,6 +83,8 @@ func Run(r Runnable, opts ...any) error {
 			log.SetLogger(v.l)
 		case metricsOpt:
 			metrics.SetProvider(v.p)
+		case shutdownTimeoutOpt:
+			diagTimeout = v.d
 		}
 	}
 
@@ -98,7 +110,30 @@ func Run(r Runnable, opts ...any) error {
 	}
 
 	// Wait for all background tasks to finish cleaning up
-	wg.Wait()
+	waitForTasks(&wg, diagTimeout)
 
 	return err
+}
+
+func waitForTasks(wg *sync.WaitGroup, timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All good
+	case <-time.After(timeout):
+		log.Warn("shutdown is taking too long, potential background task leak", "timeout", timeout)
+		log.Warn("Dumping goroutine stacks to help diagnose the hang:")
+
+		buf := make([]byte, 1024*1024)
+		n := stdruntime.Stack(buf, true)
+		_, _ = os.Stderr.Write(buf[:n])
+
+		// Wait indefinitely for tasks to eventually finish
+		<-done
+	}
 }

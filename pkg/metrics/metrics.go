@@ -28,6 +28,7 @@ type Provider interface {
 	IncBackoffTriggered(childName string, delay time.Duration)
 	ObserveShutdownDuration(workerType string, duration time.Duration)
 	IncForceExitTriggered()
+	IncCircuitBreakerTriggered(childName string)
 
 	// Critical Sections
 	IncCriticalSectionStarted()
@@ -103,6 +104,7 @@ func (n *NoOpProvider) IncSupervisorRemove(s string)                       {}
 func (n *NoOpProvider) IncBackoffTriggered(c string, d time.Duration)      {}
 func (n *NoOpProvider) ObserveShutdownDuration(wt string, d time.Duration) {}
 func (n *NoOpProvider) IncForceExitTriggered()                             {}
+func (n *NoOpProvider) IncCircuitBreakerTriggered(c string)                {}
 
 func (n *NoOpProvider) IncCriticalSectionStarted()                     {}
 func (n *NoOpProvider) IncCriticalSectionFinished(success bool)        {}
@@ -222,6 +224,10 @@ func (l *LogProvider) ObserveShutdownDuration(wt string, d time.Duration) {
 
 func (l *LogProvider) IncForceExitTriggered() {
 	log.Debug("metric incremented", "name", "lifecycle_force_exit_triggered_total")
+}
+
+func (l *LogProvider) IncCircuitBreakerTriggered(c string) {
+	log.Debug("metric incremented", "name", "lifecycle_supervisor_circuit_breaker_triggered_total", "child", c)
 }
 
 func (l *LogProvider) IncCriticalSectionStarted() {

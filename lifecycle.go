@@ -572,6 +572,12 @@ func WithMetrics(p metrics.Provider) any {
 	return runtime.WithMetrics(p)
 }
 
+// WithShutdownTimeout returns a RunOption to configure the diagnostic timeout during shutdown.
+// Alias for pkg/runtime.WithShutdownTimeout.
+func WithShutdownTimeout(d time.Duration) any {
+	return runtime.WithShutdownTimeout(d)
+}
+
 // NewLogMetricsProvider returns a metrics provider that logs to the current logger.
 // Useful for development and local verification.
 // Alias for pkg/metrics.LogProvider.
