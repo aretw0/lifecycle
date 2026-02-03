@@ -434,6 +434,23 @@ sequenceDiagram
     M-->>R: Complete
 ```
 
+#### 11.6. Interactive Router Preset
+
+To reduce boilerplate for CLI applications, `lifecycle` provides a pre-configured router helper.
+
+```go
+// wires up:
+// - OS Signals (Interrupt/Term) -> SmartSignalHandler
+// - Input (Stdin) -> Router (reads lines as commands)
+// - Commands: "suspend", "resume" -> SuspendHandler
+// - Command: "quit", "q" -> shutdownFunc
+router := lifecycle.NewInteractiveRouter(suspendHandler, 
+    lifecycle.WithShutdown(func() { ... }),
+)
+```
+
+This helper ensures standard behavior ("q" to quit, "Ctrl+C" to suspend first) without manual wiring.
+
 ### 12. Managed Concurrency (`lifecycle.Go`)
 
 To adhere to **Zero Config** but safe concurrency, we use **Context Propagation**.
