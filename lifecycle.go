@@ -298,10 +298,14 @@ type Source = control.Source
 // Alias for pkg/control.Router.
 type Router = control.Router
 
+// RouterOption is an option for configuring a Router.
+// Alias for pkg/control.RouterOption.
+type RouterOption = control.RouterOption
+
 // NewRouter creates a new Control Router.
 // Alias for pkg/control.NewRouter.
-func NewRouter() *Router {
-	return control.NewRouter()
+func NewRouter(opts ...RouterOption) *Router {
+	return control.NewRouter(opts...)
 }
 
 // Go starts a tracked goroutine.
@@ -342,6 +346,44 @@ type TickEvent = sources.TickEvent
 // Alias for pkg/sources.NewTickerSource.
 func NewTickerSource(interval time.Duration) Source {
 	return sources.NewTickerSource(interval)
+}
+
+// SuspendHandler manages Suspend and Resume events.
+// Alias for pkg/handlers.SuspendHandler.
+type SuspendHandler = handlers.SuspendHandler
+
+// SuspendEvent is the event that triggers a suspension.
+// Alias for pkg/control.SuspendEvent.
+type SuspendEvent = control.SuspendEvent
+
+// ResumeEvent is the event that triggers a resumption.
+// Alias for pkg/control.ResumeEvent.
+type ResumeEvent = control.ResumeEvent
+
+// NewSuspendHandler creates a new handler for suspend/resume events.
+// Alias for pkg/handlers.NewSuspendHandler.
+func NewSuspendHandler() *SuspendHandler {
+	return handlers.NewSuspendHandler()
+}
+
+// HealthCheckSource runs a periodic health check.
+// Alias for pkg/sources.HealthCheckSource.
+type HealthCheckSource = sources.HealthCheckSource
+
+// NewHealthCheckSource creates a new health monitor.
+// Alias for pkg/sources.NewHealthCheckSource.
+func NewHealthCheckSource(name string, check sources.CheckFunc, opts ...sources.HealthOption) *HealthCheckSource {
+	return sources.NewHealthCheckSource(name, check, opts...)
+}
+
+// FileWatchSource watches for file changes via polling.
+// Alias for pkg/sources.FileWatchSource.
+type FileWatchSource = sources.FileWatchSource
+
+// NewFileWatchSource creates a new source that polls the given file path.
+// Alias for pkg/sources.NewFileWatchSource.
+func NewFileWatchSource(path string, interval time.Duration) *FileWatchSource {
+	return sources.NewFileWatchSource(path, interval)
 }
 
 // --- Stdlib Pattern Helpers ---
