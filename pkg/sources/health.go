@@ -111,12 +111,12 @@ func (s *HealthCheckSource) Start(ctx context.Context) error {
 
 			if shouldEmit {
 				lastStatus = status
-				s.emit(ctx, HealthEvent{Name: s.Name, Status: status, Error: err})
+				s.emit(HealthEvent{Name: s.Name, Status: status, Error: err})
 			}
 		}
 	}
 }
 
-func (s *HealthCheckSource) emit(ctx context.Context, e HealthEvent) {
+func (s *HealthCheckSource) emit(e HealthEvent) {
 	s.Emit(e)
 }
