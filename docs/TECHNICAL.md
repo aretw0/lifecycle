@@ -320,6 +320,26 @@ sequenceDiagram
   * `restarts`: Total restart count for the child.
   * `circuit_breaker`: Set to `triggered` if the max restarts threshold is exceeded.
 
+#### Recursive Introspection
+
+Supervisors can manage other supervisors, forming deep trees. The `State()` method supports recursive inspection by propagating `Children` fields:
+
+```go
+rootSup := supervisor.New("root", supervisor.StrategyOneForOne,
+    supervisor.Spec{
+        Name: "child-sup",
+        Factory: func() (worker.Worker, error) {
+            return childSup, nil  // Nested supervisor
+        },
+    },
+)
+
+state := rootSup.State()
+// state.Children[0].Children = childSup's children ✅
+```
+
+This enables full topology visualization in introspection diagrams, showing the complete supervision tree regardless of nesting depth.
+
 ### 10. Handover Protocol
 
 Allows "Durable Execution" across restarts.
@@ -457,6 +477,74 @@ router := lifecycle.NewInteractiveRouter(suspendHandler,
 ```
 
 This helper ensures standard behavior ("q" to quit, "Ctrl+C" to suspend first) without manual wiring.
+
+#### 11.7. Source Helper Pattern (BaseSource)
+
+To reduce boilerplate across source implementations, `lifecycle` provides `BaseSource` — an embeddable helper following the same pattern as `BaseWorker`.
+
+**Problem**: 7 source types repeated identical `Events()` method implementation.
+
+**Solution**: Embedding pattern with auto-exposed methods.
+
+**Before** (per source):
+
+```go
+type MySource struct {
+    events chan control.Event  // Repeated
+}
+
+func NewMySource() *MySource {
+    return &MySource{
+        events: make(chan control.Event, 10),  // Repeated
+    }
+}
+
+func (s *MySource) Events() <-chan control.Event {  // Repeated
+    return s.events
+}
+
+func (s *MySource) Start(ctx context.Context) error {
+    s.events <- event  // Direct access
+}
+```
+
+**After** (with BaseSource):
+
+```go
+type MySource struct {
+    control.BaseSource  // Embedding!
+}
+
+func NewMySource() *MySource {
+    return &MySource{
+        BaseSource: control.NewBaseSource(10),  // Explicit buffer
+    }
+}
+
+// Events() FREE via embedding!
+
+func (s *MySource) Start(ctx context.Context) error {
+    s.Emit(event)  // Clean helper
+}
+```
+
+**Benefits**:
+
+* **DRY**: Single implementation, not repeated 7x
+* **Consistency**: All sources use same pattern
+* **Explicit**: Buffer size visible at construction
+* **Future-Proof**: Add features (metrics, filtering) in one place
+
+**API**:
+
+```go
+func NewBaseSource(bufferSize int) BaseSource
+func (b *BaseSource) Events() <-chan Event  // Auto via embedding
+func (b *BaseSource) Emit(e Event)           // Helper
+func (b *BaseSource) Close()                 // Cleanup
+```
+
+**Usage**: FileWatchSource, WebhookSource, TickerSource, InputSource, HealthCheckSource, ChannelSource, OSSignalSource.
 
 ### 12. Managed Concurrency (`lifecycle.Go`)
 
