@@ -13,19 +13,15 @@ import (
 
 // strictWorker increments a counter continuously unless suspended.
 type strictWorker struct {
-	count   atomic.Int64
-	suspend chan struct{}
-	resume  chan struct{}
-	paused  chan struct{}
-	wait    chan error
+	count atomic.Int64
+	gate  *worker.SuspendGate
+	wait  chan error
 }
 
 func newStrictWorker() *strictWorker {
 	return &strictWorker{
-		suspend: make(chan struct{}),
-		resume:  make(chan struct{}),
-		paused:  make(chan struct{}),
-		wait:    make(chan error),
+		gate: worker.NewSuspendGate(),
+		wait: make(chan error),
 	}
 }
 
@@ -33,22 +29,18 @@ func (w *strictWorker) Start(ctx context.Context) error {
 	go func() {
 		defer close(w.wait)
 		for {
-			select {
-			case <-w.suspend:
-				// Signal that we are pausing
-				w.paused <- struct{}{}
-				// Wait for resume
-				select {
-				case <-w.resume:
-				case <-ctx.Done():
-					return
-				}
-			case <-ctx.Done():
+			// Check for suspension before each unit of work
+			if err := w.gate.Check(ctx); err != nil {
 				return
-			default:
-				w.count.Add(1)
-				// Small sleep to avoid eating CPU but keep loop tight
-				time.Sleep(10 * time.Microsecond)
+			}
+
+			// Do work
+			w.count.Add(1)
+			time.Sleep(10 * time.Microsecond)
+
+			// Simple exit if context done
+			if ctx.Err() != nil {
+				return
 			}
 		}
 	}()
@@ -60,29 +52,9 @@ func (w *strictWorker) Wait() <-chan error             { return w.wait }
 func (w *strictWorker) String() string                 { return "strictWorker" }
 func (w *strictWorker) State() worker.State            { return worker.State{} }
 
-func (w *strictWorker) Suspend(ctx context.Context) error {
-	select {
-	case w.suspend <- struct{}{}:
-		// Block until the loop confirms it received the signal and is pausing
-		select {
-		case <-w.paused:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (w *strictWorker) Resume(ctx context.Context) error {
-	select {
-	case w.resume <- struct{}{}:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
+// Implement Suspendable using the Gate helper
+func (w *strictWorker) Suspend(ctx context.Context) error { return w.gate.Suspend(ctx) }
+func (w *strictWorker) Resume(ctx context.Context) error  { w.gate.Resume(); return nil }
 
 func TestSuspendQuiescence(t *testing.T) {
 	handler := handlers.NewSuspendHandler()
@@ -105,8 +77,6 @@ func TestSuspendQuiescence(t *testing.T) {
 	}
 
 	// TRIGGER SUSPEND via Handler
-	// HandleEvent should call w.Suspend, which blocks until w.paused is sent.
-	// Therefore, when HandleEvent returns, the worker MUST be at the <-w.resume select.
 	err := handler.HandleEvent(ctx, control.SuspendEvent{})
 	if err != nil {
 		t.Fatalf("Suspend failed: %v", err)
@@ -115,7 +85,7 @@ func TestSuspendQuiescence(t *testing.T) {
 	// Capture count IMMEDIATELY after suspension returns
 	countAtSuspend := w.count.Load()
 
-	// Wait long enough for many potential increments
+	// Wait long enough for many potential increments if it didn't really stop
 	time.Sleep(200 * time.Millisecond)
 
 	finalCount := w.count.Load()
