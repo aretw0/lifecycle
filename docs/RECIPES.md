@@ -85,8 +85,25 @@ func main() {
 To safely suspend a worker without losing "in-flight" data, the worker must support **Quiescence** (Paused State).
 
 1. **Check Pause BEFORE work**: Before taking an item from a queue/channel, check if a pause was requested.
-2. **Wait**: If paused, block on a `sync.Cond` until resumed.
+2. **Wait**: If paused, block until resumed (use `SuspendGate` or `sync.Cond`).
 3. **Finish In-Flight**: If a pause request comes *during* work, finish the current item, *then* pause.
+
+#### 💡 Tip: Accurate Quiescence UI
+
+When building UIs that react to suspension, always register your **UI hooks AFTER your functional components**.
+
+Since `SuspendHandler` executes hooks in FIFO order and blocks until they finish, registering components first ensures the UI message accurately reflects a fully quiesced system.
+
+```go
+// 1. Manage workers/supervisors first (blocking calls)
+suspendHandler.Manage(worker)
+
+// 2. Register UI notifications last (reports after workers stop)
+suspendHandler.OnSuspend(func(ctx context.Context) error {
+    slog.Info("🛑 ALL WORKERS QUIESCED")
+    return nil
+})
+```
 
 ---
 

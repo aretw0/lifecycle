@@ -442,7 +442,22 @@ stateDiagram-v2
 
 * **Suspend**: Application is asked to pause processing, persist state, and stop accepting new work.
 * **Resume**: Application restarts processing from the persisted state.
-* **Quiescence Safety**: The `QuiescenceGate` primitive is context-aware, ensuring buffered workers can abort instantly if the application shuts down while they are paused.
+* **Quiescence Safety**: The `SuspendGate` primitive is context-aware, ensuring buffered workers can abort instantly if the application shuts down while they are paused.
+
+#### 11.4.1. Sequential Execution & Ordering (FIFO)
+
+The `SuspendHandler` (and most `control.Router` logic) executes hooks **sequentially** in the order they were registered. This has critical implications for UI feedback:
+
+* **The Problem**: If a UI hook ("System Suspended") is registered *before* a heavy worker (e.g., a Supervisor with a slow `Blocker`), the UI will announce success immediately, while the system is still technically in transition.
+* **The Solution (Registration Hierarchy)**: To ensure "Final State" messages are accurate, register heavy components (Supervisors/Gateways) **before** UI reporting hooks.
+
+```go
+// Correct Order:
+suspendHandler.Manage(supervisor)              // 1. Heavy lifting (blocking)
+suspendHandler.OnSuspend(func(...) {           // 2. UI feedback (runs after #1)
+    fmt.Println("🛑 SYSTEM SUSPENDED")
+})
+```
 
 #### 11.5. Execution Flow
 

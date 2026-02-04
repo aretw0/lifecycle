@@ -62,3 +62,11 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Context**: Handlers and Jobs often need to trigger the same graceful termination sequence as an OS Signal (e.g., a "quit" command in a REPL).
 * **Decision**: Provide an explicit `lifecycle.Shutdown(ctx)` facade.
 * **Rationale**: This abstracts the complex context discovery and cancellation logic, providing a high-level API for internal application control that mirrors external signals.
+
+## ADR-0009: Sequential Control Plane Hooks (FIFO)
+
+* **Status**: Accepted
+* **Context**: Complex state transitions (like `Suspend`) often involve multiple actors: workers pausing, state being persisted, and UIs reporting progress.
+* **Decision**: `SuspendHandler` (and related control plane actors) must execute hooks **Sequentially** and in **FIFO** order.
+* **Rationale**: This enables a "Final State" reporting pattern. By registering functional components (supervisors, workers) *before* UI reporting hooks, we guarantee that UI messages like "SYSTEM SUSPENDED" only appear *after* the heavy components have successfully blocked and confirmed their state.
+* **Consequences**: Developers must be mindful of registration order for UI accuracy. Functional work comes first; reporting comes last.
