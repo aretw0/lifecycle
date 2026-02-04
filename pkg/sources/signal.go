@@ -20,26 +20,21 @@ func (e SignalEvent) String() string {
 
 // OSSignalSource listens for operating system signals (SIGINT, SIGTERM, etc.).
 type OSSignalSource struct {
+	control.BaseSource
 	signals []os.Signal
-	events  chan control.Event
 }
 
 // NewOSSignalSource creates a source that listens for the specified signals.
 func NewOSSignalSource(signals ...os.Signal) *OSSignalSource {
 	return &OSSignalSource{
-		signals: signals,
-		events:  make(chan control.Event),
+		BaseSource: control.NewBaseSource(10),
+		signals:    signals,
 	}
-}
-
-// Events returns the channel of events.
-func (s *OSSignalSource) Events() <-chan control.Event {
-	return s.events
 }
 
 // Start begins listening for signals and forwarding them to the events channel.
 func (s *OSSignalSource) Start(ctx context.Context) error {
-	defer close(s.events)
+	defer s.Close()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, s.signals...)
@@ -50,11 +45,7 @@ func (s *OSSignalSource) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case sig := <-sigChan:
-			select {
-			case s.events <- SignalEvent{Signal: sig}:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
+			s.Emit(SignalEvent{Signal: sig})
 		}
 	}
 }

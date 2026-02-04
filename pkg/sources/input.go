@@ -17,8 +17,8 @@ import (
 // InputSource reads commands from an io.Reader (like Stdin) and maps them to lifecycle Events.
 // It handles the "Detach" pattern to ensure shutdown is not blocked by read operations.
 type InputSource struct {
+	control.BaseSource
 	r              io.Reader
-	events         chan control.Event
 	mappings       map[string]control.Event
 	unknownHandler func(cmd string, known []string)
 	detached       bool
@@ -72,9 +72,9 @@ func NewInputSource(opts ...InputOption) *InputSource {
 	}
 
 	s := &InputSource{
-		r:       reader,
-		events:  make(chan control.Event),
-		backoff: 100 * time.Millisecond,
+		BaseSource: control.NewBaseSource(10),
+		r:          reader,
+		backoff:    100 * time.Millisecond,
 		mappings: map[string]control.Event{
 			"s":       control.SuspendEvent{},
 			"suspend": control.SuspendEvent{},
@@ -109,8 +109,6 @@ func (e InputEvent) String() string {
 	return fmt.Sprintf("command/%s", e.Command)
 }
 
-func (s *InputSource) Events() <-chan control.Event { return s.events }
-
 func (s *InputSource) Start(ctx context.Context) error {
 	slog.Info("lifecycle: input source started", "mappings", len(s.mappings))
 
@@ -119,7 +117,7 @@ func (s *InputSource) Start(ctx context.Context) error {
 	readerDone := make(chan struct{})
 
 	go func() {
-		defer close(s.events)
+		defer s.Close()
 		defer close(readerDone)
 		s.readLoop(ctx)
 	}()
@@ -208,10 +206,7 @@ func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
 
 	// If we are still running, it means the context didn't cancel on Ctrl+C.
 	// This indicates a REPL-like behavior where we should clear the line.
-	select {
-	case s.events <- control.ClearLineEvent{}:
-	default:
-	}
+	s.Emit(control.ClearLineEvent{})
 
 	time.Sleep(s.backoff)
 	return false
@@ -252,9 +247,10 @@ func (s *InputSource) processCommand(ctx context.Context, cmd string) bool {
 	}
 
 	select {
-	case s.events <- event:
-		return false
 	case <-ctx.Done():
 		return true
+	default:
+		s.Emit(event)
+		return false
 	}
 }

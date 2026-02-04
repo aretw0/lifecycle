@@ -19,26 +19,21 @@ func (e TickEvent) String() string {
 
 // TickerSource emits events at a regular interval.
 type TickerSource struct {
+	control.BaseSource
 	interval time.Duration
-	events   chan control.Event
 }
 
 // NewTickerSource creates a new source that emits tick events.
 func NewTickerSource(interval time.Duration) *TickerSource {
 	return &TickerSource{
-		interval: interval,
-		events:   make(chan control.Event),
+		BaseSource: control.NewBaseSource(10),
+		interval:   interval,
 	}
-}
-
-// Events returns the channel of events.
-func (s *TickerSource) Events() <-chan control.Event {
-	return s.events
 }
 
 // Start begins the ticker loop.
 func (s *TickerSource) Start(ctx context.Context) error {
-	defer close(s.events)
+	defer s.Close()
 
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
@@ -48,11 +43,7 @@ func (s *TickerSource) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case t := <-ticker.C:
-			select {
-			case s.events <- TickEvent{Time: t}:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
+			s.Emit(TickEvent{Time: t})
 		}
 	}
 }

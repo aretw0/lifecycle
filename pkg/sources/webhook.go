@@ -23,30 +23,19 @@ func (e WebhookEvent) String() string {
 
 // WebhookSource listens for HTTP requests and converts them into lifecycle events.
 type WebhookSource struct {
+	control.BaseSource
 	addr   string
 	server *http.Server
-	events chan control.Event
 }
 
 // WebhookOption configures a WebhookSource.
 type WebhookOption func(*WebhookSource)
 
-// WithWebhookBuffer sets the size of the event channel buffer.
-// Default is 10.
-func WithWebhookBuffer(size int) WebhookOption {
-	return func(s *WebhookSource) {
-		if size < 0 {
-			size = 0
-		}
-		s.events = make(chan control.Event, size)
-	}
-}
-
 // NewWebhookSource creates a new source listening on the given address (e.g., ":8080").
 func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
 	s := &WebhookSource{
-		addr:   addr,
-		events: make(chan control.Event, 10),
+		BaseSource: control.NewBaseSource(10),
+		addr:       addr,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -54,12 +43,8 @@ func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
 	return s
 }
 
-func (s *WebhookSource) Events() <-chan control.Event {
-	return s.events
-}
-
 func (s *WebhookSource) Start(ctx context.Context) error {
-	defer close(s.events)
+	defer s.Close()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -71,13 +56,12 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 		}
 
 		select {
-		case s.events <- event:
-			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprintf(w, "Event accepted: %s\n", event)
 		case <-ctx.Done():
 			w.WriteHeader(http.StatusServiceUnavailable)
 		default:
-			w.WriteHeader(http.StatusTooManyRequests)
+			s.Emit(event)
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprintf(w, "Event accepted: %s\n", event)
 		}
 	})
 

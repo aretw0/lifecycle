@@ -37,11 +37,11 @@ const (
 
 // HealthCheckSource runs a periodic health check.
 type HealthCheckSource struct {
+	control.BaseSource
 	Name     string
 	Interval time.Duration
 	Check    CheckFunc
 	Strategy TriggerStrategy
-	events   chan control.Event
 }
 
 // HealthOption configures a HealthCheckSource.
@@ -66,11 +66,11 @@ func WithHealthStrategy(strategy TriggerStrategy) HealthOption {
 // NewHealthCheckSource creates a new health monitor.
 func NewHealthCheckSource(name string, check CheckFunc, opts ...HealthOption) *HealthCheckSource {
 	s := &HealthCheckSource{
-		Name:     name,
-		Interval: 30 * time.Second, // Default
-		Check:    check,
-		Strategy: TriggerEdge, // Default
-		events:   make(chan control.Event),
+		BaseSource: control.NewBaseSource(10),
+		Name:       name,
+		Interval:   30 * time.Second, // Default
+		Check:      check,
+		Strategy:   TriggerEdge, // Default
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -78,12 +78,8 @@ func NewHealthCheckSource(name string, check CheckFunc, opts ...HealthOption) *H
 	return s
 }
 
-func (s *HealthCheckSource) Events() <-chan control.Event {
-	return s.events
-}
-
 func (s *HealthCheckSource) Start(ctx context.Context) error {
-	defer close(s.events)
+	defer s.Close()
 
 	ticker := time.NewTicker(s.Interval)
 	defer ticker.Stop()
@@ -122,8 +118,5 @@ func (s *HealthCheckSource) Start(ctx context.Context) error {
 }
 
 func (s *HealthCheckSource) emit(ctx context.Context, e HealthEvent) {
-	select {
-	case s.events <- e:
-	case <-ctx.Done():
-	}
+	s.Emit(e)
 }
