@@ -6,12 +6,13 @@ import (
 	"time"
 )
 
-func TestQuiescenceGate_ContextCancel(t *testing.T) {
-	g := NewQuiescenceGate()
-	g.RequestPause()
+func TestSuspendGate_ContextCancel(t *testing.T) {
+	g := NewSuspendGate()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
+
+	g.RequestPause() // Non-blocking
 
 	err := g.Check(ctx)
 	if err != context.DeadlineExceeded {
@@ -19,8 +20,8 @@ func TestQuiescenceGate_ContextCancel(t *testing.T) {
 	}
 }
 
-func TestQuiescenceGate_Resume(t *testing.T) {
-	g := NewQuiescenceGate()
+func TestSuspendGate_Resume(t *testing.T) {
+	g := NewSuspendGate()
 	g.RequestPause()
 
 	ctx := context.Background()
@@ -45,18 +46,27 @@ func TestQuiescenceGate_Resume(t *testing.T) {
 	}
 }
 
-func TestQuiescenceGate_WaitPaused(t *testing.T) {
-	g := NewQuiescenceGate()
-	g.RequestPause()
-
+func TestSuspendGate_Suspend(t *testing.T) {
+	g := NewSuspendGate()
 	ctx := context.Background()
+	done := make(chan error)
 
-	// Start worker check in background
+	go func() {
+		done <- g.Suspend(ctx)
+	}()
+
+	// Wait a bit to ensure Suspend is blocked
+	time.Sleep(20 * time.Millisecond)
+
+	// Call Check - this should unblock Suspend
 	go g.Check(ctx)
 
-	// Wait for worker to reach quiescence
-	err := g.WaitPaused(ctx)
-	if err != nil {
-		t.Errorf("WaitPaused failed: %v", err)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Expected nil error from Suspend, got %v", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Suspend didn't unblock in time")
 	}
 }

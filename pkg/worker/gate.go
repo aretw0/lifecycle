@@ -6,9 +6,10 @@ import (
 	"sync"
 )
 
-// QuiescenceGate orchestrates safe suspension (pause) for a worker.
-// It ensures the worker finishes its current unit of work before pausing.
-type QuiescenceGate struct {
+// SuspendGate orchestrates safe suspension (pause) for a worker.
+// It ensures the worker finishes its current unit of work before pausing,
+// satisfying the strict quiescence requirement of the Suspendable interface.
+type SuspendGate struct {
 	mu           sync.Mutex
 	pauseRequest bool
 	paused       bool
@@ -16,17 +17,17 @@ type QuiescenceGate struct {
 	quiescedCh   chan struct{} // Channel used to signal that worker reached quiescence
 }
 
-// NewQuiescenceGate creates a new gate ready for use.
-func NewQuiescenceGate() *QuiescenceGate {
-	return &QuiescenceGate{
+// NewSuspendGate creates a new gate ready for use.
+func NewSuspendGate() *SuspendGate {
+	return &SuspendGate{
 		resumeCh:   make(chan struct{}),
 		quiescedCh: make(chan struct{}),
 	}
 }
 
-// Check should be called by the Worker before starting a new unit of work.
+// Check should be called by the Worker loop before starting a new unit of work.
 // If a pause was requested, this method blocks until resumed or context is cancelled.
-func (g *QuiescenceGate) Check(ctx context.Context) error {
+func (g *SuspendGate) Check(ctx context.Context) error {
 	g.mu.Lock()
 
 	// If no pause requested, just proceed
@@ -39,6 +40,8 @@ func (g *QuiescenceGate) Check(ctx context.Context) error {
 	slog.Debug("lifecycle: worker quiescence reached, pausing")
 	g.paused = true
 	resCh := g.resumeCh
+
+	// Signal WaitPaused callers that we are now paused
 	close(g.quiescedCh)
 	g.quiescedCh = make(chan struct{})
 	g.mu.Unlock()
@@ -54,15 +57,10 @@ func (g *QuiescenceGate) Check(ctx context.Context) error {
 	}
 }
 
-// RequestPause signals the worker to pause at the next safe opportunity.
-func (g *QuiescenceGate) RequestPause() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.pauseRequest = true
-}
-
-// WaitPaused blocks until the worker has actually entered the paused state.
-func (g *QuiescenceGate) WaitPaused(ctx context.Context) error {
+// Suspend signals the worker to pause at the next safe opportunity (the next Check call).
+// It blocks until the worker loop confirms it has reached the paused state.
+func (g *SuspendGate) Suspend(ctx context.Context) error {
+	g.RequestPause()
 	g.mu.Lock()
 	if g.paused {
 		g.mu.Unlock()
@@ -79,8 +77,16 @@ func (g *QuiescenceGate) WaitPaused(ctx context.Context) error {
 	}
 }
 
-// Resume wakes up the worker.
-func (g *QuiescenceGate) Resume() {
+// RequestPause signals the worker to pause at the next safe opportunity (the next Check call).
+// Unlike Suspend, it does not block for confirmation.
+func (g *SuspendGate) RequestPause() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.pauseRequest = true
+}
+
+// Resume wakes up the worker and allows it to proceed past the Check call.
+func (g *SuspendGate) Resume() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -92,4 +98,11 @@ func (g *QuiescenceGate) Resume() {
 	g.pauseRequest = false
 	close(g.resumeCh)
 	g.resumeCh = make(chan struct{})
+}
+
+// IsPaused returns true if the worker is currently suspended.
+func (g *SuspendGate) IsPaused() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.paused
 }
