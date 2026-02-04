@@ -8,17 +8,15 @@ import (
 
 	"github.com/aretw0/lifecycle"
 	"github.com/aretw0/lifecycle/examples/suspend/shared"
+	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
-// Generator produces raw materials using channels for suspension (v2.x Style).
+// Generator produces raw materials using SuspendGate for simplified suspension.
 type Generator struct {
 	lifecycle.BaseWorker
 	output chan int
 	store  *shared.Store
-
-	suspend chan struct{}
-	resume  chan struct{}
-	paused  chan struct{}
+	gate   *worker.SuspendGate
 }
 
 func NewGenerator(output chan int, store *shared.Store) *Generator {
@@ -26,9 +24,7 @@ func NewGenerator(output chan int, store *shared.Store) *Generator {
 		BaseWorker: lifecycle.NewBaseWorker("Generator"),
 		output:     output,
 		store:      store,
-		suspend:    make(chan struct{}),
-		resume:     make(chan struct{}),
-		paused:     make(chan struct{}),
+		gate:       worker.NewSuspendGate(),
 	}
 }
 
@@ -39,26 +35,9 @@ func (g *Generator) Start(ctx context.Context) error {
 func (g *Generator) Run(ctx context.Context) error {
 	slog.Info("[GENERATOR] Started.")
 	for {
-		// Check for suspension
-		select {
-		case <-g.suspend:
-			slog.Info("[GENERATOR] Entering quiescence...")
-			select {
-			case g.paused <- struct{}{}:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-
-			slog.Info("[GENERATOR] Paused. Waiting for resume signal...")
-			select {
-			case <-g.resume:
-				slog.Info("[GENERATOR] Resuming production...")
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		// Use the Gate to handle suspension boilerplate
+		if err := g.gate.Check(ctx); err != nil {
+			return err
 		}
 
 		g.store.Mu.Lock()
@@ -82,41 +61,15 @@ func (g *Generator) Run(ctx context.Context) error {
 	}
 }
 
-func (g *Generator) Suspend(ctx context.Context) error {
-	select {
-	case g.suspend <- struct{}{}:
-		// Block until confirmed
-		select {
-		case <-g.paused:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
+func (g *Generator) Suspend(ctx context.Context) error { return g.gate.Suspend(ctx) }
+func (g *Generator) Resume(ctx context.Context) error  { g.gate.Resume(); return nil }
 
-func (g *Generator) Resume(ctx context.Context) error {
-	select {
-	case g.resume <- struct{}{}:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		return nil
-	}
-}
-
-// Worker processes materials using channels for suspension.
+// Worker processes materials using SuspendGate for simplified suspension.
 type Worker struct {
 	lifecycle.BaseWorker
 	input chan int
 	store *shared.Store
-
-	suspend chan struct{}
-	resume  chan struct{}
-	paused  chan struct{}
+	gate  *worker.SuspendGate
 }
 
 func NewWorker(input chan int, store *shared.Store) *Worker {
@@ -124,9 +77,7 @@ func NewWorker(input chan int, store *shared.Store) *Worker {
 		BaseWorker: lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
-		suspend:    make(chan struct{}),
-		resume:     make(chan struct{}),
-		paused:     make(chan struct{}),
+		gate:       worker.NewSuspendGate(),
 	}
 }
 
@@ -136,23 +87,11 @@ func (w *Worker) Start(ctx context.Context) error {
 
 func (w *Worker) Run(ctx context.Context) error {
 	for {
+		if err := w.gate.Check(ctx); err != nil {
+			return err
+		}
+
 		select {
-		case <-w.suspend:
-			slog.Info("[WORKER] Entering quiescence...")
-			select {
-			case w.paused <- struct{}{}:
-				// Signal Suspend() that we are now paused
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-
-			select {
-			case <-w.resume:
-				slog.Info("[WORKER] Resuming...")
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-
 		case item, ok := <-w.input:
 			if !ok {
 				return nil
@@ -175,34 +114,10 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 }
 
-func (w *Worker) Suspend(ctx context.Context) error {
-	select {
-	case w.suspend <- struct{}{}:
-		// Wait for confirmation
-		select {
-		case <-w.paused:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (w *Worker) Resume(ctx context.Context) error {
-	select {
-	case w.resume <- struct{}{}:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		return nil
-	}
-}
+func (w *Worker) Suspend(ctx context.Context) error { return w.gate.Suspend(ctx) }
+func (w *Worker) Resume(ctx context.Context) error  { w.gate.Resume(); return nil }
 
 func main() {
-	// Set path relative to this main.go
 	path := filepath.Join("examples", "suspend", "channels", shared.StateFile)
 	store := shared.NewStore(path)
 	store.Load()

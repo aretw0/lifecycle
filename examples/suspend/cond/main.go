@@ -75,20 +75,20 @@ func (g *Generator) Run(ctx context.Context) error {
 
 func (g *Generator) Suspend(ctx context.Context) error {
 	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.paused = true
-	g.mu.Unlock()
 	return nil
 }
 
 func (g *Generator) Resume(ctx context.Context) error {
 	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.paused = false
 	g.cond.Broadcast()
-	g.mu.Unlock()
 	return nil
 }
 
-// Worker processes materials using sync.Cond for suspension.
+// Worker processes materials using sync.Cond for suspension with strict quiescence.
 type Worker struct {
 	lifecycle.BaseWorker
 	input    <-chan int
@@ -97,7 +97,6 @@ type Worker struct {
 	pauseReq bool
 	mu       sync.Mutex
 	cond     *sync.Cond
-	ack      chan struct{}
 }
 
 func NewWorker(input <-chan int, store *shared.Store) *Worker {
@@ -105,7 +104,6 @@ func NewWorker(input <-chan int, store *shared.Store) *Worker {
 		BaseWorker: lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
-		ack:        make(chan struct{}),
 	}
 	w.cond = sync.NewCond(&w.mu)
 	return w
@@ -119,11 +117,9 @@ func (w *Worker) Run(ctx context.Context) error {
 	for {
 		w.mu.Lock()
 		if w.pauseReq {
+			slog.Info("[WORKER] Entering quiescence...")
 			w.paused = true
-			select {
-			case w.ack <- struct{}{}:
-			default:
-			}
+			w.cond.Broadcast() // Notify Suspend() that we are paused
 		}
 		for w.paused {
 			w.cond.Wait()
@@ -155,20 +151,26 @@ func (w *Worker) Run(ctx context.Context) error {
 
 func (w *Worker) Suspend(ctx context.Context) error {
 	w.mu.Lock()
-	w.pauseReq = true
-	w.mu.Unlock()
+	defer w.mu.Unlock()
 
-	select {
-	case <-w.ack:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	slog.Info("[WORKER] Suspend requested. Waiting for quiescence...")
+	w.pauseReq = true
+
+	// Block until the worker loop confirms it is paused
+	for !w.paused {
+		// Note: sync.Cond.Wait() is not context-aware.
+		// This is one reason why SuspendGate (channels) is preferred.
+		w.cond.Wait()
 	}
+	slog.Info("[WORKER] Quiescence reached.")
+	return nil
 }
 
 func (w *Worker) Resume(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	slog.Info("[WORKER] Resuming processing.")
 	w.pauseReq = false
 	w.paused = false
 	w.cond.Broadcast()
