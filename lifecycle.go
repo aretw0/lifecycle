@@ -22,6 +22,7 @@ import (
 	"github.com/aretw0/lifecycle/pkg/supervisor"
 	"github.com/aretw0/lifecycle/pkg/termio"
 	"github.com/aretw0/lifecycle/pkg/worker"
+	"github.com/aretw0/lifecycle/pkg/worker/suspend"
 )
 
 // ======================================================================================
@@ -205,6 +206,66 @@ func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
 // Alias for pkg/worker.FromFunc.
 func NewWorkerFromFunc(name string, fn func(context.Context) error) Worker {
 	return worker.FromFunc(name, fn)
+}
+
+// BaseWorker provides default implementations for Worker interface boilerplate.
+// Embed this in your worker types to avoid repeating Stop/Wait/String/State methods.
+//
+// Example:
+//
+//	type MyWorker struct {
+//	    lifecycle.BaseWorker
+//	    // custom fields...
+//	}
+//
+//	func NewMyWorker() *MyWorker {
+//	    return &MyWorker{
+//	        BaseWorker: lifecycle.NewBaseWorker("MyWorker"),
+//	    }
+//	}
+//
+//	func (w *MyWorker) Start(ctx context.Context) error {
+//	    return w.StartFunc(ctx, w.Run)
+//	}
+//
+// Alias for pkg/worker.BaseWorker.
+type BaseWorker = worker.BaseWorker
+
+// NewBaseWorker creates a BaseWorker with the given name.
+// The name is immutable (construct a new worker to change it).
+// Alias for pkg/worker.NewBaseWorker.
+func NewBaseWorker(name string) BaseWorker {
+	return worker.NewBaseWorker(name)
+}
+
+// SuspendManager provides channel-based suspend/resume with context cancellation.
+// Use this for workers that need to support cancellable suspension.
+// For maximum performance (>10k suspends/sec), use sync.Cond directly.
+//
+// Example:
+//
+//	type MyWorker struct {
+//	    lifecycle.BaseWorker
+//	    suspendMgr *lifecycle.SuspendManager
+//	}
+//
+//	func (w *MyWorker) Run(ctx context.Context) error {
+//	    for {
+//	        if err := w.suspendMgr.Wait(ctx); err != nil {
+//	            return err
+//	        }
+//	        // Do work...
+//	    }
+//	}
+//
+// See examples/suspend/channels/ for complete example.
+// Alias for pkg/worker/suspend.Manager.
+type SuspendManager = suspend.Manager
+
+// NewSuspendManager creates a suspend manager (initially running).
+// Alias for pkg/worker/suspend.NewManager.
+func NewSuspendManager() *SuspendManager {
+	return suspend.NewManager()
 }
 
 // Container represents a generic container interface.
@@ -422,14 +483,21 @@ func WithHealthStrategy(strategy sources.TriggerStrategy) HealthOption {
 	return sources.WithHealthStrategy(strategy)
 }
 
-// FileWatchSource watches for file changes via polling.
+// FileWatchSource watches for file changes using platform-specific notifications.
 // Alias for pkg/sources.FileWatchSource.
 type FileWatchSource = sources.FileWatchSource
 
-// NewFileWatchSource creates a new source that polls the given file path.
+// NewFileWatchSource creates a new source that watches the given file for changes.
+// Uses fsnotify for efficient, event-driven file watching (Linux, Windows, macOS, BSD).
+//
+// Example:
+//
+//	router.AddSource(lifecycle.NewFileWatchSource("config.yaml"))
+//	router.Handle("file/*", lifecycle.NewReloadHandler(reloadConfig))
+//
 // Alias for pkg/sources.NewFileWatchSource.
-func NewFileWatchSource(path string, interval time.Duration) *FileWatchSource {
-	return sources.NewFileWatchSource(path, interval)
+func NewFileWatchSource(path string) *FileWatchSource {
+	return sources.NewFileWatchSource(path)
 }
 
 // NewWebhookSource creates a source that listens for Webhooks.
