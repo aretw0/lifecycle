@@ -567,6 +567,7 @@ func (s *supervisor) State() worker.State {
 			childState.PID = st.PID
 			childState.ExitCode = st.ExitCode
 			childState.Error = st.Error
+			childState.Children = st.Children // ← Add recursive children!
 			// Merge metadata
 			for k, v := range st.Metadata {
 				childState.Metadata[k] = v
