@@ -1,5 +1,8 @@
 # Binaries
 /**/*.exe
 
+# Examples
+examples/**/config.json
+
 .gemini/
 gha-creds-*.json
