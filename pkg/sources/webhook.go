@@ -34,7 +34,7 @@ type WebhookOption func(*WebhookSource)
 // NewWebhookSource creates a new source listening on the given address (e.g., ":8080").
 func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
 	s := &WebhookSource{
-		BaseSource: control.NewBaseSource(10),
+		BaseSource: control.NewBaseSource("webhook", 10),
 		addr:       addr,
 	}
 	for _, opt := range opts {
@@ -59,7 +59,9 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			w.WriteHeader(http.StatusServiceUnavailable)
 		default:
-			s.Emit(event)
+			_ = s.Emit(ctx, event) // Best effort in HTTP handler, or should we use TryEmit?
+			// Using Emit(ctx) is safer for backpressure but might block the HTTP goroutine.
+			// Given it's a webhook, backpressure is likely desired.
 			w.WriteHeader(http.StatusAccepted)
 			fmt.Fprintf(w, "Event accepted: %s\n", event)
 		}

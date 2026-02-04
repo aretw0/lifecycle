@@ -1,5 +1,12 @@
 package control
 
+import (
+	"context"
+	"time"
+
+	"github.com/aretw0/lifecycle/pkg/metrics"
+)
+
 // BaseSource provides default implementation for Source.Events() method.
 // Embed this in your source types to avoid repeating the events channel boilerplate.
 //
@@ -12,29 +19,30 @@ package control
 //
 //	func NewMySource() *MySource {
 //	    return &MySource{
-//	        BaseSource: control.NewBaseSource(10), // buffer size
+//	        BaseSource: control.NewBaseSource("my-source", 10), // name and buffer size
 //	    }
 //	}
 //
 //	func (s *MySource) Start(ctx context.Context) error {
-//	    go func() {
-//	        for {
-//	            event := // ... create event
-//	            s.Emit(event) // Helper method
+//	    for {
+//	        event := // ... create event
+//	        if err := s.Emit(ctx, event); err != nil {
+//	            return err
 //	        }
-//	    }()
-//	    return nil
+//	    }
 //	}
 //
 // The embedding provides Events() implementation automatically.
 type BaseSource struct {
+	name   string
 	events chan Event
 }
 
-// NewBaseSource creates a BaseSource with the specified buffer size.
+// NewBaseSource creates a BaseSource with the specified name and buffer size.
 // A buffer of 10-100 is recommended for most sources to prevent blocking.
-func NewBaseSource(bufferSize int) BaseSource {
+func NewBaseSource(name string, bufferSize int) BaseSource {
 	return BaseSource{
+		name:   name,
 		events: make(chan Event, bufferSize),
 	}
 }
@@ -47,9 +55,48 @@ func (b *BaseSource) Events() <-chan Event {
 
 // Emit sends an event to the events channel.
 // This is a helper method for source implementations.
-// It blocks if the channel buffer is full.
-func (b *BaseSource) Emit(e Event) {
-	b.events <- e
+// It blocks if the channel buffer is full, providing backpressure.
+// It returns an error if the context is cancelled while waiting.
+func (b *BaseSource) Emit(ctx context.Context, e Event) error {
+	start := time.Now()
+
+	select {
+	case b.events <- e:
+		// Success: If we were blocked, record the duration
+		if d := time.Since(start); d > 100*time.Microsecond {
+			metrics.GetProvider().ObserveEventBlockDuration(b.name, d)
+		}
+		metrics.GetProvider().IncEventEmitted(b.name)
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// Buffer is full: enter waiting state
+		metrics.GetProvider().IncEventWaiting(b.name)
+		defer metrics.GetProvider().DecEventWaiting(b.name)
+
+		select {
+		case b.events <- e:
+			duration := time.Since(start)
+			metrics.GetProvider().ObserveEventBlockDuration(b.name, duration)
+			metrics.GetProvider().IncEventEmitted(b.name)
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// TryEmit attempts to send an event without blocking.
+// Returns true if the event was sent, false if the buffer was full.
+func (b *BaseSource) TryEmit(e Event) bool {
+	select {
+	case b.events <- e:
+		metrics.GetProvider().IncEventEmitted(b.name)
+		return true
+	default:
+		return false
+	}
 }
 
 // Close closes the events channel.

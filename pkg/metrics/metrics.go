@@ -58,6 +58,11 @@ type Provider interface {
 	IncHandlerExecuted(topic string)
 	IncHandlerError(topic string, err error)
 	ObserveHandlerDuration(topic string, duration time.Duration)
+
+	// Event Backpressure Metrics (v2.0)
+	ObserveEventBlockDuration(source string, duration time.Duration)
+	IncEventWaiting(source string)
+	DecEventWaiting(source string)
 }
 
 var (
@@ -129,6 +134,10 @@ func (n *NoOpProvider) IncEventRouted(topic string)                          {}
 func (n *NoOpProvider) IncHandlerExecuted(topic string)                      {}
 func (n *NoOpProvider) IncHandlerError(topic string, err error)              {}
 func (n *NoOpProvider) ObserveHandlerDuration(topic string, d time.Duration) {}
+
+func (n *NoOpProvider) ObserveEventBlockDuration(source string, d time.Duration) {}
+func (n *NoOpProvider) IncEventWaiting(source string)                            {}
+func (n *NoOpProvider) DecEventWaiting(source string)                            {}
 
 // LogProvider is a metrics provider that logs increments at Debug level.
 // This is useful for development and debugging without external dependencies.
@@ -280,4 +289,16 @@ func (l *LogProvider) IncGoroutineWaiting() {
 
 func (l *LogProvider) DecGoroutineWaiting() {
 	log.Debug("metric decremented", "name", "lifecycle_goroutines_waiting_current")
+}
+
+func (l *LogProvider) ObserveEventBlockDuration(source string, d time.Duration) {
+	log.Debug("metric observed", "name", "lifecycle_events_block_duration_seconds", "source", source, "value", d.Seconds())
+}
+
+func (l *LogProvider) IncEventWaiting(source string) {
+	log.Debug("metric incremented", "name", "lifecycle_events_waiting_current", "source", source)
+}
+
+func (l *LogProvider) DecEventWaiting(source string) {
+	log.Debug("metric decremented", "name", "lifecycle_events_waiting_current", "source", source)
 }

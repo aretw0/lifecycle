@@ -66,7 +66,7 @@ func WithHealthStrategy(strategy TriggerStrategy) HealthOption {
 // NewHealthCheckSource creates a new health monitor.
 func NewHealthCheckSource(name string, check CheckFunc, opts ...HealthOption) *HealthCheckSource {
 	s := &HealthCheckSource{
-		BaseSource: control.NewBaseSource(10),
+		BaseSource: control.NewBaseSource("health:"+name, 10),
 		Name:       name,
 		Interval:   30 * time.Second, // Default
 		Check:      check,
@@ -111,12 +111,14 @@ func (s *HealthCheckSource) Start(ctx context.Context) error {
 
 			if shouldEmit {
 				lastStatus = status
-				s.emit(HealthEvent{Name: s.Name, Status: status, Error: err})
+				if err := s.emit(ctx, HealthEvent{Name: s.Name, Status: status, Error: err}); err != nil {
+					return err
+				}
 			}
 		}
 	}
 }
 
-func (s *HealthCheckSource) emit(e HealthEvent) {
-	s.Emit(e)
+func (s *HealthCheckSource) emit(ctx context.Context, e HealthEvent) error {
+	return s.Emit(ctx, e)
 }

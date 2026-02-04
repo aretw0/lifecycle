@@ -43,6 +43,9 @@ type Provider struct {
 	CriticalSectionSuccesses int
 	CriticalSectionFailures  int
 	CriticalSectionDuration  time.Duration
+
+	EventBlockDurations map[string]time.Duration
+	EventsWaiting       map[string]int
 }
 
 // Ensure interface compliance
@@ -64,6 +67,8 @@ func New() *Provider {
 		HandlersExecuted:       make(map[string]int),
 		HandlerErrors:          make(map[string]int),
 		HandlerDurations:       make(map[string]time.Duration),
+		EventBlockDurations:    make(map[string]time.Duration),
+		EventsWaiting:          make(map[string]int),
 	}
 }
 
@@ -227,4 +232,22 @@ func (m *Provider) ObserveHandlerDuration(topic string, d time.Duration) {
 	m.Mu.Lock()
 	defer m.Mu.Unlock()
 	m.HandlerDurations[topic] = d
+}
+
+func (m *Provider) ObserveEventBlockDuration(source string, d time.Duration) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.EventBlockDurations[source] = d
+}
+
+func (m *Provider) IncEventWaiting(source string) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.EventsWaiting[source]++
+}
+
+func (m *Provider) DecEventWaiting(source string) {
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
+	m.EventsWaiting[source]--
 }

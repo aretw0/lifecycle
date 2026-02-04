@@ -26,7 +26,7 @@ type TickerSource struct {
 // NewTickerSource creates a new source that emits tick events.
 func NewTickerSource(interval time.Duration) *TickerSource {
 	return &TickerSource{
-		BaseSource: control.NewBaseSource(10),
+		BaseSource: control.NewBaseSource("ticker", 10),
 		interval:   interval,
 	}
 }
@@ -43,7 +43,9 @@ func (s *TickerSource) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case t := <-ticker.C:
-			s.Emit(TickEvent{Time: t})
+			if err := s.Emit(ctx, TickEvent{Time: t}); err != nil {
+				return err
+			}
 		}
 	}
 }

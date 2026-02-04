@@ -33,7 +33,7 @@ type FileWatchSource struct {
 // immediate event notification when files change.
 func NewFileWatchSource(path string) *FileWatchSource {
 	return &FileWatchSource{
-		BaseSource: control.NewBaseSource(1),
+		BaseSource: control.NewBaseSource("filewatch", 1),
 		path:       filepath.Clean(path),
 	}
 }
@@ -80,7 +80,10 @@ func (f *FileWatchSource) Start(ctx context.Context) error {
 				}
 
 				// Emit event using BaseSource helper
-				f.Emit(fileChangeEvent{path: f.path, op: mapFsnotifyOp(event.Op)})
+				if err := f.Emit(ctx, fileChangeEvent{path: f.path, op: mapFsnotifyOp(event.Op)}); err != nil {
+					slog.Error("FileWatchSource: failed to emit event", "path", f.path, "error", err)
+					return err
+				}
 				metrics.GetProvider().IncEventEmitted("filewatch")
 			}
 

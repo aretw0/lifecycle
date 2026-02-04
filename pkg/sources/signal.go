@@ -27,7 +27,7 @@ type OSSignalSource struct {
 // NewOSSignalSource creates a source that listens for the specified signals.
 func NewOSSignalSource(signals ...os.Signal) *OSSignalSource {
 	return &OSSignalSource{
-		BaseSource: control.NewBaseSource(10),
+		BaseSource: control.NewBaseSource("ossignal", 10),
 		signals:    signals,
 	}
 }
@@ -45,7 +45,9 @@ func (s *OSSignalSource) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case sig := <-sigChan:
-			s.Emit(SignalEvent{Signal: sig})
+			if err := s.Emit(ctx, SignalEvent{Signal: sig}); err != nil {
+				return err
+			}
 		}
 	}
 }

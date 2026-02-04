@@ -72,7 +72,7 @@ func NewInputSource(opts ...InputOption) *InputSource {
 	}
 
 	s := &InputSource{
-		BaseSource: control.NewBaseSource(10),
+		BaseSource: control.NewBaseSource("input", 10),
 		r:          reader,
 		backoff:    100 * time.Millisecond,
 		mappings: map[string]control.Event{
@@ -206,7 +206,9 @@ func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
 
 	// If we are still running, it means the context didn't cancel on Ctrl+C.
 	// This indicates a REPL-like behavior where we should clear the line.
-	s.Emit(control.ClearLineEvent{})
+	// If we are still running, it means the context didn't cancel on Ctrl+C.
+	// This indicates a REPL-like behavior where we should clear the line.
+	_ = s.Emit(ctx, control.ClearLineEvent{})
 
 	time.Sleep(s.backoff)
 	return false
@@ -250,7 +252,9 @@ func (s *InputSource) processCommand(ctx context.Context, cmd string) bool {
 	case <-ctx.Done():
 		return true
 	default:
-		s.Emit(event)
+		if err := s.Emit(ctx, event); err != nil {
+			return true
+		}
 		return false
 	}
 }
