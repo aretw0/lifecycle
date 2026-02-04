@@ -25,10 +25,34 @@ This example uses the **Safety Net Pattern** for signal handling:
 
 This ensures that even if the Suspend logic hangs, you can always force-quit the application by mashing `Ctrl+C`.
 
-## Implementation
+## 📁 Project Structure
 
-See `main.go`. This example uses:
+* **`shared/`**: Common logic (persistence, shared workers, factory runner).
+* **`cond/`**: Implementation using `sync.Cond`. Best for legacy code or simple wait/signal requirements.
+* **`channels/`**: Implementation using channels and `select`. Idiomatic v2.x style, highly composable and better integration with Go's concurrency model.
 
-* **`lifecycle.NewInteractiveRouter`**: Automatically wires up Input, Signals, and Command handling.
-* **`lifecycle.WithShutdown`**: Defines the clean exit logic (closing internal channels).
-* **`handlers.SuspendHandler`**: Manages the Suspend/Resume state machine.
+## 🚀 Running
+
+To run the idiomatic channel-based version:
+
+```bash
+go run ./examples/suspend/channels
+```
+
+To run the `sync.Cond` version:
+
+```bash
+go run ./examples/suspend/cond
+```
+
+## 🛠️ Implementation Details
+
+Each version implements different suspension strategies:
+
+### 1. `sync.Cond` (Legacy Style)
+
+Uses a shared mutex and condition variable. Note that `cond.Wait()` cannot be easily cancelled by context, so it requires a wrapper or manual loop check.
+
+### 2. Channels (v2.x Style)
+
+Uses `select` to listen for `suspend`/`resume` signals. Fully context-aware and integrates seamlessly with `lifecycle.BaseWorker`.

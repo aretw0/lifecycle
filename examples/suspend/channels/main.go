@@ -4,31 +4,32 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/aretw0/lifecycle"
 	"github.com/aretw0/lifecycle/examples/suspend/shared"
 )
 
-// Generator produces raw materials using sync.Cond for suspension.
+// Generator produces raw materials using channels for suspension (v2.x Style).
 type Generator struct {
 	lifecycle.BaseWorker
 	output chan int
-	paused bool
-	mu     sync.Mutex
-	cond   *sync.Cond
 	store  *shared.Store
+
+	suspend chan struct{}
+	resume  chan struct{}
+	paused  chan struct{}
 }
 
 func NewGenerator(output chan int, store *shared.Store) *Generator {
-	g := &Generator{
+	return &Generator{
 		BaseWorker: lifecycle.NewBaseWorker("Generator"),
 		output:     output,
 		store:      store,
+		suspend:    make(chan struct{}),
+		resume:     make(chan struct{}),
+		paused:     make(chan struct{}),
 	}
-	g.cond = sync.NewCond(&g.mu)
-	return g
 }
 
 func (g *Generator) Start(ctx context.Context) error {
@@ -38,15 +39,23 @@ func (g *Generator) Start(ctx context.Context) error {
 func (g *Generator) Run(ctx context.Context) error {
 	slog.Info("[GENERATOR] Started.")
 	for {
-		g.mu.Lock()
-		for g.paused {
-			slog.Info("[GENERATOR] Paused. Waiting for signal...")
-			g.cond.Wait()
-			slog.Info("[GENERATOR] Resuming production...")
-		}
-		g.mu.Unlock()
-
+		// Check for suspension
 		select {
+		case <-g.suspend:
+			slog.Info("[GENERATOR] Entering quiescence...")
+			select {
+			case g.paused <- struct{}{}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
+			slog.Info("[GENERATOR] Paused. Waiting for resume signal...")
+			select {
+			case <-g.resume:
+				slog.Info("[GENERATOR] Resuming production...")
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
@@ -74,41 +83,51 @@ func (g *Generator) Run(ctx context.Context) error {
 }
 
 func (g *Generator) Suspend(ctx context.Context) error {
-	g.mu.Lock()
-	g.paused = true
-	g.mu.Unlock()
-	return nil
+	select {
+	case g.suspend <- struct{}{}:
+		// Block until confirmed
+		select {
+		case <-g.paused:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (g *Generator) Resume(ctx context.Context) error {
-	g.mu.Lock()
-	g.paused = false
-	g.cond.Broadcast()
-	g.mu.Unlock()
-	return nil
+	select {
+	case g.resume <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
 }
 
-// Worker processes materials using sync.Cond for suspension.
+// Worker processes materials using channels for suspension.
 type Worker struct {
 	lifecycle.BaseWorker
-	input    <-chan int
-	store    *shared.Store
-	paused   bool
-	pauseReq bool
-	mu       sync.Mutex
-	cond     *sync.Cond
-	ack      chan struct{}
+	input chan int
+	store *shared.Store
+
+	suspend chan struct{}
+	resume  chan struct{}
+	paused  chan struct{}
 }
 
-func NewWorker(input <-chan int, store *shared.Store) *Worker {
-	w := &Worker{
+func NewWorker(input chan int, store *shared.Store) *Worker {
+	return &Worker{
 		BaseWorker: lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
-		ack:        make(chan struct{}),
+		suspend:    make(chan struct{}),
+		resume:     make(chan struct{}),
+		paused:     make(chan struct{}),
 	}
-	w.cond = sync.NewCond(&w.mu)
-	return w
 }
 
 func (w *Worker) Start(ctx context.Context) error {
@@ -117,20 +136,23 @@ func (w *Worker) Start(ctx context.Context) error {
 
 func (w *Worker) Run(ctx context.Context) error {
 	for {
-		w.mu.Lock()
-		if w.pauseReq {
-			w.paused = true
-			select {
-			case w.ack <- struct{}{}:
-			default:
-			}
-		}
-		for w.paused {
-			w.cond.Wait()
-		}
-		w.mu.Unlock()
-
 		select {
+		case <-w.suspend:
+			slog.Info("[WORKER] Entering quiescence...")
+			select {
+			case w.paused <- struct{}{}:
+				// Signal Suspend() that we are now paused
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
+			select {
+			case <-w.resume:
+				slog.Info("[WORKER] Resuming...")
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
 		case item, ok := <-w.input:
 			if !ok {
 				return nil
@@ -154,36 +176,41 @@ func (w *Worker) Run(ctx context.Context) error {
 }
 
 func (w *Worker) Suspend(ctx context.Context) error {
-	w.mu.Lock()
-	w.pauseReq = true
-	w.mu.Unlock()
-
 	select {
-	case <-w.ack:
-		return nil
+	case w.suspend <- struct{}{}:
+		// Wait for confirmation
+		select {
+		case <-w.paused:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
 func (w *Worker) Resume(ctx context.Context) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.pauseReq = false
-	w.paused = false
-	w.cond.Broadcast()
-	return nil
+	select {
+	case w.resume <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
 }
 
 func main() {
-	path := filepath.Join("examples", "suspend", "cond", shared.StateFile)
+	// Set path relative to this main.go
+	path := filepath.Join("examples", "suspend", "channels", shared.StateFile)
 	store := shared.NewStore(path)
 	store.Load()
 
 	suspendHandler := lifecycle.NewSuspendHandler()
 	sharedChan := make(chan int)
 
-	sup := lifecycle.NewSupervisor("factory-cond", lifecycle.SupervisorStrategyOneForOne,
+	sup := lifecycle.NewSupervisor("factory-channels", lifecycle.SupervisorStrategyOneForOne,
 		lifecycle.SupervisorSpec{
 			Name: "watchdog",
 			Factory: func() (lifecycle.Worker, error) {

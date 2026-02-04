@@ -23,52 +23,58 @@ type FactoryState struct {
 
 // Store manages persistence of factory state.
 type Store struct {
-	mu    sync.Mutex
-	state FactoryState
-	path  string
+	Mu    sync.Mutex
+	State FactoryState
+	Path  string
+}
+
+func NewStore(path string) *Store {
+	return &Store{Path: path}
 }
 
 // Save persists the current state to disk.
 func (s *Store) Save(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 
-	bytes, err := json.MarshalIndent(s.state, "", "  ")
+	bytes, err := json.MarshalIndent(s.State, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	slog.Info("[STORE] Persisting state to disk...", "items", s.state, "path", s.path)
+	slog.Info("[STORE] Persisting state to disk...", "items", s.State, "path", s.Path)
 	// Simulate I/O latency
 	time.Sleep(100 * time.Millisecond)
-	return os.WriteFile(s.path, bytes, 0644)
+	return os.WriteFile(s.Path, bytes, 0644)
 }
 
 // Load reads state from disk if it exists.
 func (s *Store) Load() {
-	if s.path == "" {
-		s.path = StateFile
+	if s.Path == "" {
+		s.Path = StateFile
 	}
-	bytes, err := os.ReadFile(s.path)
-	if err == nil {
-		json.Unmarshal(bytes, &s.state)
-		// CRITICAL RECOVERY:
-		// If items were Produced but not Processed, they were in the in-memory channel
-		// and are now lost due to restart. We must "Rewind" production to ensure
-		// they are re-generated.
-		if s.state.ItemsProduced > s.state.ItemsProcessed {
-			slog.Warn("[STORE] Detected in-flight items lost during restart. Rewinding.",
-				"produced", s.state.ItemsProduced,
-				"processed", s.state.ItemsProcessed,
-				"rewind_to", s.state.ItemsProcessed)
-			s.state.ItemsProduced = s.state.ItemsProcessed
-		}
-		slog.Info("[STORE] Loaded previous state", "state", s.state)
+	bytes, err := os.ReadFile(s.Path)
+	if err != nil {
+		return
 	}
+	json.Unmarshal(bytes, &s.State)
+
+	// CRITICAL RECOVERY:
+	// If items were Produced but not Processed, they were in the in-memory channel
+	// and are now lost due to restart. We must "Rewind" production to ensure
+	// they are re-generated.
+	if s.State.ItemsProduced > s.State.ItemsProcessed {
+		slog.Warn("[STORE] Detected in-flight items lost during restart. Rewinding.",
+			"produced", s.State.ItemsProduced,
+			"processed", s.State.ItemsProcessed,
+			"rewind_to", s.State.ItemsProcessed)
+		s.State.ItemsProduced = s.State.ItemsProcessed
+	}
+	slog.Info("[STORE] Loaded previous state", "state", s.State)
 }
 
 // Cleanup removes the state file.
 func (s *Store) Cleanup() {
 	slog.Info("[STORE] Goal reached! Cleaning up state file.")
-	os.Remove(s.path)
+	os.Remove(s.Path)
 }
