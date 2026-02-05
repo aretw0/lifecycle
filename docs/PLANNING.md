@@ -9,7 +9,10 @@
 
 ---
 
-## Current State: v2.0 Foundation Complete ✅
+## Current State: v2.0 Stabilization (BETA) 🛠️
+
+> [!IMPORTANT]
+> **v2.0 Stabilization Phase**: Based on the critical analysis (2026-02-05), the architectural split and baseline test coverage are now prioritized as **blockers for the stable v2.0 launch** to ensure a robust foundation and prevent immediate breaking changes in v2.x.
 
 ### Completed Work (v2.0 Core)
 
@@ -78,11 +81,7 @@ pkg/control            : [pending measurement]
 
 ---
 
-## Roadmap: Iterative Releases
-
-### v2.1: Stabilization & Architecture (Next)
-
-**Focus**: Prepare v2.0 for public launch with solid foundation and clear structure.
+### v2.0 Refinement (Stable Blockers)
 
 #### 🏗️ Architecture Refinement
 
@@ -148,13 +147,7 @@ pkg/control            : [pending measurement]
   - [ ] Update all examples to use new structure
   - [ ] Ensure zero breaking changes for `import "github.com/aretw0/lifecycle"` users
 
-#### **Declarative Stability (Self-Healing)**: (v2.1+)
-
-- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
-- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
-- [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
-
-#### 🧪 Test Coverage Enhancement
+#### 🧪 Test Coverage Sanity
 
 - [ ] **Foundation Packages** (Target: 85%+):
   - [ ] `pkg/signal`: Full state machine coverage (all transitions, edge cases)
@@ -177,6 +170,20 @@ pkg/control            : [pending measurement]
   - [ ] Add coverage badge to README
   - [ ] Fail CI if coverage drops below 80%
   - [ ] Run tests on Windows, macOS, Linux
+
+---
+
+## Roadmap: Iterative Releases
+
+### v2.1: Advanced Stability & Ecosystem
+
+**Focus**: Evolve the control plane functionality and self-healing capabilities.
+
+#### **Declarative Stability (Self-Healing)**: (v2.1+)
+
+- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
+- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
+- [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
 
 #### 🐛 Technical Debt Resolution
 
