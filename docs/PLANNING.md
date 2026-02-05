@@ -102,7 +102,9 @@ pkg/control            : [pending measurement]
   - [ ] Document current import patterns and potential cycles
   
 - [ ] **Design Core/Events Split**:
-  - [ ] **Proposal**: Create `docs/ADR-0009-core-events-architecture.md` documenting:
+  - [ ] **Proposal**: Create `docs/ADR-0009-lifecycle-unification.md` documenting:
+    - Elevation of `signal.Context` to a root **`lifecycle.Controller`**
+    - Transition from "Signal Listener" to "Lifecycle Governor"
     - Rationale for split vs monolith
     - Package organization (what goes in `core/`, what in `events/`)
     - Facade design pattern for `lifecycle.go`
@@ -116,7 +118,7 @@ pkg/control            : [pending measurement]
 
     ```text
     core/
-    ├── signal/     # SignalContext, state machine
+    ├── context/    # The enhanced lifecycle context (Controller)
     ├── termio/     # Platform I/O (CONIN$, InterruptibleReader)
     ├── runtime/    # lifecycle.Go, Do, Group
     └── supervisor/ # Worker protocol, supervision trees
@@ -134,9 +136,9 @@ pkg/control            : [pending measurement]
   - [ ] Refactor `lifecycle.go` as facade:
 
     ```go
-    // Re-export core APIs
-    type Context = core.Context
-    func Run(...) = core.Run
+    // Re-export core APIs (The Controller)
+    type Controller = core.Controller
+    func DefaultController() = core.DefaultController
     
     // Re-export events APIs
     type Router = events.Router
