@@ -1,8 +1,12 @@
 # Binaries
 /**/*.exe
 
+# Coverage
+coverage_results.txt
+
 # Examples
 examples/**/config.json
 
+# Gemini
 .gemini/
 gha-creds-*.json
