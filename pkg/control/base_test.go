@@ -200,3 +200,24 @@ type testEvent struct {
 func (e testEvent) String() string {
 	return e.name
 }
+
+func TestOnce(t *testing.T) {
+	counter := 0
+	h := HandlerFunc(func(ctx context.Context, e Event) error {
+		counter++
+		return nil
+	})
+
+	onceH := Once(h)
+	ctx := context.Background()
+	event := testEvent{name: "test"}
+
+	// Call multiple times
+	for i := 0; i < 5; i++ {
+		_ = onceH.HandleEvent(ctx, event)
+	}
+
+	if counter != 1 {
+		t.Errorf("Expected handler to be called once, got %d", counter)
+	}
+}

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/metrics"
@@ -103,4 +104,25 @@ func (b *BaseSource) TryEmit(e Event) bool {
 // Call this when the source is done emitting events.
 func (b *BaseSource) Close() {
 	close(b.events)
+}
+
+// Once wraps a handler to ensure it only executes its logic exactly once.
+// This is useful for shutdown or cleanup handlers that involve closing channels
+// or other non-idempotent operations.
+//
+// Example:
+//
+//	router.Handle("command/quit", control.Once(control.HandlerFunc(func(ctx context.Context, _ control.Event) error {
+//	    close(quitCh)
+//	    return nil
+//	})))
+func Once(h Handler) Handler {
+	var once sync.Once
+	return HandlerFunc(func(ctx context.Context, e Event) error {
+		var err error
+		once.Do(func() {
+			err = h.HandleEvent(ctx, e)
+		})
+		return err
+	})
 }
