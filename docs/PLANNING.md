@@ -148,6 +148,12 @@ pkg/control            : [pending measurement]
   - [ ] Update all examples to use new structure
   - [ ] Ensure zero breaking changes for `import "github.com/aretw0/lifecycle"` users
 
+#### **Declarative Stability (Self-Healing)**: (v2.1+)
+
+- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
+- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
+- [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
+
 #### 🧪 Test Coverage Enhancement
 
 - [ ] **Foundation Packages** (Target: 85%+):
@@ -267,6 +273,13 @@ pkg/control            : [pending measurement]
   - [ ] Router: `path.Match` is glob, not full regex
   - [ ] Performance: Measured overhead (from benchmarks)
 
+#### 🎨 Visualization & Introspection 2.0 (Promoted)
+
+- [ ] **Separate Topology from Status**:
+  - [ ] Static Tree (Logic) vs Dynamic Status (Health)
+  - [ ] Prominently highlight "Stuck" or "Zombie" nodes
+  - [ ] Real-time dashboard skeleton (Web/Terminal)
+
 #### 🧪 Validation & Social Proof
 
 - [ ] **Benchmarks**:
@@ -376,6 +389,15 @@ pkg/control            : [pending measurement]
 - [ ] **Advanced Shutdown**:
   - [ ] Parallel hooks with dependency mapping
   - [ ] Priority shutdown phases (Critical → Normal → Optional)
+  - [ ] **Stuck Worker Detection**: (Lesson from `suture`)
+    - [ ] Heartbeat/Progress requirements for workers
+    - [ ] Auto-dump stack for specific "stuck" component before global timeout
+
+- [ ] **Worker Behaviors (Behaviors)**: (Lesson from `ergo`)
+  - [ ] Standard templates for common patterns:
+    - [ ] `PeriodicWorker` (Ticker-based)
+    - [ ] `StreamWorker` (Producer/Consumer with backpressure)
+    - [ ] `StatefulWorker` (Standard state machine template)
 
 #### Ecosystem Integration
 
