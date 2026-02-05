@@ -47,3 +47,11 @@ type ClearLineEvent struct{}
 func (e ClearLineEvent) String() string {
 	return "lifecycle/clear-line"
 }
+
+// TerminateEvent is a high-level event that chains Suspend and Shutdown.
+// It represents a graceful exit that preserves system state.
+type TerminateEvent struct{}
+
+func (e TerminateEvent) String() string {
+	return "lifecycle/terminate"
+}

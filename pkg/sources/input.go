@@ -76,13 +76,15 @@ func NewInputSource(opts ...InputOption) *InputSource {
 		r:          reader,
 		backoff:    100 * time.Millisecond,
 		mappings: map[string]control.Event{
-			"s":       control.SuspendEvent{},
-			"suspend": control.SuspendEvent{},
-			"r":       control.ResumeEvent{},
-			"resume":  control.ResumeEvent{},
-			"q":       control.ShutdownEvent{Reason: "manual"},
-			"quit":    control.ShutdownEvent{Reason: "manual"},
-			"exit":    control.ShutdownEvent{Reason: "manual"},
+			"s":         control.SuspendEvent{},
+			"suspend":   control.SuspendEvent{},
+			"r":         control.ResumeEvent{},
+			"resume":    control.ResumeEvent{},
+			"q":         control.ShutdownEvent{Reason: "manual"},
+			"quit":      control.ShutdownEvent{Reason: "manual"},
+			"exit":      control.ShutdownEvent{Reason: "manual"},
+			"x":         control.TerminateEvent{},
+			"terminate": control.TerminateEvent{},
 		},
 	}
 
