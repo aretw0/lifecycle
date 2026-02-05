@@ -1,4 +1,4 @@
-.PHONY: test vet serve-docs clean-zombies
+.PHONY: test vet coverage serve-docs stress clean-zombies
 
 # Run all tests
 test:
@@ -7,6 +7,11 @@ test:
 # Run vet tool in all files
 vet:
 	go vet ./...
+
+# Run coverage tests
+coverage:
+	go test -coverprofile="./coverage.out" ./...
+	go tool cover -func="./coverage.out"
 
 # Run local Go documentation server (pkgsite)
 serve-docs:

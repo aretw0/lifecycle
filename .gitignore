@@ -3,6 +3,7 @@
 
 # Coverage
 coverage_results.txt
+coverage.out
 
 # Examples
 examples/**/config.json

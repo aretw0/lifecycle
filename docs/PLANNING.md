@@ -61,14 +61,14 @@
 **Current Coverage by Package**:
 
 ```log
-lifecycle (root)       : 15.2%  ⚠️ BELOW TARGET
-pkg/worker             : 66.0%  ✅ GOOD
-pkg/termio             : 51.0%  ⚠️ NEEDS IMPROVEMENT
-pkg/metrics            : 21.0%  🔴 CRITICAL GAP
-pkg/supervisor         : [pending measurement]
-pkg/signal             : [pending measurement]
-pkg/runtime            : [pending measurement]
-pkg/control            : [pending measurement]
+lifecycle (root)       : 14.3%  ⚠️ BELOW TARGET
+pkg/worker             : 63.8%  ⚠️ NEEDS IMPROVEMENT
+pkg/termio             : 38.5%  🔴 CRITICAL GAP
+pkg/metrics            : 3.7%   🔴 CRITICAL GAP
+pkg/supervisor         : 77.2%  ⚠️ NEEDS IMPROVEMENT
+pkg/signal             : 46.2%  ⚠️ BELOW TARGET
+pkg/runtime            : 57.1%  ⚠️ NEEDS IMPROVEMENT
+pkg/control            : 32.1%  🔴 CRITICAL GAP
 ```
 
 **Target**: ≥80% average coverage across all packages before v2.1 launch
