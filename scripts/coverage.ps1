@@ -20,9 +20,17 @@ if (Test-Path $CoverageFile) {
     $Results = go tool cover -func="$CoverageFile"
     
     # Show summary for critical packages
-    $CriticalPackages = @("signal", "runtime", "control", "supervisor", "metrics", "termio")
+    $CriticalPackages = @(
+        @{ Name = "signal"; Path = "pkg/core/signal" },
+        @{ Name = "runtime"; Path = "pkg/core/runtime" },
+        @{ Name = "worker"; Path = "pkg/core/worker" },
+        @{ Name = "supervisor"; Path = "pkg/core/supervisor" },
+        @{ Name = "events"; Path = "pkg/events" },
+        @{ Name = "metrics"; Path = "pkg/core/metrics" },
+        @{ Name = "termio"; Path = "pkg/core/termio" }
+    )
     foreach ($pkg in $CriticalPackages) {
-        $pkgLines = $Results | Select-String "pkg/$pkg"
+        $pkgLines = $Results | Select-String ($pkg.Path)
         if ($pkgLines) {
             $total = 0
             $count = 0
@@ -33,10 +41,10 @@ if (Test-Path $CoverageFile) {
                 }
             }
             $avg = if ($count -gt 0) { $total / $count } else { 0 }
-            Write-Host "$($pkg.PadRight(20)) $(" {0:N1}%" -f $avg)"
+            Write-Host "$($pkg.Name.PadRight(20)) $(" {0:N1}%" -f $avg)"
         }
         else {
-            Write-Host "$($pkg.PadRight(20)) N/A"
+            Write-Host "$($pkg.Name.PadRight(20)) N/A"
         }
     }
     Write-Host "... (test results truncated for brevity) ..."

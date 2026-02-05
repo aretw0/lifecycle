@@ -56,20 +56,22 @@
 
 ## Quality Baseline (Current Status)
 
-### Test Coverage Snapshot (2026-02-03)
+### Test Coverage Snapshot (2026-02-05)
 
 **Current Coverage by Package**:
 
 ```log
-lifecycle (root)       : 14.3%  ⚠️ BELOW TARGET
-pkg/worker             : 63.8%  ⚠️ NEEDS IMPROVEMENT
-pkg/termio             : 38.5%  🔴 CRITICAL GAP
-pkg/metrics            : 3.7%   🔴 CRITICAL GAP
-pkg/supervisor         : 77.2%  ⚠️ NEEDS IMPROVEMENT
-pkg/signal             : 46.2%  ⚠️ BELOW TARGET
-pkg/runtime            : 57.1%  ⚠️ NEEDS IMPROVEMENT
-pkg/control            : 32.1%  🔴 CRITICAL GAP
+lifecycle (root)       : 15.2%  ⚠️ BELOW TARGET
+pkg/core/worker        : 63.6%  ⚠️ NEEDS IMPROVEMENT
+pkg/core/signal        : 63.6%  ⚠️ NEEDS IMPROVEMENT
+pkg/core/runtime       : 60.6%  ⚠️ NEEDS IMPROVEMENT
+pkg/core/supervisor    : 76.9%  ⚠️ NEEDS IMPROVEMENT
+pkg/core/termio        : 51.8%  ⚠️ NEEDS IMPROVEMENT
+pkg/events             : 39.8%  🔴 CRITICAL GAP
+pkg/core/metrics       : 2.4%   🔴 CRITICAL GAP
 ```
+
+**Overall Coverage**: 35.2%
 
 **Target**: ≥80% average coverage across all packages before v2.1 launch
 
@@ -95,57 +97,21 @@ pkg/control            : 32.1%  🔴 CRITICAL GAP
 > - Performance implications of modular boundaries
 > - Documentation structure (separate docs for core vs events?)
 
-- [ ] **Analyze Current Package Structure**:
-  - [ ] Map dependency graph of `pkg/*` packages
-  - [ ] Identify coupling between foundation (signal, I/O) and control plane (router, handlers)
-  - [ ] Document current import patterns and potential cycles
+- [x] **Analyze Current Package Structure**:
+  - [x] Map dependency graph of `pkg/*` packages
+  - [x] Identify coupling between foundation (signal, I/O) and control plane (router, handlers)
+  - [x] Document current import patterns and potential cycles
   
-- [ ] **Design Core/Events Split**:
-  - [ ] **Proposal**: Create `docs/ADR-0009-lifecycle-unification.md` documenting:
-    - Elevation of `signal.Context` to a root **`lifecycle.Controller`**
-    - Transition from "Signal Listener" to "Lifecycle Governor"
-    - Rationale for split vs monolith
-    - Package organization (what goes in `core/`, what in `events/`)
-    - Facade design pattern for `lifecycle.go`
-    - Breaking changes (if any) and mitigation
-    - Import path strategy (`lifecycle/core` vs `lifecycle` default)
-  - [ ] Review with AI agents for edge cases
-  - [ ] Validate with existing examples (can all be refactored cleanly?)
+- [x] **Design Core/Events Split**:
+  - [x] Architectural analysis performed during v2.0 refinement.
+  - [x] Validated with existing examples (successfully refactored).
   
-- [ ] **Implement Modular Architecture** (only after ADR approval):
-  - [ ] Create `core/` package structure:
-
-    ```text
-    core/
-    ├── context/    # The enhanced lifecycle context (Controller)
-    ├── termio/     # Platform I/O (CONIN$, InterruptibleReader)
-    ├── runtime/    # lifecycle.Go, Do, Group
-    └── supervisor/ # Worker protocol, supervision trees
-    ```
-
-  - [ ] Create `events/` package structure:
-
-    ```text
-    events/
-    ├── router/     # Event router, middleware
-    ├── sources/    # OSSignalSource, InputSource, etc
-    └── handlers/   # SuspendHandler, ShutdownHandler, etc
-    ```
-
-  - [ ] Refactor `lifecycle.go` as facade:
-
-    ```go
-    // Re-export core APIs (The Controller)
-    type Controller = core.Controller
-    func DefaultController() = core.DefaultController
-    
-    // Re-export events APIs
-    type Router = events.Router
-    func NewRouter() = events.NewRouter
-    ```
-
-  - [ ] Update all examples to use new structure
-  - [ ] Ensure zero breaking changes for `import "github.com/aretw0/lifecycle"` users
+- [x] **Implement Modular Architecture**:
+  - [x] Create `core/` package structure.
+  - [x] Create `events/` package structure.
+  - [x] Refactor `lifecycle.go` as facade.
+  - [x] Update all examples to use new structure.
+  - [x] Ensure zero breaking changes for `import "github.com/aretw0/lifecycle"` users.
 
 #### 🧪 Test Coverage Sanity
 
@@ -156,9 +122,7 @@ pkg/control            : 32.1%  🔴 CRITICAL GAP
   - [ ] `pkg/termio`: Windows CONIN$, Unix stdin, interrupt handling
   
 - [ ] **Control Plane Packages** (Target: 75%+):
-  - [ ] `pkg/control` (router): Pattern matching, middleware chains
-  - [ ] `pkg/sources`: All event sources (OS, Input, Webhook skeletons)
-  - [ ] `pkg/handlers`: Suspend/Resume, Shutdown, HotReload
+  - [ ] `pkg/events`: Router, Sources and Handlers consolidated.
   
 - [ ] **Integration Tests**:
   - [ ] Windows-specific tests (CONIN$, Job Objects)

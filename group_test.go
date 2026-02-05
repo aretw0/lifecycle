@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/metrics"
-	"github.com/aretw0/lifecycle/pkg/metrics/mock"
+	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/metrics/mock"
 )
 
 func TestGroup_PanicRecovery(t *testing.T) {
@@ -167,3 +167,6 @@ func TestGroup_BackpressureMetrics(t *testing.T) {
 	<-done
 	g.Wait()
 }
+
+
+

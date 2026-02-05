@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/metrics"
-	"github.com/aretw0/lifecycle/pkg/runtime"
+	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/runtime"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -80,3 +80,6 @@ func (g *Group) Go(fn func(ctx context.Context) error) {
 func (g *Group) Wait() error {
 	return g.g.Wait()
 }
+
+
+

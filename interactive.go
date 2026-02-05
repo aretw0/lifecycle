@@ -4,18 +4,16 @@ import (
 	"context"
 	"os"
 
-	"github.com/aretw0/lifecycle/pkg/control"
-	"github.com/aretw0/lifecycle/pkg/handlers"
-	"github.com/aretw0/lifecycle/pkg/sources"
+	"github.com/aretw0/lifecycle/pkg/events"
 )
 
-// InteractiveOption configures the interactive router.
+// InteractiveOption configures the interactive events.
 type InteractiveOption func(*interactiveConfig)
 
 type interactiveConfig struct {
 	enableInput  bool
 	enableSignal bool
-	commands     map[string]control.Handler
+	commands     map[string]events.Handler
 	shutdownFunc func()
 }
 
@@ -35,7 +33,7 @@ func WithSignal(enable bool) InteractiveOption {
 
 // WithCommand adds a custom command handler.
 // Example: WithCommand("stats", statsHandler) will route "command/stats" to statsHandler.
-func WithCommand(name string, handler control.Handler) InteractiveOption {
+func WithCommand(name string, handler events.Handler) InteractiveOption {
 	return func(c *interactiveConfig) {
 		c.commands[name] = handler
 	}
@@ -58,20 +56,20 @@ func WithShutdown(fn func()) InteractiveOption {
 //
 // To handle "Quit", it routes "command/quit" to a generic no-op handler.
 //
-// The quit handler is automatically wrapped in control.Once() to ensure that
+// The quit handler is automatically wrapped in events.Once() to ensure that
 // user-provided shutdown logic is executed exactly once, even if multiple
 // shutdown events (e.g. SIGINT followed by typing 'q') are received.
-func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...InteractiveOption) *control.Router {
+func NewInteractiveRouter(suspendHandler *events.SuspendHandler, opts ...InteractiveOption) *events.Router {
 	cfg := &interactiveConfig{
 		enableInput:  true,
 		enableSignal: true,
-		commands:     make(map[string]control.Handler),
+		commands:     make(map[string]events.Handler),
 	}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	r := control.NewRouter()
+	r := events.NewRouter()
 
 	// 1. Standard Routes
 	r.Handle("lifecycle/suspend", suspendHandler)
@@ -91,15 +89,15 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 	// If/When it decides to Quit (e.g. system is already suspended), it delegates to the next handler.
 	// We provide a no-op handler here because the actual "Exit" is often handled by the
 	// runtime observing the signal cancellation propagation or by the user hitting Ctrl+C twice (Force Exit).
-	noOpQuit := control.HandlerFunc(func(ctx context.Context, e control.Event) error {
+	noOpQuit := events.HandlerFunc(func(ctx context.Context, e events.Event) error {
 		return nil
 	})
 
 	// Resolve Quit Handler: User provided "WithShutdown" -> "WithCommand" -> No-Op
-	var quitHandler control.Handler = noOpQuit
+	var quitHandler events.Handler = noOpQuit
 
 	if cfg.shutdownFunc != nil {
-		quitHandler = handlers.NewShutdownFunc(cfg.shutdownFunc)
+		quitHandler = events.NewShutdownFunc(cfg.shutdownFunc)
 	}
 
 	// 4. Resolve Quit Logic
@@ -119,25 +117,25 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 		r.Handle("command/quit", quitHandler)
 	}
 
-	smartHandler := handlers.NewSmartSignalHandler(suspendHandler, quitHandler)
+	smartHandler := events.NewSmartSignalHandler(suspendHandler, quitHandler)
 	r.Handle("Signal(interrupt)", smartHandler)
 
 	// 5. High-level Facilitators (Composition)
-	terminateHandler := handlers.NewTerminate(suspendHandler, quitHandler)
+	terminateHandler := events.NewTerminate(suspendHandler, quitHandler)
 	r.Handle("lifecycle/terminate", terminateHandler)
 	r.Handle("command/terminate", terminateHandler)
 	r.Handle("command/x", terminateHandler)
 
 	// 6. Sources
 	if cfg.enableSignal {
-		r.AddSource(sources.NewOSSignalSource(os.Interrupt))
+		r.AddSource(events.NewOSSignalSource(os.Interrupt))
 	}
 	if cfg.enableInput {
-		var inputOpts []sources.InputOption
+		var inputOpts []events.InputOption
 		for name := range cfg.commands {
-			inputOpts = append(inputOpts, sources.WithInputMapping(name, sources.InputEvent{Command: name}))
+			inputOpts = append(inputOpts, events.WithInputMapping(name, events.InputEvent{Command: name}))
 		}
-		r.AddSource(sources.NewInputSource(inputOpts...))
+		r.AddSource(events.NewInputSource(inputOpts...))
 	}
 
 	return r

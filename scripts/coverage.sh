@@ -13,10 +13,13 @@ if [ -f "$COVERAGE_FILE" ]; then
     go tool cover -func="$COVERAGE_FILE" | grep "total:"
     echo "--------------------------------------------------"
     echo -e "\033[1;33mCRITICAL PACKAGE COVERAGE\033[0m"
-    # Show summary for main packages
-    for pkg in "signal" "runtime" "control" "supervisor" "metrics" "termio"; do
-        VAL=$(go tool cover -func="$COVERAGE_FILE" | grep "pkg/$pkg" | awk '{sum+=$3; count++} END {if (count>0) print sum/count "%"; else print "N/A"}')
-        printf "%-20s %s\n" "$pkg" "$VAL"
+    # Mapping for new hierarchy
+    declare -A pkgs=( ["signal"]="core/signal" ["runtime"]="core/runtime" ["worker"]="core/worker" ["supervisor"]="core/supervisor" ["events"]="events" ["metrics"]="core/metrics" ["termio"]="core/termio" )
+    
+    for name in "${!pkgs[@]}"; do
+        path=${pkgs[$name]}
+        VAL=$(go tool cover -func="$COVERAGE_FILE" | grep "$path" | awk '{sum+=$3; count++} END {if (count>0) print sum/count "%"; else print "N/A"}')
+        printf "%-20s %s\n" "$name" "$VAL"
     done
     echo "--------------------------------------------------"
     rm "$COVERAGE_FILE"

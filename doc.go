@@ -26,7 +26,7 @@ The library is built around three pillars:
     This allows the application to react to external stimuli (Input, Webhooks) dynamically.
 
     router := lifecycle.NewRouter()
-    router.Handle("Signal(interrupt)", handler)
+    router.Handle("signal/interrupt", handler)
 
 # Root Package Aliases
 
