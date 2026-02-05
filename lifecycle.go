@@ -408,6 +408,26 @@ func HandleFunc(pattern string, handler func(context.Context, Event) error) {
 	control.HandleFunc(pattern, handler)
 }
 
+// TerminateEvent is a high-level event that chains Suspend and Shutdown.
+// Alias for pkg/control.TerminateEvent.
+type TerminateEvent = control.TerminateEvent
+
+// TerminateOption configures the TerminateHandler.
+// Alias for pkg/handlers.TerminateOption.
+type TerminateOption = handlers.TerminateOption
+
+// WithContinueOnFailure configures whether to proceed with shutdown even if suspension fails.
+// Alias for pkg/handlers.WithContinueOnFailure.
+func WithContinueOnFailure(continueOnFailure bool) TerminateOption {
+	return handlers.WithContinueOnFailure(continueOnFailure)
+}
+
+// NewTerminateHandler creates a new handler that chains suspension and shutdown.
+// Alias for pkg/handlers.NewTerminate.
+func NewTerminateHandler(suspend Handler, shutdown Handler, opts ...TerminateOption) Handler {
+	return handlers.NewTerminate(suspend, shutdown, opts...)
+}
+
 // ======================================================================================
 // 5. Sources (Event Producers)
 // ======================================================================================
