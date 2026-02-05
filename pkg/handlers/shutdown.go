@@ -28,6 +28,18 @@ func (r *ShutdownHandler) HandleEvent(ctx context.Context, e control.Event) erro
 }
 
 // NewShutdown returns a handler that cancels context.
+// It is automatically wrapped in control.Once to ensure idempotency.
 func NewShutdown(cancel context.CancelFunc) control.Handler {
-	return &ShutdownHandler{Cancel: cancel}
+	return control.Once(&ShutdownHandler{Cancel: cancel})
+}
+
+// NewShutdownFunc returns a handler that executes the given function once.
+// Useful for wrapping generic close/cleanup operations as shutdown triggers.
+func NewShutdownFunc(fn func()) control.Handler {
+	return control.Once(control.HandlerFunc(func(ctx context.Context, e control.Event) error {
+		if fn != nil {
+			fn()
+		}
+		return nil
+	}))
 }

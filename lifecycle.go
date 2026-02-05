@@ -552,9 +552,17 @@ func NewChannelSource(ch <-chan Event) *ChannelSource {
 type ShutdownEvent = control.ShutdownEvent
 
 // NewShutdownHandler returns a handler that cancels context.
+// It is automatically wrapped in control.Once to ensure idempotency.
 // Alias for pkg/handlers.NewShutdown.
 func NewShutdownHandler(cancel context.CancelFunc) Handler {
 	return handlers.NewShutdown(cancel)
+}
+
+// NewShutdownFunc returns a handler that executes the given function once.
+// Useful for wrapping generic close/cleanup operations as shutdown triggers.
+// Alias for pkg/handlers.NewShutdownFunc.
+func NewShutdownFunc(fn func()) Handler {
+	return handlers.NewShutdownFunc(fn)
 }
 
 // NewReloadHandler returns a handler that reloads configuration.

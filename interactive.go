@@ -99,10 +99,7 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 	var quitHandler control.Handler = noOpQuit
 
 	if cfg.shutdownFunc != nil {
-		quitHandler = control.Once(control.HandlerFunc(func(ctx context.Context, e control.Event) error {
-			cfg.shutdownFunc()
-			return nil
-		}))
+		quitHandler = handlers.NewShutdownFunc(cfg.shutdownFunc)
 	}
 
 	// 4. Resolve Quit Logic
