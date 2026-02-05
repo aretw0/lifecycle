@@ -23,6 +23,7 @@ func DefaultStyles() string {
     classDef goroutine stroke-dasharray: 5 5;
     classDef supervisor stroke-width:2px,stroke-dasharray: 0;
     classDef signal stroke-width:2px,stroke-dasharray: 0;
+    classDef active fill:#eef2ff,stroke:#4338ca,stroke-width:2px;
 `
 }
 
