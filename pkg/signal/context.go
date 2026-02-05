@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aretw0/lifecycle/pkg/introspection"
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 )
@@ -31,11 +32,11 @@ type Reason string
 
 const (
 	ReasonNone         Reason = "None"
-	ReasonInterrupt    Reason = "Interrupt"     // SIGINT (Ctrl+C)
-	ReasonTerminate    Reason = "Terminate"     // SIGTERM
-	ReasonManualStop   Reason = "Manual:Stop"   // Explicit Stop() call
-	ReasonManualCancel Reason = "Manual:Cancel" // Context Cancel() called
-	ReasonTimeout      Reason = "Timeout"       // Shutdown timed out
+	ReasonInterrupt    Reason = "Signal:Interrupt" // SIGINT (Ctrl+C)
+	ReasonTerminate    Reason = "Signal:Terminate" // SIGTERM
+	ReasonManualStop   Reason = "Manual:Stop"      // Explicit Stop() call
+	ReasonManualCancel Reason = "Manual:Cancel"    // Context Cancel() called
+	ReasonTimeout      Reason = "System:Timeout"   // Shutdown timed out
 )
 
 func (r Reason) String() string {
@@ -57,16 +58,25 @@ type Context struct {
 	hooksDone   chan struct{}
 	signalCount int
 	lastSignal  time.Time
+
+	// StateWatchers (Event-Driven Introspection)
+	stateWatchers []chan introspection.StateChange[State]
+	watchersMu    sync.RWMutex
 }
 
 // Cancel terminates the context manually.
 func (sc *Context) Cancel() {
+	oldState := sc.State()
+
 	sc.mu.Lock()
 	if sc.reason == ReasonNone {
 		sc.reason = ReasonManualCancel
 	}
 	sc.mu.Unlock()
 	sc.cancel()
+
+	newState := sc.State()
+	sc.emitStateChange(oldState, newState)
 }
 
 // Shutdown is an alias for Cancel for consistency with other components.
@@ -78,11 +88,17 @@ func (sc *Context) Shutdown() {
 // This is useful for "Smart Handlers" that successfully handle a signal (e.g. Suspend)
 // and want to reset the "Force Exit" threshold.
 func (sc *Context) ResetSignalCount() {
+	oldState := sc.State()
+
 	sc.mu.Lock()
-	defer sc.mu.Unlock()
 	sc.signalCount = 0
 	sc.sigVal = nil
+	sc.mu.Unlock()
+
 	log.Debug("signal count reset")
+
+	newState := sc.State()
+	sc.emitStateChange(oldState, newState)
 }
 
 // OnShutdown registers a function to be called when the context receives a shutdown signal.
@@ -99,6 +115,7 @@ type options struct {
 	forceExitThreshold int
 	resetTimeout       time.Duration
 	hookTimeout        time.Duration
+	cancelOnInterrupt  bool
 }
 
 // Option is a functional option for configuring signal behavior.
@@ -132,6 +149,26 @@ func WithHookTimeout(d time.Duration) Option {
 	}
 }
 
+// WithCancelOnInterrupt controls whether SIGINT cancels the context.
+//
+// true (default): SIGINT immediately cancels context (traditional behavior)
+//   - Use for: CLIs, servers, batch jobs
+//   - SIGINT #1: Context cancelled (graceful shutdown)
+//   - SIGINT #2+: Force exit based on threshold
+//
+// false: SIGINT only emits events, does NOT cancel context
+//   - Use for: REPLs, interactive shells, suspendable processes
+//   - SIGINT #1-N: Emits control events (ClearLine, Suspend, etc.)
+//   - SIGINT #N: Force exit when threshold reached
+//   - User must explicitly cancel context via router/handler
+//
+// Note: SIGTERM always cancels context regardless of this setting.
+func WithCancelOnInterrupt(enabled bool) Option {
+	return func(o *options) {
+		o.cancelOnInterrupt = enabled
+	}
+}
+
 // Stop stops the signal monitoring and restores default behavior.
 // It also ensures Wait() unblocks if called.
 func (sc *Context) Stop() {
@@ -161,6 +198,7 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 		forceExitThreshold: 1, // Default: Ctrl+C cancels context immediately
 		resetTimeout:       5 * time.Second,
 		hookTimeout:        5 * time.Second,
+		cancelOnInterrupt:  true, // Default: SIGINT cancels context (backward compatible)
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -203,6 +241,7 @@ func (sc *Context) monitor() {
 
 		case <-sc.Context.Done():
 			// Keep looping after Done() to support Force Exit during cleanup.
+			// This is essential for the "Double-Tap" escalation logic.
 		}
 	}
 }
@@ -219,48 +258,47 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 		log.Debug("signal count reset due to timeout")
 	}
 	sc.lastSignal = time.Now()
-
 	sc.sigVal = sig
 	sc.mu.Unlock()
 
 	log.Debug("received signal", "signal", sig.String(), "count", count, "first", isFirst)
 	metrics.GetProvider().IncSignalReceived(sig.String())
 
-	// Cancellation Logic
-	// SIGTERM always cancels on first signal
-	// SIGINT cancels on first signal ONLY if threshold is exactly 1
-	if isFirst && sc.shouldCancel(sig) {
+	// Determine cancellation reason early for introspection accuracy
+	if sc.shouldCancel(sig) {
 		sc.mu.Lock()
-		switch sig {
-		case os.Interrupt:
-			sc.reason = ReasonInterrupt
-		case syscall.SIGTERM:
-			sc.reason = ReasonTerminate
+		if sc.reason == ReasonNone {
+			switch sig {
+			case os.Interrupt:
+				sc.reason = ReasonInterrupt
+			case syscall.SIGTERM:
+				sc.reason = ReasonTerminate
+			}
 		}
 		sc.mu.Unlock()
-
-		sc.Cancel()
-		go sc.runHooks()
 	}
 
-	// Force Exit Logic
-	// Enabled if threshold > 0
+	// Cancellation Execution
+	// We cancel on the very first compatible signal.
+	if isFirst && sc.shouldCancel(sig) {
+		sc.Cancel()
+		go sc.runHooks()
+		return
+	}
+
+	// Emit state change for signal reception (only if not cancelling)
+	oldState := sc.State()
+	oldState.SignalCount-- // Restore old count for diff
+	newState := sc.State()
+	sc.emitStateChange(oldState, newState)
+
+	// Force Exit Logic (Escalation)
 	if sc.opts.forceExitThreshold > 0 && count >= sc.opts.forceExitThreshold {
-		// If threshold is 1, we already cancelled, so this is an immediate follow-up exit
-		// if another signal arrives or if we want to treat 1 as "cancel then exit"
-		// Actually, if threshold is 1, and this is the first signal, we cancel.
-		// If another signal arrives, count becomes 2, which is >= 1, so we exit.
-		// THIS IS CORRECT: 1st signal = Cancel, 2nd signal = Force Exit.
-
-		// WAIT: If user wants "1st signal = Force Exit" without cancellation,
-		// that's not what we discussed. We said 1 = industry standard (Cancel context).
-		// So if count == 1 and threshold is 1, we SHOULD only cancel.
-		// Force Exit should only happen if count > threshold OR if we want 1 to be special.
-
-		// Correct logic:
-		// Threshold 1: 1st signal = Cancel. 2nd signal = Force Exit.
-		// Threshold N: 1..N-1 signals = Captured (Events). N-th signal = Force Exit.
-		if count > 1 || (sig == os.Interrupt && sc.opts.forceExitThreshold == 1 && count > 1) || (count >= sc.opts.forceExitThreshold && sc.opts.forceExitThreshold > 1) {
+		// Only force exit if:
+		// 1. It's not the first signal (unless threshold is 1).
+		// 2. Or if threshold is explicitly 1.
+		// This preserves the 1st signal for graceful shutdown in standard mode.
+		if count > 1 || sc.opts.forceExitThreshold == 1 {
 			log.Warn("force exit threshold reached, exiting immediately",
 				"signal", sig.String(),
 				"count", count)
@@ -274,8 +312,9 @@ func (sc *Context) shouldCancel(sig os.Signal) bool {
 	if sig == syscall.SIGTERM {
 		return true
 	}
-	// SIGINT only cancels if threshold is explicitly 1 (Default behavior)
-	return sig == os.Interrupt && sc.opts.forceExitThreshold == 1
+	// SIGINT only cancels if explicitly enabled
+	// This allows interactive applications (REPL, Suspend) to handle SIGINT without context cancellation
+	return sig == os.Interrupt && sc.opts.cancelOnInterrupt
 }
 
 // Signal returns the signal that caused the context to be cancelled/interrupted, or nil.
@@ -307,15 +346,30 @@ func (sc *Context) ForceExitThreshold() int {
 }
 
 // State represents the configuration state of the SignalContext.
-type State struct {
+// Config represents immutable signal handler configuration.
+// These values are set at initialization and never change during runtime.
+type Config struct {
 	ForceExitThreshold int
 	HookTimeout        time.Duration
-	Received           os.Signal
-	Reason             Reason
-	Stopping           bool
-	Enabled            bool // True if the signal monitor is active
-	SignalCount        int
-	ResetDeadline      time.Time
+}
+
+// Status represents dynamic signal handler runtime state.
+// These values change as the handler processes signals and manages lifecycle.
+type Status struct {
+	Received      os.Signal
+	Reason        Reason
+	Stopping      bool
+	SignalCount   int
+	ResetDeadline time.Time
+	Enabled       bool
+	Stopped       bool
+}
+
+// State combines configuration and runtime status for introspection.
+// This struct is used for type-safe state watching and diagram generation.
+type State struct {
+	Config
+	Status
 }
 
 // State returns a snapshot of the current configuration.
@@ -330,24 +384,32 @@ func (sc *Context) State() State {
 	default:
 	}
 
+	stopped := false
+	select {
+	case <-sc.hooksDone:
+		stopped = true
+	default:
+	}
+
 	var deadline time.Time
 	if !sc.lastSignal.IsZero() {
 		deadline = sc.lastSignal.Add(sc.opts.resetTimeout)
 	}
 
 	return State{
-		ForceExitThreshold: sc.opts.forceExitThreshold,
-		HookTimeout:        sc.opts.hookTimeout,
-		Received:           sc.sigVal,
-		Reason:             sc.reason,
-		Stopping:           stopping,
-		// If the channel is closed, the monitor is disabled (Stopped).
-		// We can check if the channel is closed or nil, but checking the channel itself is tricky without a lock/select.
-		// However, in Stop(), we close the channel.
-		// A reliable way is checking if sigCh is closed.
-		Enabled:       isChannelOpen(sc.sigCh),
-		SignalCount:   sc.signalCount,
-		ResetDeadline: deadline,
+		Config: Config{
+			ForceExitThreshold: sc.opts.forceExitThreshold,
+			HookTimeout:        sc.opts.hookTimeout,
+		},
+		Status: Status{
+			Received:      sc.sigVal,
+			Reason:        sc.reason,
+			Stopping:      stopping,
+			SignalCount:   sc.signalCount,
+			ResetDeadline: deadline,
+			Enabled:       sc.sigVal == nil || isChannelOpen(sc.sigCh),
+			Stopped:       stopped,
+		},
 	}
 }
 
