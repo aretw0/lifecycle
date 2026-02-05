@@ -57,8 +57,10 @@ func WithShutdown(fn func()) InteractiveOption {
 //   - Commands: "suspend", "resume" -> SuspendHandler
 //
 // To handle "Quit", it routes "command/quit" to a generic no-op handler.
-// A true shutdown is triggered by the runtime observing the signal context or by a custom
-// handler that cancels a context.
+//
+// The quit handler is automatically wrapped in control.Once() to ensure that
+// user-provided shutdown logic is executed exactly once, even if multiple
+// shutdown events (e.g. SIGINT followed by typing 'q') are received.
 func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...InteractiveOption) *control.Router {
 	cfg := &interactiveConfig{
 		enableInput:  true,
@@ -97,10 +99,10 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 	var quitHandler control.Handler = noOpQuit
 
 	if cfg.shutdownFunc != nil {
-		quitHandler = control.HandlerFunc(func(ctx context.Context, e control.Event) error {
+		quitHandler = control.Once(control.HandlerFunc(func(ctx context.Context, e control.Event) error {
 			cfg.shutdownFunc()
 			return nil
-		})
+		}))
 	}
 
 	// 4. Resolve Quit Logic
