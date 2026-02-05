@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/aretw0/lifecycle"
-	"github.com/aretw0/lifecycle/pkg/adapters/mermaid"
-	"github.com/aretw0/lifecycle/pkg/introspection"
-	"github.com/aretw0/lifecycle/pkg/signal"
-	"github.com/aretw0/lifecycle/pkg/worker"
+
+	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/lifecycle/pkg/core/signal"
+	"github.com/aretw0/lifecycle/pkg/core/worker"
 )
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 	initialOutput.WriteString("\nSNAPSHOT: INITIAL STATE\n")
 	initialOutput.WriteString(strings.Repeat("=", 60))
 	initialOutput.WriteString("\n")
-	initialOutput.WriteString(mermaid.SystemDiagram(ctx.State(), sup.State()))
+	initialOutput.WriteString(introspection.SystemDiagram(ctx.State(), sup.State()))
 	initialOutput.WriteString("\n")
 	fmt.Print(initialOutput.String())
 
@@ -134,7 +134,7 @@ func main() {
 				var output strings.Builder
 				output.WriteString(strings.Repeat("-", 40))
 				output.WriteString("\nSNAPSHOT: SYSTEM STATE\n")
-				output.WriteString(mermaid.SystemDiagram(ctx.State(), sup.State()))
+				output.WriteString(introspection.SystemDiagram(ctx.State(), sup.State()))
 				output.WriteString("\n")
 				output.WriteString(strings.Repeat("-", 40))
 				output.WriteString("\n")
@@ -178,7 +178,7 @@ func main() {
 	finalOutput.WriteString("\nSNAPSHOT: FINAL STATE\n")
 	finalOutput.WriteString(strings.Repeat("=", 60))
 	finalOutput.WriteString("\n")
-	finalOutput.WriteString(mermaid.SystemDiagram(ctx.State(), sup.State()))
+	finalOutput.WriteString(introspection.SystemDiagram(ctx.State(), sup.State()))
 	finalOutput.WriteString("\n")
 	fmt.Print(finalOutput.String())
 

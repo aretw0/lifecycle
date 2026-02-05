@@ -23,7 +23,7 @@ func main() {
 
 	// 2. Register Handlers
 	// Pattern matching works like net/http
-	lifecycle.HandleFunc("webhook.reload", func(ctx context.Context, e lifecycle.Event) error {
+	lifecycle.DefaultRouter.HandleFunc("webhook.reload", func(ctx context.Context, e lifecycle.Event) error {
 		fmt.Println("🔄 Reload triggered via Webhook!")
 		fmt.Println("APP: Reloading configuration...")
 		time.Sleep(500 * time.Millisecond) // Simulate work

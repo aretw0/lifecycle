@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/aretw0/lifecycle"
-	"github.com/aretw0/lifecycle/pkg/control"
+	"github.com/aretw0/lifecycle/pkg/events"
 )
 
 const (
@@ -41,7 +41,7 @@ func main() {
 	suspendHandler := lifecycle.NewSuspendHandler()
 
 	// Use NewInteractiveRouter but disable default input so we can inject our custom one
-	router := lifecycle.NewInteractiveRouter(suspendHandler,
+	mux := lifecycle.NewInteractiveRouter(suspendHandler,
 		lifecycle.WithInput(false), // We will add our own source below
 	)
 
@@ -55,7 +55,7 @@ func main() {
 			fmt.Printf(" [!] '%s' is not valid. Try one of: %v\n> ", cmd, known)
 		}),
 	)
-	router.AddSource(input)
+	mux.AddSource(input)
 
 	// 3. Define Shell State
 	fmt.Println("🚀 REPL STARTED")
@@ -63,12 +63,12 @@ func main() {
 
 	// 4. Handle Events
 	// We use HandleFunc to register functions
-	router.HandleFunc(lifecycle.ClearLineEvent{}.String(), func(ctx context.Context, e control.Event) error {
+	mux.HandleFunc(lifecycle.ClearLineEvent{}.String(), func(ctx context.Context, e events.Event) error {
 		fmt.Print("\n^C (Line Cleared)\n> ")
 		return nil
 	})
 
-	router.HandleFunc(lifecycle.ShutdownEvent{}.String(), func(ctx context.Context, e control.Event) error {
+	mux.HandleFunc(lifecycle.ShutdownEvent{}.String(), func(ctx context.Context, e events.Event) error {
 		fmt.Println("\n👋 Shell exiting gracefully...")
 		ctx.(*lifecycle.Context).Cancel()
 		return nil
@@ -76,16 +76,17 @@ func main() {
 
 	// Unmapped inputs (Generic InputEvent)
 	// Pattern matching supports glob-like patterns.
-	router.HandleFunc("input/*", func(ctx context.Context, ev control.Event) error {
+	mux.HandleFunc("input/*", func(ctx context.Context, ev events.Event) error {
 		inputEv := ev.(lifecycle.InputEvent)
 		fmt.Printf("Executing command: %q\n> ", inputEv.Command)
 		return nil
 	})
 
 	// Start Router
-	lifecycle.Go(ctx, router.Start)
+	lifecycle.Go(ctx, mux.Start)
 
 	// Wait for context cancellation (from ShutdownEvent)
 	<-ctx.Done()
 	fmt.Println("Shell terminated.")
 }
+

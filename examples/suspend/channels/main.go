@@ -8,7 +8,7 @@ import (
 
 	"github.com/aretw0/lifecycle"
 	"github.com/aretw0/lifecycle/examples/suspend/shared"
-	"github.com/aretw0/lifecycle/pkg/worker"
+	"github.com/aretw0/lifecycle/pkg/core/worker"
 )
 
 // Generator produces raw materials using SuspendGate for simplified suspension.
@@ -158,3 +158,6 @@ func main() {
 
 	shared.RunFactory(sup, store, suspendHandler)
 }
+
+
+

@@ -10,19 +10,17 @@ import (
 
 	"log/slog"
 
-	"github.com/aretw0/lifecycle/pkg/container"
-	"github.com/aretw0/lifecycle/pkg/control"
-	"github.com/aretw0/lifecycle/pkg/handlers"
-	"github.com/aretw0/lifecycle/pkg/log"
-	"github.com/aretw0/lifecycle/pkg/metrics"
-	"github.com/aretw0/lifecycle/pkg/proc"
-	"github.com/aretw0/lifecycle/pkg/runtime"
-	"github.com/aretw0/lifecycle/pkg/signal"
-	"github.com/aretw0/lifecycle/pkg/sources"
-	"github.com/aretw0/lifecycle/pkg/supervisor"
-	"github.com/aretw0/lifecycle/pkg/termio"
-	"github.com/aretw0/lifecycle/pkg/worker"
-	"github.com/aretw0/lifecycle/pkg/worker/suspend"
+	"github.com/aretw0/lifecycle/pkg/core/container"
+	"github.com/aretw0/lifecycle/pkg/core/log"
+	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/proc"
+	"github.com/aretw0/lifecycle/pkg/core/runtime"
+	"github.com/aretw0/lifecycle/pkg/core/signal"
+	"github.com/aretw0/lifecycle/pkg/core/supervisor"
+	"github.com/aretw0/lifecycle/pkg/core/termio"
+	"github.com/aretw0/lifecycle/pkg/core/worker"
+	"github.com/aretw0/lifecycle/pkg/core/worker/suspend"
+	"github.com/aretw0/lifecycle/pkg/events"
 )
 
 // ======================================================================================
@@ -363,69 +361,69 @@ func WorkerStateDiagram(s WorkerState) string {
 // ======================================================================================
 
 // Event is a stimulus that triggers a reaction.
-// Alias for pkg/control.Event.
-type Event = control.Event
+// Alias for pkg/events.Event.
+type Event = events.Event
 
 // Handler responds to an event.
-// Alias for pkg/control.Handler.
-type Handler = control.Handler
+// Alias for pkg/events.Handler.
+type Handler = events.Handler
 
 // HandlerFunc matches the signature of a Handler.
-// Alias for pkg/control.HandlerFunc.
-type HandlerFunc = control.HandlerFunc
+// Alias for pkg/events.HandlerFunc.
+type HandlerFunc = events.HandlerFunc
 
 // Source is a producer of events.
-// Alias for pkg/control.Source.
-type Source = control.Source
+// Alias for pkg/events.Source.
+type Source = events.Source
 
 // Router maps events to reactions.
-// Alias for pkg/control.Router.
-type Router = control.Router
+// Alias for pkg/events.events.
+type Router = events.Router
 
-// RouterOption is an option for configuring a Router.
-// Alias for pkg/control.RouterOption.
-type RouterOption = control.RouterOption
+// RouterOption is an option for configuring a events.
+// Alias for pkg/events.RouterOption.
+type RouterOption = events.RouterOption
 
-// NewRouter creates a new Control Router.
-// Alias for pkg/control.NewRouter.
+// NewRouter creates a new Control events.
+// Alias for pkg/events.Newevents.
 func NewRouter(opts ...RouterOption) *Router {
-	return control.NewRouter(opts...)
+	return events.NewRouter(opts...)
 }
 
 // DefaultRouter is the default instance for package-level helpers.
-// Alias for pkg/control.DefaultRouter.
-var DefaultRouter = control.DefaultRouter
+// Alias for pkg/events.Defaultevents.
+var DefaultRouter = events.DefaultRouter
 
-// Handle registers a handler on the DefaultRouter.
-// Alias for pkg/control.Handle.
+// Handle registers a handler on the Defaultevents.
+// Alias for pkg/events.Handle.
 func Handle(pattern string, handler Handler) {
-	control.Handle(pattern, handler)
+	events.Handle(pattern, handler)
 }
 
-// HandleFunc registers a handler function on the DefaultRouter.
-// Alias for pkg/control.HandleFunc.
+// HandleFunc registers a handler function on the Defaultevents.
+// Alias for pkg/events.HandleFunc.
 func HandleFunc(pattern string, handler func(context.Context, Event) error) {
-	control.HandleFunc(pattern, handler)
+	events.HandleFunc(pattern, handler)
 }
 
 // TerminateEvent is a high-level event that chains Suspend and Shutdown.
-// Alias for pkg/control.TerminateEvent.
-type TerminateEvent = control.TerminateEvent
+// Alias for pkg/events.TerminateEvent.
+type TerminateEvent = events.TerminateEvent
 
 // TerminateOption configures the TerminateHandler.
-// Alias for pkg/handlers.TerminateOption.
-type TerminateOption = handlers.TerminateOption
+// Alias for pkg/events.TerminateOption.
+type TerminateOption = events.TerminateOption
 
 // WithContinueOnFailure configures whether to proceed with shutdown even if suspension fails.
-// Alias for pkg/handlers.WithContinueOnFailure.
+// Alias for pkg/events.WithContinueOnFailure.
 func WithContinueOnFailure(continueOnFailure bool) TerminateOption {
-	return handlers.WithContinueOnFailure(continueOnFailure)
+	return events.WithContinueOnFailure(continueOnFailure)
 }
 
 // NewTerminateHandler creates a new handler that chains suspension and shutdown.
-// Alias for pkg/handlers.NewTerminate.
+// Alias for pkg/events.NewTerminate.
 func NewTerminateHandler(suspend Handler, shutdown Handler, opts ...TerminateOption) Handler {
-	return handlers.NewTerminate(suspend, shutdown, opts...)
+	return events.NewTerminate(suspend, shutdown, opts...)
 }
 
 // ======================================================================================
@@ -433,114 +431,114 @@ func NewTerminateHandler(suspend Handler, shutdown Handler, opts ...TerminateOpt
 // ======================================================================================
 
 // NewOSSignalSource creates a source that listens for OS signals.
-// Alias for pkg/sources.NewOSSignalSource.
+// Alias for pkg/events.NewOSSignalSource.
 func NewOSSignalSource(signals ...os.Signal) Source {
-	return sources.NewOSSignalSource(signals...)
+	return events.NewOSSignalSource(signals...)
 }
 
 // InputSource reads from Stdin and emits events.
-// Alias for pkg/sources.InputSource.
-type InputSource = sources.InputSource
+// Alias for pkg/events.InputSource.
+type InputSource = events.InputSource
 
 // InputOption configures the InputSource.
-// Alias for pkg/sources.InputOption.
-type InputOption = sources.InputOption
+// Alias for pkg/events.InputOption.
+type InputOption = events.InputOption
 
 // NewInputSource creates a new source that listens for standard CLI commands.
-// Alias for pkg/sources.NewInputSource.
+// Alias for pkg/events.NewInputSource.
 func NewInputSource(opts ...InputOption) *InputSource {
-	return sources.NewInputSource(opts...)
+	return events.NewInputSource(opts...)
 }
 
 // WithUnknownHandler configures a custom handler for unknown commands.
-// Alias for pkg/sources.WithUnknownHandler.
+// Alias for pkg/events.WithUnknownHandler.
 func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {
-	return sources.WithUnknownHandler(fn)
+	return events.WithUnknownHandler(fn)
 }
 
 // WithInputMapping adds a custom command mapping.
-// Alias for pkg/sources.WithInputMapping.
-func WithInputMapping(key string, event control.Event) InputOption {
-	return sources.WithInputMapping(key, event)
+// Alias for pkg/events.WithInputMapping.
+func WithInputMapping(key string, event events.Event) InputOption {
+	return events.WithInputMapping(key, event)
 }
 
 // WithInputBackoff configures the duration to wait before retrying interruptions or errors.
-// Alias for pkg/sources.WithInputBackoff.
+// Alias for pkg/events.WithInputBackoff.
 func WithInputBackoff(d time.Duration) InputOption {
-	return sources.WithInputBackoff(d)
+	return events.WithInputBackoff(d)
 }
 
 // InputEvent represents a generic text command.
-// Alias for pkg/sources.InputEvent.
-type InputEvent = sources.InputEvent
+// Alias for pkg/events.InputEvent.
+type InputEvent = events.InputEvent
 
 // TickEvent represents a periodic time tick.
-// Alias for pkg/sources.TickEvent.
-type TickEvent = sources.TickEvent
+// Alias for pkg/events.TickEvent.
+type TickEvent = events.TickEvent
 
 // NewTickerSource creates a source that emits periodic events.
-// Alias for pkg/sources.NewTickerSource.
+// Alias for pkg/events.NewTickerSource.
 func NewTickerSource(interval time.Duration) Source {
-	return sources.NewTickerSource(interval)
+	return events.NewTickerSource(interval)
 }
 
 // HealthCheckSource runs a periodic health check.
-// Alias for pkg/sources.HealthCheckSource.
-type HealthCheckSource = sources.HealthCheckSource
+// Alias for pkg/events.HealthCheckSource.
+type HealthCheckSource = events.HealthCheckSource
 
 // HealthOption configures a HealthCheckSource.
-// Alias for pkg/sources.HealthOption.
-type HealthOption = sources.HealthOption
+// Alias for pkg/events.HealthOption.
+type HealthOption = events.HealthOption
 
 // NewHealthCheckSource creates a new health monitor.
-// Alias for pkg/sources.NewHealthCheckSource.
-func NewHealthCheckSource(name string, check sources.CheckFunc, opts ...HealthOption) *HealthCheckSource {
-	return sources.NewHealthCheckSource(name, check, opts...)
+// Alias for pkg/events.NewHealthCheckSource.
+func NewHealthCheckSource(name string, check events.CheckFunc, opts ...HealthOption) *HealthCheckSource {
+	return events.NewHealthCheckSource(name, check, opts...)
 }
 
 // WithHealthInterval sets the check interval.
-// Alias for pkg/sources.WithHealthInterval.
+// Alias for pkg/events.WithHealthInterval.
 func WithHealthInterval(d time.Duration) HealthOption {
-	return sources.WithHealthInterval(d)
+	return events.WithHealthInterval(d)
 }
 
 // WithHealthStrategy sets the triggering strategy (Edge vs Level).
-// Alias for pkg/sources.WithHealthStrategy.
-func WithHealthStrategy(strategy sources.TriggerStrategy) HealthOption {
-	return sources.WithHealthStrategy(strategy)
+// Alias for pkg/events.WithHealthStrategy.
+func WithHealthStrategy(strategy events.TriggerStrategy) HealthOption {
+	return events.WithHealthStrategy(strategy)
 }
 
 // FileWatchSource watches for file changes using platform-specific notifications.
-// Alias for pkg/sources.FileWatchSource.
-type FileWatchSource = sources.FileWatchSource
+// Alias for pkg/events.FileWatchSource.
+type FileWatchSource = events.FileWatchSource
 
 // NewFileWatchSource creates a new source that watches the given file for changes.
 // Uses fsnotify for efficient, event-driven file watching (Linux, Windows, macOS, BSD).
 //
 // Example:
 //
-//	router.AddSource(lifecycle.NewFileWatchSource("config.yaml"))
-//	router.Handle("file/*", lifecycle.NewReloadHandler(reloadConfig))
+//	events.AddSource(lifecycle.NewFileWatchSource("config.yaml"))
+//	events.Handle("file/*", lifecycle.NewReloadHandler(reloadConfig))
 //
-// Alias for pkg/sources.NewFileWatchSource.
+// Alias for pkg/events.NewFileWatchSource.
 func NewFileWatchSource(path string) *FileWatchSource {
-	return sources.NewFileWatchSource(path)
+	return events.NewFileWatchSource(path)
 }
 
 // NewWebhookSource creates a source that listens for Webhooks.
-// Alias for pkg/sources.NewWebhookSource.
-func NewWebhookSource(addr string) *sources.WebhookSource {
-	return sources.NewWebhookSource(addr)
+// Alias for pkg/events.NewWebhookSource.
+func NewWebhookSource(addr string) *events.WebhookSource {
+	return events.NewWebhookSource(addr)
 }
 
 // ChannelSource adapts a generic Go channel to the Source interface.
-// Alias for pkg/sources.ChannelSource.
-type ChannelSource = sources.ChannelSource
+// Alias for pkg/events.ChannelSource.
+type ChannelSource = events.ChannelSource
 
 // NewChannelSource creates a new source that reads from the given channel.
-// Alias for pkg/sources.NewChannelSource.
+// Alias for pkg/events.NewChannelSource.
 func NewChannelSource(ch <-chan Event) *ChannelSource {
-	return sources.NewChannelSource(ch)
+	return events.NewChannelSource(ch)
 }
 
 // ======================================================================================
@@ -548,60 +546,60 @@ func NewChannelSource(ch <-chan Event) *ChannelSource {
 // ======================================================================================
 
 // ShutdownEvent is triggered when the application should shut down gracefully.
-// Alias for pkg/control.ShutdownEvent.
-type ShutdownEvent = control.ShutdownEvent
+// Alias for pkg/events.ShutdownEvent.
+type ShutdownEvent = events.ShutdownEvent
 
 // NewShutdownHandler returns a handler that cancels context.
-// It is automatically wrapped in control.Once to ensure idempotency.
-// Alias for pkg/handlers.NewShutdown.
+// It is automatically wrapped in events.Once to ensure idempotency.
+// Alias for pkg/events.NewShutdown.
 func NewShutdownHandler(cancel context.CancelFunc) Handler {
-	return handlers.NewShutdown(cancel)
+	return events.NewShutdown(cancel)
 }
 
 // NewShutdownFunc returns a handler that executes the given function once.
 // Useful for wrapping generic close/cleanup operations as shutdown triggers.
-// Alias for pkg/handlers.NewShutdownFunc.
+// Alias for pkg/events.NewShutdownFunc.
 func NewShutdownFunc(fn func()) Handler {
-	return handlers.NewShutdownFunc(fn)
+	return events.NewShutdownFunc(fn)
 }
 
 // NewReloadHandler returns a handler that reloads configuration.
-// Alias for pkg/handlers.NewReload.
+// Alias for pkg/events.NewReload.
 func NewReloadHandler(onReload func(context.Context) error) Handler {
-	return handlers.NewReload(onReload)
+	return events.NewReload(onReload)
 }
 
 // SuspendHandler manages Suspend and Resume events.
-// Alias for pkg/handlers.SuspendHandler.
-type SuspendHandler = handlers.SuspendHandler
+// Alias for pkg/events.SuspendHandler.
+type SuspendHandler = events.SuspendHandler
 
 // SuspendEvent is the event that triggers a suspension.
-// Alias for pkg/control.SuspendEvent.
-type SuspendEvent = control.SuspendEvent
+// Alias for pkg/events.SuspendEvent.
+type SuspendEvent = events.SuspendEvent
 
 // ResumeEvent is the event that triggers a resumption.
-// Alias for pkg/control.ResumeEvent.
-type ResumeEvent = control.ResumeEvent
+// Alias for pkg/events.ResumeEvent.
+type ResumeEvent = events.ResumeEvent
 
 // NewSuspendHandler creates a new handler for suspend/resume events.
-// Alias for pkg/handlers.NewSuspendHandler.
+// Alias for pkg/events.NewSuspendHandler.
 func NewSuspendHandler() *SuspendHandler {
-	return handlers.NewSuspendHandler()
+	return events.NewSuspendHandler()
 }
 
 // SmartSignalHandler implements "Double-Tap" signal logic (Suspend -> Quit).
-// Alias for pkg/handlers.SmartSignalHandler.
-type SmartSignalHandler = handlers.SmartSignalHandler
+// Alias for pkg/events.SmartSignalHandler.
+type SmartSignalHandler = events.SmartSignalHandler
 
 // NewSmartSignalHandler creates a new smart signal handler.
-// Alias for pkg/handlers.NewSmartSignalHandler.
+// Alias for pkg/events.NewSmartSignalHandler.
 func NewSmartSignalHandler(s *SuspendHandler, q Handler) *SmartSignalHandler {
-	return handlers.NewSmartSignalHandler(s, q)
+	return events.NewSmartSignalHandler(s, q)
 }
 
 // ClearLineEvent is triggered when an interactive input is interrupted.
-// Alias for pkg/control.ClearLineEvent.
-type ClearLineEvent = control.ClearLineEvent
+// Alias for pkg/events.ClearLineEvent.
+type ClearLineEvent = events.ClearLineEvent
 
 // ======================================================================================
 // 6a. Interactive Router Helpers

@@ -51,7 +51,9 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 			return nil
 		})
 
-		lifecycle.Go(ctx, router.Start)
+		lifecycle.Go(ctx, func(ctx context.Context) error {
+			return router.Start(ctx)
+		})
 		if err := sup.Start(ctx); err != nil {
 			return err
 		}

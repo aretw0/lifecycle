@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/proc"
+	"github.com/aretw0/lifecycle/pkg/core/proc"
 )
 
 func main() {
@@ -30,3 +30,6 @@ func main() {
 	// Parent exits immediately.
 	// We expect OS to kill child.
 }
+
+
+
