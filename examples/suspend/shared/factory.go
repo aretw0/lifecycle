@@ -15,7 +15,6 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
-		suspendedCh := make(chan struct{})
 		resumedCh := make(chan struct{})
 		quitCh := make(chan struct{})
 
@@ -37,14 +36,14 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 			if err := store.Save(ctx); err != nil {
 				return err
 			}
-			select {
-			case suspendedCh <- struct{}{}:
-			default:
-			}
+			fmt.Println("\n🛑 SYSTEM SUSPENDED.")
+			fmt.Println("👉 Commands: [r]esume | [q]uit | [x] terminate")
 			return nil
 		})
 
 		suspendHandler.OnResume(func(ctx context.Context) error {
+			fmt.Println("\n🟢 SYSTEM RESUMED.")
+			fmt.Println("👉 Manual Mode Active. Commands: [s]uspend | [q]uit | [x] terminate")
 			select {
 			case resumedCh <- struct{}{}:
 			default:
@@ -63,8 +62,9 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 		}()
 
 		slog.Info(">>> FACTORY RUNNING <<<")
-		slog.Info("Commands: [s]uspend, [r]esume, [q]uit")
-		slog.Info("Auto-Suspend in 10s (unless you interact)")
+		fmt.Println("\n🚀 FACTORY IS LIVE!")
+		fmt.Println("👉 Commands: [s]uspend | [r]esume | [q]uit | [x] terminate (save & quit)")
+		fmt.Println("👉 Auto-Suspend in 10s (unless you interact)")
 
 		autoSuspend := time.NewTimer(10 * time.Second)
 		defer autoSuspend.Stop()
@@ -91,29 +91,19 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 					simSource <- lifecycle.SuspendEvent{}
 				}
 
-			case <-suspendedCh:
-				autoSuspend.Stop()
-				if autoSuspendActive {
-					fmt.Println("\n🛑 SYSTEM SUSPENDED (Auto).")
-				} else {
-					fmt.Println("\n🛑 SYSTEM SUSPENDED (Manual).")
-				}
-				fmt.Println("👉 Commands: [r]esume | [q]uit")
-
 			case <-resumedCh:
 				autoSuspendActive = false
-				fmt.Println("\n🟢 SYSTEM RESUMED.")
-				fmt.Println("👉 Manual Mode Active. Commands: [s]uspend | [q]uit")
+			}
 
-			case <-time.After(1 * time.Second):
-				store.Mu.Lock()
-				count := store.State.ItemsProcessed
-				store.Mu.Unlock()
-				if count >= TargetGoal {
-					slog.Info("🏆 GOAL REACHED! Shutting down factory.")
-					store.Cleanup()
-					return nil
-				}
+			// Immediate health check for the goal
+			store.Mu.Lock()
+			count := store.State.ItemsProcessed
+			store.Mu.Unlock()
+			if count >= TargetGoal {
+				slog.Info("🏆 GOAL REACHED! Shutting down factory.")
+				store.Cleanup()
+				lifecycle.Shutdown(ctx)
+				return nil
 			}
 		}
 	}),

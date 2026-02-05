@@ -73,8 +73,12 @@ func (s *Store) Load() {
 	slog.Info("[STORE] Loaded previous state", "state", s.State)
 }
 
-// Cleanup removes the state file.
+// Cleanup removes the state file and resets internal counters.
 func (s *Store) Cleanup() {
 	slog.Info("[STORE] Goal reached! Cleaning up state file.")
+	s.Mu.Lock()
+	s.State.ItemsProduced = 0
+	s.State.ItemsProcessed = 0
+	s.Mu.Unlock()
 	os.Remove(s.Path)
 }
