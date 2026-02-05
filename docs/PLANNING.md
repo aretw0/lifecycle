@@ -56,22 +56,25 @@
 
 ## Quality Baseline (Current Status)
 
-### Test Coverage Snapshot (2026-02-05)
+### Test Coverage Snapshot (2026-02-05 - Updated)
 
 **Current Coverage by Package**:
 
 ```log
-lifecycle (root)       : 15.2%  ⚠️ BELOW TARGET
-pkg/core/worker        : 63.6%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/signal        : 63.6%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/runtime       : 60.6%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/supervisor    : 76.9%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/termio        : 51.8%  ⚠️ NEEDS IMPROVEMENT
-pkg/events             : 39.8%  🔴 CRITICAL GAP
-pkg/core/metrics       : 2.4%   🔴 CRITICAL GAP
+lifecycle (root)       : 15.4%  ⚠️ BELOW TARGET
+pkg/core/runtime       : 89.3%  ✨ EXCELLENT
+pkg/core/signal        : 82.7%  ✨ NEAR TARGET
+pkg/core/supervisor    : 83.8%  ✨ NEAR TARGET
+pkg/core/termio        : 51.4%  ⚠️ NEEDS IMPROVEMENT
+pkg/core/proc          : 55.9%  ⚠️ NEEDS IMPROVEMENT
+pkg/events             : 37.5%  🔴 CRITICAL GAP
+pkg/core/metrics       : 20.4%  🔴 CRITICAL GAP
+pkg/core/container     : 0.0%   🔴 CRITICAL GAP
+pkg/core/introspection : 0.0%   🔴 CRITICAL GAP
+pkg/core/log           : 0.0%   🔴 CRITICAL GAP
 ```
 
-**Overall Coverage**: 35.2%
+**Overall Coverage**: 37.5%
 
 **Target**: ≥80% average coverage across all packages before v2.1 launch
 

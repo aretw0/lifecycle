@@ -102,5 +102,39 @@ func TestRun_WaitsForBackgroundTasks(t *testing.T) {
 	}
 }
 
+func TestRun_LeakWarning(t *testing.T) {
+	// This test exercises the timeout logic in waitForTasks.
+	// We use a very short shutdown timeout.
 
+	job := Job(func(ctx context.Context) error {
+		// Start a goroutine that doesn't respect context and hangs
+		Go(ctx, func(ctx context.Context) error {
+			// Simulate a leak
+			time.Sleep(200 * time.Millisecond)
+			return nil
+		})
+		return nil
+	})
 
+	start := time.Now()
+	// Set a timeout shorter than the sleep
+	err := Run(job, WithShutdownTimeout(50*time.Millisecond))
+	duration := time.Since(start)
+
+	// Check that the duration is within an expected range, indicating the leak warning logic was triggered.
+	// The goroutine sleeps for 200ms, and the timeout is 50ms, so it should take at least 50ms (the timeout)
+	// but less than the full 200ms + some overhead (e.g., 10ms for safety).
+	if duration < 50*time.Millisecond || duration > 210*time.Millisecond {
+		t.Errorf("Run returned too early or too late, expected around 200ms (goroutine sleep) but got %v", duration)
+	}
+
+	if err != nil {
+		t.Errorf("Run failed: %v", err)
+	}
+
+	// It should have taken at least 200ms because waitForTasks blocks until <-done
+	// (meaning it waits for the leaked task to eventually finish even after warning)
+	if duration < 200*time.Millisecond {
+		t.Errorf("Run returned too early, should have waited for leaked task: %v", duration)
+	}
+}

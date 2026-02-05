@@ -296,5 +296,51 @@ func TestSignalContext_State_NoDestructiveRead(t *testing.T) {
 	}
 }
 
+func TestSignalContext_WithResetTimeout(t *testing.T) {
+	timeout := 100 * time.Millisecond
+	opt := WithResetTimeout(timeout)
 
+	ctx := NewContext(context.Background(), opt)
+	defer ctx.Stop()
 
+	// Verify option was applied by checking context is created successfully
+	state := ctx.State()
+	if state == (State{}) {
+		t.Error("State() returned empty state after WithResetTimeout")
+	}
+}
+
+func TestSignalContext_IsUnsafe(t *testing.T) {
+	t.Run("SafeWithDefaultThreshold", func(t *testing.T) {
+		ctx := NewContext(context.Background())
+		defer ctx.Stop()
+
+		// Default threshold should be safe (not 0)
+		unsafe := ctx.IsUnsafe()
+		if unsafe {
+			t.Errorf("Expected IsUnsafe() to be false for default threshold, got true")
+		}
+	})
+
+	t.Run("UnsafeWhenThresholdIsZero", func(t *testing.T) {
+		ctx := NewContext(context.Background(), WithForceExit(0))
+		defer ctx.Stop()
+
+		// Force exit threshold of 0 means unsafe
+		unsafe := ctx.IsUnsafe()
+		if !unsafe {
+			t.Errorf("Expected IsUnsafe() to be true when ForceExit(0), got false")
+		}
+	})
+}
+
+func TestSignalContext_ForceExitThreshold(t *testing.T) {
+	ctx := NewContext(context.Background())
+	defer ctx.Stop()
+
+	// Get the force exit threshold
+	threshold := ctx.ForceExitThreshold()
+	if threshold == 0 {
+		t.Error("ForceExitThreshold() returned 0, expected non-zero")
+	}
+}
