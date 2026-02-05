@@ -21,6 +21,7 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 
 		router := lifecycle.NewInteractiveRouter(suspendHandler,
 			lifecycle.WithShutdown(func() {
+				lifecycle.Shutdown(ctx)
 				close(quitCh)
 			}),
 		)
@@ -55,7 +56,11 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 		if err := sup.Start(ctx); err != nil {
 			return err
 		}
-		defer sup.Stop(context.WithoutCancel(ctx))
+		defer func() {
+			stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer stopCancel()
+			sup.Stop(stopCtx)
+		}()
 
 		slog.Info(">>> FACTORY RUNNING <<<")
 		slog.Info("Commands: [s]uspend, [r]esume, [q]uit")
