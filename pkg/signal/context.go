@@ -360,11 +360,11 @@ type Config struct {
 type Status struct {
 	Received      os.Signal
 	Reason        Reason
-	Stopping      bool
+	Stopping      bool // Context is cancelled, hooks may be running
 	SignalCount   int
 	ResetDeadline time.Time
-	Enabled       bool
-	Stopped       bool
+	Enabled       bool // Monitoring loop is active (shielding escalation)
+	Stopped       bool // All shutdown hooks have finished
 }
 
 // State combines configuration and runtime status for introspection.
@@ -418,7 +418,12 @@ func (sc *Context) State() State {
 // runHooks executes registered hooks in LIFO order using a Pop-Loop strategy.
 // This allows hooks to register *new* hooks that will be executed immediately (LIFO).
 func (sc *Context) runHooks() {
-	defer close(sc.hooksDone)
+	oldState := sc.State()
+	defer func() {
+		close(sc.hooksDone)
+		newState := sc.State()
+		sc.emitStateChange(oldState, newState)
+	}()
 
 	for {
 		sc.mu.Lock()

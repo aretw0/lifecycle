@@ -104,15 +104,15 @@ func renderSignalFragment(sb *strings.Builder, sig any, id, indent string) {
 	statusMode := "Running"
 	statusClass := "running"
 
-	if stoppedState {
-		statusMode = "Stopped"
+	if !enabled {
+		statusMode = "Disabled"
 		statusClass = "stopped"
-	} else if !enabled {
+	} else if stoppedState {
 		statusMode = "Stopped"
 		statusClass = "stopped"
 	} else if stopping {
 		statusMode = "Stopping"
-		statusClass = "stopping" // Use the red/pink style for shutdown feedback
+		statusClass = "pending" // Visual feedback for "Standing Guard"
 
 		// Adjust label if reason is known
 		if reason == "Signal:Terminate" {
