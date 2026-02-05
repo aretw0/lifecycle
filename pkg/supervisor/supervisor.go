@@ -223,9 +223,13 @@ func (s *supervisor) monitor(ctx context.Context) {
 				s.stopping = true
 				s.emitStateChange(oldState, s.stateLocked())
 			}
-			// Stop all children NOW to trigger their shutdown
-			// We need to do this while holding the lock because stopAll expects it
-			stopErr := s.stopAll(context.Background())
+			// 2. Wait for all child exit events to be sent while draining channel
+			// We must drain because guards might block on eventChan if full.
+			// Use a background context with timeout for stopAll to avoid hanging forever
+			// if context cancellation failed to stop workers.
+			stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			stopErr := s.stopAll(stopCtx)
+			stopCancel()
 			s.mu.Unlock()
 
 			if stopErr != nil {
