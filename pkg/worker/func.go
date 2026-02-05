@@ -19,7 +19,7 @@ func FromFunc(name string, fn func(context.Context) error) Worker {
 		name:   name,
 		fn:     fn,
 		wait:   make(chan error, 1),
-		status: StatusPending,
+		status: StatusCreated,
 	}
 }
 
@@ -41,8 +41,8 @@ func (w *funcWorker) Start(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.status != StatusPending {
-		return fmt.Errorf("worker %s already started", w.name)
+	if w.status != StatusCreated && w.status != StatusPending {
+		return fmt.Errorf("worker %s already started (status: %s)", w.name, w.status)
 	}
 
 	// Create context for the function

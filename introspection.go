@@ -3,7 +3,7 @@ package lifecycle
 import (
 	"strings"
 
-	"github.com/aretw0/lifecycle/internal/diagram"
+	"github.com/aretw0/lifecycle/pkg/adapters/mermaid"
 	"github.com/aretw0/lifecycle/pkg/signal"
 	"github.com/aretw0/lifecycle/pkg/worker"
 )
@@ -29,7 +29,7 @@ func SystemDiagram(sig SignalState, work WorkerState) string {
 	sb.WriteString("    S -- cancels --> root\n")
 
 	// 4. Styles
-	sb.WriteString(diagram.Styles())
+	sb.WriteString(mermaid.DefaultStyles())
 
 	return sb.String()
 }

@@ -2,6 +2,9 @@ package worker
 
 import (
 	"context"
+	"sync"
+
+	"github.com/aretw0/lifecycle/pkg/introspection"
 )
 
 // BaseWorker provides default implementations for common Worker interface methods.
@@ -34,19 +37,40 @@ import (
 //   - Wait() — returns done channel
 //   - String() — returns worker name
 //   - State() — returns minimal state with name
+//   - Watch(ctx) — returns state change events (StateWatcher)
 //
 // These can be overridden if custom behavior is needed.
 type BaseWorker struct {
-	name string
-	done chan error
+	name   string
+	done   chan error
+	status Status
+	mu     sync.RWMutex
+
+	// StateWatchers (Event-Driven Introspection)
+	stateWatchers []chan introspection.StateChange[State]
+	watchersMu    sync.RWMutex
 }
 
 // NewBaseWorker creates a new BaseWorker with the given name.
 // The name is immutable after creation (construct a new worker to change it).
 func NewBaseWorker(name string) BaseWorker {
 	return BaseWorker{
-		name: name,
-		done: make(chan error, 1),
+		name:   name,
+		done:   make(chan error, 1),
+		status: StatusCreated,
+	}
+}
+
+// SetStatus updates the worker's status and emits a state change event.
+// This should be called by worker implementations when status changes.
+func (b *BaseWorker) SetStatus(new Status) {
+	b.mu.Lock()
+	old := b.status
+	b.status = new
+	b.mu.Unlock()
+
+	if old != new {
+		b.emitStateChange(State{Name: b.name, Status: old}, State{Name: b.name, Status: new})
 	}
 }
 
@@ -69,10 +93,22 @@ func (b *BaseWorker) String() string {
 	return b.name
 }
 
-// State returns minimal worker state containing only the name.
-// Override this method if your worker has rich state to report.
+// State returns the current worker state with thread-safe access.
+// DO NOT OVERRIDE THIS METHOD. Override buildState() instead.
 func (b *BaseWorker) State() State {
-	return State{Name: b.name}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.buildState()
+}
+
+// buildState constructs the worker state.
+// Override this method in subclasses to add custom fields.
+// The caller (State()) already holds the read lock, so this is safe.
+func (b *BaseWorker) buildState() State {
+	return State{
+		Name:   b.name,
+		Status: b.status,
+	}
 }
 
 // StartFunc is a helper that runs fn in a goroutine and manages the done channel.

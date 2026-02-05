@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aretw0/lifecycle/internal/diagram"
+	"github.com/aretw0/lifecycle/pkg/adapters/mermaid"
 )
 
 // MermaidState returns a simple Mermaid state diagram (FSM) for a single worker.
@@ -27,7 +27,7 @@ func MermaidState(s State) string {
 	sb.WriteString("    Running --> Failed: Error (Exit != 0)\n")
 
 	// Styling
-	sb.WriteString(diagram.Styles())
+	sb.WriteString(mermaid.DefaultStyles())
 	sb.WriteString("    class Stopped stopped\n")
 	sb.WriteString("    class Failed failed\n")
 
@@ -57,7 +57,7 @@ func MermaidTree(s State) string {
 	sb.WriteString("graph TD\n")
 
 	// Definitions for styles
-	sb.WriteString(diagram.Styles())
+	sb.WriteString(mermaid.DefaultStyles())
 
 	// Render Root
 	renderNode(&sb, s, "root", "    ")

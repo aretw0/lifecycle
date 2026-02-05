@@ -36,7 +36,7 @@ func NewProcessWorker(name string, nameCmd string, args ...string) *ProcessWorke
 	return &ProcessWorker{
 		cmd:      cmd,
 		name:     name,
-		status:   StatusPending,
+		status:   StatusCreated,
 		waitChan: make(chan error, 1),
 		env:      make(map[string]string),
 	}
@@ -47,7 +47,7 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.status != StatusPending {
+	if p.status != StatusCreated && p.status != StatusPending {
 		return fmt.Errorf("worker %s already started (status: %s)", p.name, p.status)
 	}
 

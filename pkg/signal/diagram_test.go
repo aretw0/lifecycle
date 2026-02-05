@@ -15,8 +15,10 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "Default",
 			state: State{
-				ForceExitThreshold: 1,
-				HookTimeout:        5 * time.Second,
+				Config: Config{
+					ForceExitThreshold: 1,
+					HookTimeout:        5 * time.Second,
+				},
 			},
 			contains: []string{
 				"Running --> Graceful: SIGINT/SIGTERM",
@@ -27,8 +29,10 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "NoInterrupt",
 			state: State{
-				ForceExitThreshold: 2,
-				HookTimeout:        5 * time.Second,
+				Config: Config{
+					ForceExitThreshold: 2,
+					HookTimeout:        5 * time.Second,
+				},
 			},
 			contains: []string{
 				"Running --> Graceful: SIGTERM", // Should not see SIGINT
@@ -37,8 +41,10 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "NoForceExit",
 			state: State{
-				ForceExitThreshold: 0,
-				HookTimeout:        100 * time.Millisecond,
+				Config: Config{
+					ForceExitThreshold: 0,
+					HookTimeout:        100 * time.Millisecond,
+				},
 			},
 			contains: []string{
 				"Timeout: 100ms",
@@ -47,9 +53,13 @@ func TestMermaid(t *testing.T) {
 		{
 			name: "StoppingHighlight",
 			state: State{
-				ForceExitThreshold: 1,
-				HookTimeout:        5 * time.Second,
-				Stopping:           true,
+				Config: Config{
+					ForceExitThreshold: 1,
+					HookTimeout:        5 * time.Second,
+				},
+				Status: Status{
+					Stopping: true,
+				},
 			},
 			contains: []string{
 				"class Graceful active",

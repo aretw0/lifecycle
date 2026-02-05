@@ -95,8 +95,10 @@ func (cw *ContainerWorker) State() State {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	status := StatusPending
+	status := StatusCreated
 	switch cw.c.Status() {
+	case container.StatusPending:
+		status = StatusPending
 	case container.StatusRunning:
 		status = StatusRunning
 	case container.StatusStopped:

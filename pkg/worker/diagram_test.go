@@ -12,9 +12,9 @@ func TestMermaidState(t *testing.T) {
 		contains []string
 	}{
 		{
-			name:     "Pending",
-			state:    State{Name: "worker-1", Status: StatusPending},
-			contains: []string{"class Pending active", "Name: worker-1"},
+			name:     "Created",
+			state:    State{Name: "worker-1", Status: StatusCreated},
+			contains: []string{"class Created active", "Name: worker-1"},
 		},
 		{
 			name:     "Running",
@@ -53,8 +53,8 @@ func TestMermaidTree(t *testing.T) {
 	}{
 		{
 			name:     "Leaf",
-			state:    State{Name: "worker-1", Status: StatusPending},
-			contains: []string{"graph TD", "worker-1", "Pending", "classDef pending"},
+			state:    State{Name: "worker-1", Status: StatusCreated},
+			contains: []string{"graph TD", "worker-1", "Created", "classDef created"},
 		},
 		{
 			name: "Tree",

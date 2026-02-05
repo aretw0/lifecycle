@@ -114,6 +114,7 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 	}),
 		lifecycle.WithLogger(l),
 		lifecycle.WithForceExit(2),
+		lifecycle.WithCancelOnInterrupt(false), // Interactive mode: Ctrl+C suspends, doesn't cancel
 	)
 
 	if err != nil && err != context.Canceled {

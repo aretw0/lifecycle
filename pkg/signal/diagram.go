@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aretw0/lifecycle/internal/diagram"
+	"github.com/aretw0/lifecycle/pkg/adapters/mermaid"
 )
 
 // MermaidState returns a Mermaid state diagram string representing the lifecycle configuration.
@@ -47,7 +47,7 @@ func MermaidState(s State) string {
 		sb.WriteString(fmt.Sprintf("    note left of Graceful: Received %s\n", s.Received))
 	}
 
-	sb.WriteString(diagram.Styles())
+	sb.WriteString(mermaid.DefaultStyles())
 
 	return sb.String()
 }

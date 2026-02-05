@@ -28,10 +28,12 @@ func printHelp(forceExitThreshold int) {
 }
 
 func main() {
-	// 1. Setup Signal Context wlifecycle.WithForceExit(0), // REPL mode: Handled manuallys means Ctrl+C won't cancel the context automatically.
+	// 1. Setup Signal Context with interactive mode
+	// WithCancelOnInterrupt(false) means Ctrl+C won't cancel the context automatically.
 	// We also set WithForceExit(3) so the user can still kill it with 3x Ctrl+C.
 	ctx := lifecycle.NewSignalContext(context.Background(),
 		lifecycle.WithForceExit(THRESHOLD_SAFE),
+		lifecycle.WithCancelOnInterrupt(false), // Interactive mode: Ctrl+C handled manually
 	)
 	defer ctx.Stop()
 

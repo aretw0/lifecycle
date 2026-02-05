@@ -54,10 +54,47 @@ type Suspendable interface {
 type Status string
 
 const (
+	// StatusCreated indicates the worker is instantiated and ready to start immediately.
+	// The worker has all resources allocated and no blocking conditions.
+	// Transition: NewWorker() → StatusCreated
+	StatusCreated Status = "Created"
+
+	// StatusPending indicates the worker is instantiated but blocked from starting.
+	// Common blocking conditions:
+	//   - Backoff/retry delay (supervisor restart policy)
+	//   - Circuit breaker open
+	//   - Resource pool exhausted
+	//   - Scheduled start time not reached
+	// Transition: Supervisor backoff → StatusPending, Circuit breaker → StatusPending
 	StatusPending Status = "Pending"
+
+	// StatusStarting indicates Start() was called and initialization is in progress.
+	// Transition: Start() called → StatusStarting
+	StatusStarting Status = "Starting"
+
+	// StatusRunning indicates the worker is actively executing its workload.
+	// Transition: Start() completed → StatusRunning
 	StatusRunning Status = "Running"
+
+	// StatusSuspended indicates the worker is paused (implements Suspendable interface).
+	// Transition: Suspend() called → StatusSuspended
+	StatusSuspended Status = "Suspended"
+
+	// StatusStopping indicates Stop() was called and graceful shutdown is in progress.
+	// Transition: Stop() called → StatusStopping
+	StatusStopping Status = "Stopping"
+
+	// StatusStopped indicates the worker was explicitly requested to stop (Manual/API).
+	// Transition: Stop() called → StatusStopped
 	StatusStopped Status = "Stopped"
-	StatusFailed  Status = "Failed"
+
+	// StatusFinished indicates the worker has cleanly terminated execution naturally (exit code 0).
+	// Transition: Work completed without error → StatusFinished
+	StatusFinished Status = "Finished"
+
+	// StatusFailed indicates the worker terminated with an error (exit code != 0).
+	// Transition: Work completed with error → StatusFailed
+	StatusFailed Status = "Failed"
 )
 
 // Key returns the normalized lowercase representation of the status.

@@ -126,6 +126,12 @@ func WithHookTimeout(d time.Duration) signal.Option {
 	return signal.WithHookTimeout(d)
 }
 
+// WithCancelOnInterrupt controls whether SIGINT automatically cancels the context.
+// Alias for pkg/signal.WithCancelOnInterrupt.
+func WithCancelOnInterrupt(enabled bool) signal.Option {
+	return signal.WithCancelOnInterrupt(enabled)
+}
+
 // OnShutdown safely registers a shutdown hook on the context if it supports it.
 // It abstracts the discovery of signal.Context even when wrapped.
 func OnShutdown(ctx context.Context, fn func()) {
@@ -190,6 +196,7 @@ type WorkerState = worker.State
 type WorkerStatus = worker.Status
 
 const (
+	WorkerStatusCreated = worker.StatusCreated
 	WorkerStatusPending = worker.StatusPending
 	WorkerStatusRunning = worker.StatusRunning
 	WorkerStatusStopped = worker.StatusStopped

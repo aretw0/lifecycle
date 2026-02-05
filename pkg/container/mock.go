@@ -19,7 +19,7 @@ type MockContainer struct {
 func NewMockContainer(id string) *MockContainer {
 	return &MockContainer{
 		id:     id,
-		status: StatusPending,
+		status: StatusCreated,
 		logs:   strings.NewReader(fmt.Sprintf("Logs for container %s\n", id)),
 	}
 }
@@ -27,8 +27,8 @@ func NewMockContainer(id string) *MockContainer {
 func (m *MockContainer) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.status != StatusPending {
-		return fmt.Errorf("container already started")
+	if m.status != StatusCreated && m.status != StatusPending {
+		return fmt.Errorf("container already started (status: %s)", m.status)
 	}
 	m.status = StatusRunning
 	return nil

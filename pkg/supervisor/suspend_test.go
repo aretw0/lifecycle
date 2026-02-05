@@ -68,4 +68,9 @@ func TestSupervisor_SuspendResume(t *testing.T) {
 	if w1.suspended {
 		t.Error("worker1 should be active")
 	}
+
+	// Clean up: finalize workers so guards can exit
+	cancel() // Cancel context first
+	close(w1.WaitChan)
+	close(w2.WaitChan)
 }

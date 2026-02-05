@@ -9,6 +9,7 @@ import (
 type Status string
 
 const (
+	StatusCreated Status = "Created"
 	StatusPending Status = "Pending"
 	StatusRunning Status = "Running"
 	StatusStopped Status = "Stopped"

@@ -1,6 +1,10 @@
 package control
 
-import "context"
+import (
+	"context"
+
+	"github.com/aretw0/lifecycle/pkg/introspection"
+)
 
 // Event is a stimulus that triggers a reaction.
 // It can be a system signal, a webhook, a time tick, or a custom application event.
@@ -39,9 +43,7 @@ type RouteInfo struct {
 	Handler string // Name of the handler
 }
 
-// Introspectable is an interface for components that can report their internal state.
-// This is used for generating visualization and status reports.
-type Introspectable interface {
-	// State returns a serializable DTO (Data Transfer Object) representing the component's state.
-	State() any
-}
+// Re-export introspection interfaces for backward compatibility
+type (
+	Introspectable = introspection.Introspectable
+)

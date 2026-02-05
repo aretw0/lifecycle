@@ -63,42 +63,28 @@ func TestSignalContext_Reason(t *testing.T) {
 }
 
 func TestSignalContext_Options(t *testing.T) {
-	t.Run("WithForceExit_0", func(t *testing.T) {
-		ctx := NewContext(context.Background(), WithForceExit(0))
+	t.Run("WithForceExit_0_WithCancelOnInterrupt_false", func(t *testing.T) {
+		ctx := NewContext(context.Background(),
+			WithForceExit(0),
+			WithCancelOnInterrupt(false), // Explicit: Don't cancel
+		)
 		defer ctx.Stop()
 
 		ctx.sigCh <- os.Interrupt
 
 		select {
 		case <-ctx.Done():
-			t.Error("Context should NOT be cancelled by Interrupt when WithForceExit(0)")
+			t.Error("Context should NOT be cancelled by Interrupt when WithForceExit(0) and WithCancelOnInterrupt(false)")
 		case <-time.After(100 * time.Millisecond):
 			// Success
 		}
 	})
 
-	t.Run("WithForceExit_Escalation", func(t *testing.T) {
-		ctx := NewContext(context.Background(), WithForceExit(3))
-		defer ctx.Stop()
-
-		ctx.sigCh <- os.Interrupt
-		select {
-		case <-ctx.Done():
-			t.Error("Context should NOT be cancelled by first Interrupt when threshold is 3")
-		case <-time.After(100 * time.Millisecond):
-			// Success
-		}
-	})
-
-	t.Run("WithForceExit_Default", func(t *testing.T) {
+	t.Run("With_Default", func(t *testing.T) {
 		// We can't easily test os.Exit in a unit test without subprocesses,
 		// but we can test the handleSignal logic directly.
 		sc := &Context{
 			Context: context.Background(),
-			cancel:  func() {},
-			opts: options{
-				forceExitThreshold: 2,
-			},
 		}
 
 		// This is just to verify no panic and basic first signal logic
@@ -121,18 +107,23 @@ func TestSignalContext_Stop(t *testing.T) {
 }
 
 func TestShouldCancel(t *testing.T) {
-	sc := &Context{opts: options{forceExitThreshold: 1}}
+	// Test with cancelOnInterrupt=true (default)
+	sc := &Context{opts: options{cancelOnInterrupt: true}}
 
 	if !sc.shouldCancel(syscall.SIGTERM) {
 		t.Error("SIGTERM should always cancel")
 	}
 	if !sc.shouldCancel(os.Interrupt) {
-		t.Error("SIGINT should cancel when forceExitThreshold is 1")
+		t.Error("SIGINT should cancel when cancelOnInterrupt is true")
 	}
 
-	sc.opts.forceExitThreshold = 2
+	// Test with cancelOnInterrupt=false
+	sc.opts.cancelOnInterrupt = false
+	if !sc.shouldCancel(syscall.SIGTERM) {
+		t.Error("SIGTERM should always cancel regardless of cancelOnInterrupt")
+	}
 	if sc.shouldCancel(os.Interrupt) {
-		t.Error("SIGINT should NOT cancel when forceExitThreshold is > 1")
+		t.Error("SIGINT should NOT cancel when cancelOn Interrupt is false")
 	}
 }
 

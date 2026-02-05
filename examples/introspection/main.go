@@ -3,81 +3,133 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/aretw0/lifecycle"
+	"github.com/aretw0/lifecycle/pkg/adapters/mermaid"
+	"github.com/aretw0/lifecycle/pkg/introspection"
+	"github.com/aretw0/lifecycle/pkg/signal"
+	"github.com/aretw0/lifecycle/pkg/worker"
 )
 
 func main() {
-	// 1. Create a Signal Context
-	ctx := lifecycle.NewSignalContext(context.Background())
-	defer ctx.Stop()
+	// 1. Setup lifecycle context (The Control Plane)
+	// We use a threshold of 2 to demonstrate "Double-Tap" logic:
+	// 1st Ctrl+C -> Cancels context (Graceful Shutdown)
+	// 2nd Ctrl+C -> os.Exit(1) (Force Exit)
+	ctx := lifecycle.NewSignalContext(context.Background(),
+		lifecycle.WithForceExit(2),
+	)
 
-	// 2. Create a Supervisor (The Root)
-	sup := lifecycle.NewSupervisor("root-system", lifecycle.SupervisorStrategyOneForAll)
-
-	// 3. Add diverse workers
-	// Process Worker
-	sup.Add(lifecycle.SupervisorSpec{
-		Name: "database",
-		Type: "process",
-		Factory: func() (lifecycle.Worker, error) {
-			return lifecycle.NewProcessWorker("database", os.Args[0], "worker"), nil // Self-exec for demo
+	// 2. Setup supervisor (The Data Plane)
+	sup := lifecycle.NewSupervisor("app", lifecycle.SupervisorStrategyOneForOne,
+		lifecycle.SupervisorSpec{
+			Name: "ticker",
+			Type: "func",
+			Factory: func() (lifecycle.Worker, error) {
+				return lifecycle.NewWorkerFromFunc("ticker", func(ctx context.Context) error {
+					ticker := time.NewTicker(1 * time.Second)
+					defer ticker.Stop()
+					count := 0
+					for {
+						select {
+						case <-ticker.C:
+							count++
+							fmt.Printf("  ⏱️  Tick %d\n", count)
+						case <-ctx.Done():
+							// fmt.Printf("  🛑 Ticker worker received STOP signal (last tick: %d)\n", count)
+							// Simulate some cleanup work
+							time.Sleep(500 * time.Millisecond)
+							return nil
+						}
+					}
+				}), nil
+			},
 		},
-	})
-
-	// Functional Worker
-	sup.Add(lifecycle.SupervisorSpec{
-		Name: "health-check",
-		Type: "func",
-		Factory: func() (lifecycle.Worker, error) {
-			return lifecycle.NewWorkerFromFunc("health-check", func(ctx context.Context) error {
-				<-ctx.Done()
-				return nil
-			}), nil
+		lifecycle.SupervisorSpec{
+			Name: "short-job",
+			Type: "func",
+			Factory: func() (lifecycle.Worker, error) {
+				return lifecycle.NewWorkerFromFunc("short-job", func(ctx context.Context) error {
+					fmt.Println("  📝 Short job starting...")
+					time.Sleep(2 * time.Second)
+					fmt.Println("  ✅ Short job completed")
+					return nil
+				}), nil
+			},
+			RestartPolicy: lifecycle.RestartNever,
 		},
-	})
+	)
 
-	// Container Worker (Mock)
-	mock := lifecycle.NewMockContainer("redis-mock-id")
-	sup.Add(lifecycle.SupervisorSpec{
-		Name: "cache",
-		Type: "container",
-		Factory: func() (lifecycle.Worker, error) {
-			return lifecycle.NewContainerWorker("cache", mock), nil
-		},
-	})
+	// Print initial state diagram
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println("📊 INITIAL STATE")
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println(mermaid.SystemDiagram(ctx.State(), sup.State()))
 
-	fmt.Println("=== Introspection Demo (v1.3.1) ===")
-	fmt.Println("1. Initial State (Pending):")
-	fmt.Println(lifecycle.SystemDiagram(ctx.State(), sup.State()))
+	// Aggregate ALL state changes
+	watchCtx, cancelWatch := context.WithCancel(context.Background())
+	defer cancelWatch()
 
-	// 4. Start Supervisor
+	snapshots := introspection.AggregateWatchers(watchCtx, ctx, sup)
+
+	// Watch for state changes in background
+	go func() {
+		for snapshot := range snapshots {
+			var output strings.Builder
+			output.WriteString(fmt.Sprintf("\n📡 EVENT [%s]: %s changed", snapshot.Timestamp.Format("15:04:05.000"), snapshot.ComponentID))
+
+			switch payload := snapshot.Payload.(type) {
+			case worker.State:
+				output.WriteString(fmt.Sprintf(" -> Status: %s\n", payload.Status))
+			case signal.State:
+				output.WriteString(fmt.Sprintf(" -> Signals: %d (Reason: %s, Threshold: %d)\n",
+					payload.SignalCount, payload.Reason, payload.ForceExitThreshold))
+			}
+
+			// Render updated diagram
+			output.WriteString(mermaid.SystemDiagram(ctx.State(), sup.State()))
+			output.WriteString("\n")
+			output.WriteString(strings.Repeat("-", 40))
+			output.WriteString("\n")
+
+			fmt.Print(output.String())
+		}
+	}()
+
+	// Start supervisor
+	fmt.Println("\n🚀 Starting supervisor...")
 	if err := sup.Start(ctx); err != nil {
-		panic(err)
+		fmt.Printf("CRITICAL: Supervisor failed to start: %v\n", err)
+		return
 	}
-	time.Sleep(100 * time.Millisecond) // Let them start
 
-	fmt.Println("\n2. Running State:")
-	fmt.Println(lifecycle.SystemDiagram(ctx.State(), sup.State()))
+	fmt.Print("\n⏳ Press Ctrl+C once for GRACEFUL shutdown, twice to FORCE exit\n\n")
 
-	// 5. Shutdown
-	fmt.Println("\nStopping SignalContext (Manual)...")
-	ctx.Stop() // This sets Reason = Manual
+	// Wait for context cancellation (SIGINT/SIGTERM)
+	<-ctx.Done()
+	fmt.Println("\n🛑 Graceful shutdown initiated in main (Ctrl+C received)")
 
-	// Stop Supervisor
-	sup.Stop(ctx)
-	<-sup.Wait()
+	// The supervisor will stop automatically because its context is linked to 'ctx'.
+	// We just need to wait for it to finish gracefully.
 
-	fmt.Println("\n3. Final State (Stopped):")
-	fmt.Println(lifecycle.SystemDiagram(ctx.State(), sup.State()))
-}
-
-// Helper for the worker process simulation
-func init() {
-	if os.Getenv("GO_HELPER_PROCESS") == "1" {
-		time.Sleep(100 * time.Millisecond) // Simulate work
-		os.Exit(0)
+	fmt.Println("⏳ Waiting for supervisor and children to terminate...")
+	select {
+	case <-sup.Wait():
+		fmt.Println("✅ Supervisor finished successfully")
+	case <-time.After(5 * time.Second):
+		fmt.Println("⚠️  Timeout waiting for supervisor finish")
 	}
+
+	// Give the event aggregator plenty of time to flush the last events
+	// (Signal received, Stopping transitions, Worker exits, Final Stopped state)
+	time.Sleep(1 * time.Second)
+
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println("📊 FINAL STATE (Captured from components)")
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println(mermaid.SystemDiagram(ctx.State(), sup.State()))
+
+	fmt.Println("\n👋 Demo ended.")
 }

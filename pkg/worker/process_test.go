@@ -51,8 +51,8 @@ func TestProcess_StartStop(t *testing.T) {
 
 	// Verify initial state
 	initialState := w.State()
-	if initialState.Status != worker.StatusPending {
-		t.Errorf("Expected Pending status, got %s", initialState.Status)
+	if initialState.Status != worker.StatusCreated {
+		t.Errorf("Expected Created status, got %s", initialState.Status)
 	}
 
 	ctx := context.Background()
