@@ -310,7 +310,14 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 		return
 	}
 
-	log.Warn("child worker exited", "supervisor", s.name, "child", exit.name, "error", exit.err)
+	// Determine if the exit is "expected" (graceful shutdown or requested stop)
+	isExpected := s.stopRequested[exit.name] || s.stopping || (exit.err != nil && errors.Is(exit.err, context.Canceled))
+
+	if isExpected {
+		log.Debug("child worker exited", "supervisor", s.name, "child", exit.name, "error", exit.err)
+	} else {
+		log.Warn("child worker exited", "supervisor", s.name, "child", exit.name, "error", exit.err)
+	}
 
 	// Capture old state for emission
 	oldState := s.stateLocked()
