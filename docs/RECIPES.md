@@ -164,7 +164,32 @@ router.Handle("Signal(interrupt)", smartHandler)
 
 ---
 
-## 🛡️ 5. The Safety Net Pattern (Interactive Robustness)
+## 🛡️ 5. The Safe Shutdown Pattern (Idempotency)
+
+**Problem**: Your shutdown logic (e.g., closing a channel, stopping a global resource) is not idempotent and panics if called more than once.
+
+**Solution**: Use `control.Once(handler)` to wrap your shutdown logic.
+
+If you are using `NewInteractiveRouter`, this is handled **automatically** for the `WithShutdown` option. However, if you are building a custom router, you should use the wrapper explicitly.
+
+```go
+// 1. Defining a non-idempotent quit channel
+quitCh := make(chan struct{})
+
+// 2. Wrap the handler to be safe against double-invocations
+// (e.g., SIGINT after typing 'q' in a custom terminal)
+quitHandler := control.Once(control.HandlerFunc(func(ctx context.Context, _ control.Event) error {
+    slog.Info("Shutting down...")
+    close(quitCh) // PANIC if called twice! control.Once prevents this.
+    return nil
+}))
+
+router.Handle("command/quit", quitHandler)
+```
+
+---
+
+## 🛡️ 6. The Safety Net Pattern (Interactive Robustness)
 
 **Problem**: You are disabling default signal handling (`WithInterrupt(false)`) to use `Ctrl+C` for custom logic (like Suspend), but you are afraid of creating an "unkillable" zombie process if your custom logic fails.
 

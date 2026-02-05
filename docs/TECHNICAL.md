@@ -410,7 +410,21 @@ router.Use(RecoveryMiddleware)
 router.Use(LoggingMiddleware)
 ```
 
-#### 11.3. Introspection
+#### 11.4. Idempotent Handlers (Once)
+
+Events might be triggered multiple times (e.g., a "Quit" signal followed by a manual "Exit" command). To prevent side-effects like double-closing channels, `lifecycle` provides the `control.Once(handler)` middleware.
+
+This utility ensures the wrapped handler's logic is executed **exactly once**, providing a standard safety mechanism for shutdown and cleanup operations.
+
+```go
+// Protected shutdown logic
+quitHandler := control.Once(control.HandlerFunc(func(ctx context.Context, _ control.Event) error {
+    close(quitCh) // Safe against multiple calls
+    return nil
+}))
+```
+
+#### 11.5. Introspection
 
 The Router exposes registered routes and its own status via the `Introspectable` interface.
 
@@ -427,7 +441,7 @@ state := router.State().(RouterState)
 // {Routes: [...], Middlewares: 2, Running: true}
 ```
 
-#### 11.4. Suspend & Resume (Durable Execution)
+#### 11.6. Suspend & Resume (Durable Execution)
 
 To support **Durable Execution systems**, `lifecycle` introduces `SuspendEvent` and `ResumeEvent` managed by `handlers.SuspendHandler`.
 
@@ -444,7 +458,7 @@ stateDiagram-v2
 * **Resume**: Application restarts processing from the persisted state.
 * **Quiescence Safety**: The `SuspendGate` primitive is context-aware, ensuring buffered workers can abort instantly if the application shuts down while they are paused.
 
-#### 11.4.1. Sequential Execution & Ordering (FIFO)
+#### 11.6.1. Sequential Execution & Ordering (FIFO)
 
 The `SuspendHandler` (and most `control.Router` logic) executes hooks **sequentially** in the order they were registered. This has critical implications for UI feedback:
 
@@ -459,7 +473,7 @@ suspendHandler.OnSuspend(func(...) {           // 2. UI feedback (runs after #1)
 })
 ```
 
-#### 11.5. Execution Flow
+#### 11.7. Execution Flow
 
 ```mermaid
 sequenceDiagram
@@ -476,7 +490,7 @@ sequenceDiagram
     M-->>R: Complete
 ```
 
-#### 11.6. Interactive Router Preset
+#### 11.8. Interactive Router Preset
 
 To reduce boilerplate for CLI applications, `lifecycle` provides a pre-configured router helper.
 
@@ -493,7 +507,7 @@ router := lifecycle.NewInteractiveRouter(suspendHandler,
 
 This helper ensures standard behavior ("q" to quit, "Ctrl+C" to suspend first) without manual wiring.
 
-#### 11.7. Source Helper Pattern (BaseSource)
+#### 11.9. Source Helper Pattern (BaseSource)
 
 To reduce boilerplate across source implementations, `lifecycle` provides `BaseSource` — an embeddable helper following the same pattern as `BaseWorker`.
 
