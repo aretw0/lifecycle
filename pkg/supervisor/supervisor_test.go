@@ -35,9 +35,14 @@ func (w *MockWorker) Stop(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.status = worker.StatusStopped
-	// Note: We do not close WaitChan here to simulate "work finished".
-	// In strict testing, Stop() should likely trigger the teardown of StartFunc,
-	// but for Supervisor restart logic, we primarily test spontaneous failures via externally closing WaitChan.
+	if w.WaitChan != nil {
+		select {
+		case <-w.WaitChan:
+			// Already closed or has error
+		default:
+			close(w.WaitChan)
+		}
+	}
 	return nil
 }
 
@@ -75,7 +80,7 @@ func (f *factoryHelper) makeFactory(name string) Factory {
 		w := &MockWorker{
 			Name:     name,
 			WaitChan: make(chan error, 1),
-			status:   worker.StatusPending,
+			status:   worker.StatusCreated,
 		}
 		f.active[name] = w
 		return w, nil
@@ -156,9 +161,25 @@ func TestOneForAll(t *testing.T) {
 	wA.WaitChan <- errors.New("fail")
 	close(wA.WaitChan)
 
-	// Wait for restart cycle
-	time.Sleep(200 * time.Millisecond)
+	// Wait deterministically for both workers to restart (count should be 2)
+	// Poll the actual factory helper counts instead of guessing timing
+	timeout := time.After(1 * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
 
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("Timeout waiting for restarts. worker-A: %d, worker-B: %d",
+				helper.getCount("worker-A"), helper.getCount("worker-B"))
+		case <-ticker.C:
+			if helper.getCount("worker-A") >= 2 && helper.getCount("worker-B") >= 2 {
+				goto verified
+			}
+		}
+	}
+
+verified:
 	// Both should be restarted
 	if count := helper.getCount("worker-A"); count != 2 {
 		t.Errorf("Expected worker-A restarts: 2, got %d", count)

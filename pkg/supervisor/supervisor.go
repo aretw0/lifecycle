@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aretw0/lifecycle/pkg/introspection"
 	"github.com/aretw0/lifecycle/pkg/log"
 	"github.com/aretw0/lifecycle/pkg/metrics"
 	"github.com/aretw0/lifecycle/pkg/worker"
@@ -79,12 +80,21 @@ type supervisor struct {
 
 	mu            sync.Mutex
 	started       bool
+	stopping      bool                     // In process of shutting down
 	children      map[string]worker.Worker // Active workers
 	resumeIDs     map[string]string        // Persistent IDs across restarts
 	backoffStates map[string]*backoffState // State for exponential backoff
+	lastResults   map[string]worker.Status // Final status of finished workers
+	stopRequested map[string]bool          // Track workers asked to stop
 	eventChan     chan childExit           // Channel for child exit events
 	cancel        context.CancelFunc       // To stop the monitor loop
 	waitChan      chan error
+
+	// StateWatchers
+	stateWatchers []chan introspection.StateChange[worker.State]
+	watchersMu    sync.RWMutex
+	wg            sync.WaitGroup
+	guardsWg      sync.WaitGroup
 }
 
 // New creates a new Supervisor.
@@ -96,7 +106,9 @@ func New(name string, strategy Strategy, specs ...Spec) Supervisor {
 		children:      make(map[string]worker.Worker),
 		resumeIDs:     make(map[string]string),
 		backoffStates: make(map[string]*backoffState),
-		eventChan:     make(chan childExit, 100), // Buffer to prevent blocking guards slightly
+		lastResults:   make(map[string]worker.Status),
+		stopRequested: make(map[string]bool),
+		eventChan:     make(chan childExit, len(specs)+10), // Buffer to avoid blocking
 		waitChan:      make(chan error, 1),
 	}
 }
@@ -112,9 +124,9 @@ func (s *supervisor) Start(ctx context.Context) error {
 
 	log.Info("starting supervisor", "name", s.name, "strategy", s.strategy, "children", len(s.specs))
 
-	// Create a detached context for the monitor loop to ensure it runs independently
-	// of the startup context, but can be cancelled by Stop().
-	monitorCtx, cancel := context.WithCancel(context.Background())
+	// Create a context for the monitor loop.
+	// We derive it from the startup context to support "Context-Driven Shutdown".
+	monitorCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 	s.started = true
 
@@ -126,7 +138,10 @@ func (s *supervisor) Start(ctx context.Context) error {
 	}
 
 	// Start monitor loop
+	s.wg.Add(1)
 	go s.monitor(monitorCtx)
+
+	s.emitStateChange(worker.State{Name: s.name, Status: worker.StatusCreated}, s.stateLocked())
 
 	return nil
 }
@@ -183,12 +198,15 @@ func (s *supervisor) startChild(ctx context.Context, spec Spec) error {
 
 // monitor runs the main supervision loop.
 func (s *supervisor) monitor(ctx context.Context) {
+	defer s.wg.Done()
+
 	// We need to listen to all children's Wait channels.
 	// Guards forward exit events to s.eventChan.
 
 	// Spawn guards for initially started children
 	s.mu.Lock()
 	for name, w := range s.children {
+		s.guardsWg.Add(1)
 		go s.guard(name, w, s.eventChan)
 	}
 	s.mu.Unlock()
@@ -196,15 +214,64 @@ func (s *supervisor) monitor(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			// Supervisor is stopping (Stop() called)
-			s.waitChan <- nil // Clean exit
-			close(s.waitChan)
-			return
+			// Supervisor is stopping (Context cancelled or Stop() called)
+
+			// 1. Ensure visual feedback if stopped via context
+			s.mu.Lock()
+			if !s.stopping {
+				oldState := s.stateLocked()
+				s.stopping = true
+				s.emitStateChange(oldState, s.stateLocked())
+			}
+			// Stop all children NOW to trigger their shutdown
+			// We need to do this while holding the lock because stopAll expects it
+			stopErr := s.stopAll(context.Background())
+			s.mu.Unlock()
+
+			if stopErr != nil {
+				log.Warn("error stopping children during context shutdown", "error", stopErr)
+			}
+
+			// 2. Wait for all child exit events to be sent while draining channel
+			// We must drain because guards might block on eventChan if full.
+			guardsDone := make(chan struct{})
+			go func() {
+				s.guardsWg.Wait()
+				close(guardsDone)
+			}()
+
+			for {
+				select {
+				case exit := <-s.eventChan:
+					s.handleExit(context.Background(), exit)
+				case <-guardsDone:
+					// All guards finished, do a final non-blocking drain
+					for {
+						select {
+						case exit := <-s.eventChan:
+							s.handleExit(context.Background(), exit)
+						default:
+							goto finish
+						}
+					}
+				}
+			}
 
 		case exit := <-s.eventChan:
 			s.handleExit(ctx, exit)
 		}
 	}
+
+finish:
+	s.mu.Lock()
+	oldState := s.stateLocked()
+	s.started = false
+	s.stopping = false
+	s.emitStateChange(oldState, s.stateLocked())
+	s.mu.Unlock()
+
+	s.waitChan <- nil // Clean exit
+	close(s.waitChan)
 }
 
 type childExit struct {
@@ -216,6 +283,7 @@ func (s *supervisor) guard(name string, w worker.Worker, ch chan<- childExit) {
 	// Wait for worker to exit
 	err := <-w.Wait()
 	ch <- childExit{name: name, err: err}
+	s.guardsWg.Done()
 }
 
 // handleExit processes a child's exit event.
@@ -223,14 +291,7 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// If supervisor is stopping, ignore exits
-	if ctx.Err() != nil {
-		return
-	}
-
-	log.Warn("child worker exited", "supervisor", s.name, "child", exit.name, "error", exit.err)
-
-	// Determine spec for this child
+	// Find spec
 	var failedSpec Spec
 	found := false
 	for _, spec := range s.specs {
@@ -241,45 +302,58 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 		}
 	}
 	if !found {
+		log.Debug("handleExit: spec not found", "name", exit.name)
 		return
 	}
+
+	log.Warn("child worker exited", "supervisor", s.name, "child", exit.name, "error", exit.err)
+
+	// Capture old state for emission
+	oldState := s.stateLocked()
 
 	// Remove from active children
 	delete(s.children, exit.name)
 
-	// Apply Strategy
-	switch s.strategy {
-	case StrategyOneForOne:
-		s.handleOneForOne(ctx, exit, failedSpec)
-	case StrategyOneForAll:
-		s.handleOneForAll(exit)
+	// Save last status
+	// Determine final status
+	if exit.err != nil {
+		s.lastResults[exit.name] = worker.StatusFailed
+	} else if s.stopRequested[exit.name] || s.stopping {
+		s.lastResults[exit.name] = worker.StatusStopped
+	} else {
+		s.lastResults[exit.name] = worker.StatusFinished
 	}
+
+	// Remove from stop requested (capture first to check if we should apply strategy)
+	wasRequested := s.stopRequested[exit.name]
+	delete(s.stopRequested, exit.name)
+
+	// Capture state after child removal for emission
+	stateAfterExit := s.stateLocked()
+
+	// Emit transition: Initial -> After Exit
+	s.emitStateChange(oldState, stateAfterExit)
+
+	// Apply Strategy ONLY if the exit was NOT requested by the supervisor.
+	// If it was requested (e.g. during a StrategyOneForAll mass restart),
+	// we don't want to trigger the strategy again, as that causes an infinite loop.
+	if !wasRequested && !s.stopping && s.started {
+		switch s.strategy {
+		case StrategyOneForOne:
+			s.handleOneForOne(ctx, exit, failedSpec)
+		case StrategyOneForAll:
+			s.handleOneForAll(exit)
+		}
+	}
+
+	// Capture state after strategy (e.g. restart) and emit transition
+	s.emitStateChange(stateAfterExit, s.stateLocked())
 }
 
 // handleOneForOne handles the restart logic for a single child.
 // MUST hold lock.
 func (s *supervisor) handleOneForOne(ctx context.Context, exit childExit, failedSpec Spec) {
-	// Apply Restart Policy
-	shouldRestart := false
-	policy := failedSpec.RestartPolicy
-	if policy == "" {
-		policy = RestartAlways // Default
-	}
-
-	switch policy {
-	case RestartAlways:
-		shouldRestart = true
-	case RestartOnFailure:
-		if exit.err != nil {
-			shouldRestart = true
-		} else {
-			log.Info("worker finished successfully, not restarting", "child", exit.name)
-		}
-	case RestartNever:
-		log.Info("worker finished, not restarting (policy=Never)", "child", exit.name)
-	}
-
-	if !shouldRestart {
+	if !s.shouldRestart(failedSpec, s.lastResults[exit.name]) {
 		return
 	}
 
@@ -331,6 +405,29 @@ func (s *supervisor) handleOneForOne(ctx context.Context, exit childExit, failed
 	}
 }
 
+// shouldRestart determines if a child should be restarted based on its exit status.
+// MUST hold lock.
+func (s *supervisor) shouldRestart(spec Spec, status worker.Status) bool {
+	if !s.started || s.stopping {
+		return false
+	}
+	policy := spec.RestartPolicy
+	if policy == "" {
+		policy = RestartAlways
+	}
+
+	switch policy {
+	case RestartAlways:
+		return true
+	case RestartOnFailure:
+		return status == worker.StatusFailed
+	case RestartNever:
+		return false
+	default:
+		return true
+	}
+}
+
 // handleOneForAll handles the restart logic for all children upon a single failure.
 // MUST hold lock.
 func (s *supervisor) handleOneForAll(exit childExit) {
@@ -345,6 +442,7 @@ func (s *supervisor) handleOneForAll(exit childExit) {
 	} else {
 		// Re-guard all
 		for name, w := range s.children {
+			s.guardsWg.Add(1)
 			go s.guard(name, w, s.eventChan)
 		}
 	}
@@ -384,6 +482,7 @@ func (s *supervisor) restartChildLocked(name string, spec Spec, prevErr error) {
 		}
 
 		// Re-guard
+		s.guardsWg.Add(1)
 		go s.guard(name, s.children[name], s.eventChan)
 	}
 }
@@ -445,6 +544,7 @@ func (s *supervisor) Add(spec Spec) error {
 			return err
 		}
 		// Guard
+		s.guardsWg.Add(1)
 		go s.guard(spec.Name, s.children[spec.Name], s.eventChan)
 	}
 	metrics.GetProvider().IncSupervisorAdd(s.name)
@@ -493,20 +593,42 @@ func (s *supervisor) Remove(name string) error {
 // Stop stops the supervisor and all its children.
 func (s *supervisor) Stop(ctx context.Context) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if !s.started {
+	if !s.started || s.stopping {
+		s.mu.Unlock()
 		return nil
 	}
 
-	// 1. Stop the monitor loop first to prevent restarts during shutdown
-	if s.cancel != nil {
-		s.cancel()
-	}
-	s.started = false
+	// 1. Mark as stopping to prevent restarts and show visual feedback
+	oldState := s.stateLocked()
+	s.stopping = true
+	s.emitStateChange(oldState, s.stateLocked())
+	s.mu.Unlock()
 
 	// 2. Stop all children
-	return s.stopAll(ctx)
+	// stopAll will release/reacquire lock while waiting for children
+	s.mu.Lock()
+	err := s.stopAll(ctx)
+	s.mu.Unlock()
+
+	// 3. Final cleanup
+	s.guardsWg.Wait() // Wait for all guards to finish sending events
+
+	s.mu.Lock()
+	if s.cancel != nil {
+		s.cancel() // Request monitor loop to exit
+	}
+	s.mu.Unlock()
+
+	s.wg.Wait() // Synchronously wait for monitor (and its event draining) to finish
+
+	s.mu.Lock()
+	s.started = false
+	s.stopping = false
+
+	s.emitStateChange(worker.State{Name: s.name, Status: worker.StatusStopping}, s.stateLocked())
+	s.mu.Unlock()
+
+	return err
 }
 
 // stopAll terminates all children in reverse order.
@@ -515,13 +637,29 @@ func (s *supervisor) stopAll(ctx context.Context) error {
 	var errs []error
 
 	// Iterate specs in reverse order to respect dependencies (LIFO)
+	// We use names instead of raw children map to ensure order
 	for i := len(s.specs) - 1; i >= 0; i-- {
 		name := s.specs[i].Name
 		if child, ok := s.children[name]; ok {
 			log.Debug("stopping child", "supervisor", s.name, "child", name)
+			s.stopRequested[name] = true
+
+			// Request stop
 			if err := child.Stop(ctx); err != nil {
 				errs = append(errs, fmt.Errorf("child %s: %w", name, err))
 			}
+
+			// Synchronously wait for child to finish (respecting context)
+			// IMPORTANT: Release lock while waiting to allow monitor loop to handleExit
+			s.mu.Unlock()
+			select {
+			case <-child.Wait():
+				// Clean exit or error already handled by guard/handleExit
+			case <-ctx.Done():
+				errs = append(errs, fmt.Errorf("child %s: stop timeout: %w", name, ctx.Err()))
+			}
+			s.mu.Lock()
+
 			delete(s.children, name)
 		}
 	}
@@ -546,10 +684,47 @@ func (s *supervisor) String() string {
 func (s *supervisor) State() worker.State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.stateLocked()
+}
 
+// stateLocked returns the snapshot of the supervisor's state.
+// MUST hold lock.
+func (s *supervisor) stateLocked() worker.State {
 	status := worker.StatusRunning
-	if !s.started {
-		status = worker.StatusStopped
+	if s.stopping {
+		// Supervisor is stopping. But are all children already stopped?
+		// If yes → Stopped. If no → Stopping.
+		allTerminal := true
+		for _, spec := range s.specs {
+			var childStatus worker.Status
+			if child, ok := s.children[spec.Name]; ok {
+				childStatus = child.State().Status
+			} else if result, ok := s.lastResults[spec.Name]; ok {
+				childStatus = result
+			} else {
+				childStatus = worker.StatusCreated
+			}
+
+			// Running or Stopping means not yet terminal
+			if childStatus == worker.StatusRunning || childStatus == worker.StatusStopping {
+				allTerminal = false
+				break
+			}
+		}
+
+		if allTerminal {
+			status = worker.StatusStopped
+		} else {
+			status = worker.StatusStopping
+		}
+	} else if !s.started {
+		// If we haven't started and haven't finished anything, we are Created.
+		// Otherwise (after Stop), we are Stopped.
+		if len(s.lastResults) == 0 && len(s.children) == 0 {
+			status = worker.StatusCreated
+		} else {
+			status = worker.StatusStopped
+		}
 	}
 
 	childrenState := make([]worker.State, 0, len(s.specs))
@@ -572,8 +747,25 @@ func (s *supervisor) State() worker.State {
 			for k, v := range st.Metadata {
 				childState.Metadata[k] = v
 			}
-		} else {
+			// Only override status to Stopping if child is still actively Running
+			// If child is already Stopped/Finished/Failed, preserve that terminal state
+			if s.stopping && childState.Status == worker.StatusRunning {
+				childState.Status = worker.StatusStopping
+			}
+		} else if result, ok := s.lastResults[spec.Name]; ok {
+			// It finished. Should it restart?
+			// Only show Pending if the supervisor is actually running.
+			// If supervisor is stopped, we treat the result as final for this lifecycle.
+			should := s.shouldRestart(spec, result)
+			if should && s.started {
+				childState.Status = worker.StatusPending
+			} else {
+				childState.Status = result
+			}
+		} else if _, ok := s.backoffStates[spec.Name]; ok && s.started {
 			childState.Status = worker.StatusPending
+		} else {
+			childState.Status = worker.StatusCreated
 		}
 
 		// Reliability Metadata
@@ -582,9 +774,10 @@ func (s *supervisor) State() worker.State {
 			if !bs.windowStart.IsZero() {
 				childState.Metadata[worker.MetadataWindowStart] = bs.windowStart.Format(time.RFC3339)
 			}
+			// If circuit breaker is triggered, force status to Failed
 			if spec.Backoff.MaxRestarts > 0 && bs.restarts > spec.Backoff.MaxRestarts {
 				childState.Metadata[worker.MetadataCircuitBreaker] = "triggered"
-				childState.Status = worker.StatusFailed // Correct the status from Pending to Failed
+				childState.Status = worker.StatusFailed
 			}
 		}
 
@@ -599,6 +792,75 @@ func (s *supervisor) State() worker.State {
 			worker.MetadataType: "supervisor",
 		},
 	}
+}
+
+// Watch returns a channel for state change events.
+func (s *supervisor) Watch(ctx context.Context) <-chan introspection.StateChange[worker.State] {
+	ch := make(chan introspection.StateChange[worker.State], 10)
+
+	s.watchersMu.Lock()
+	s.stateWatchers = append(s.stateWatchers, ch)
+	s.watchersMu.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		s.watchersMu.Lock()
+		defer s.watchersMu.Unlock()
+
+		for i, watcher := range s.stateWatchers {
+			if watcher == ch {
+				s.stateWatchers = append(s.stateWatchers[:i], s.stateWatchers[i+1:]...)
+				break
+			}
+		}
+		close(ch)
+	}()
+
+	return ch
+}
+
+func (s *supervisor) emitStateChange(old, new worker.State) {
+	s.watchersMu.RLock()
+	defer s.watchersMu.RUnlock()
+
+	if len(s.stateWatchers) == 0 {
+		return
+	}
+
+	// Deduplication: Only emit if there's a visual change in the entire tree
+	if statesEqual(old, new) {
+		return
+	}
+
+	change := introspection.StateChange[worker.State]{
+		ComponentID:   s.name,
+		ComponentType: "supervisor",
+		OldState:      old,
+		NewState:      new,
+		Timestamp:     time.Now(),
+	}
+
+	for _, ch := range s.stateWatchers {
+		select {
+		case ch <- change:
+		default:
+		}
+	}
+}
+
+func statesEqual(a, b worker.State) bool {
+	if a.Status != b.Status {
+		return false
+	}
+	if len(a.Children) != len(b.Children) {
+		return false
+	}
+	for i := range a.Children {
+		if !statesEqual(a.Children[i], b.Children[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Suspend pauses all suspendable children.
