@@ -84,8 +84,14 @@ Internal state changes are not black boxes. They are exposed via:
 
 #### 2.5. Main-Driven Shutdown
 
-The lifecycle is bound to the **Main Job** (`lifecycle.Run(fn)`).
-When the main function returns, the application is considered **Complete**. `lifecycle` automatically cancels the Global Context, signaling all background tasks (`lifecycle.Go`, `Supervisor`) to shut down immediately. This prevents "Orphaned Processes" where a finished CLI tool hangs indefinitely waiting for a metrics reporter.
+The lifecycle is bound to the **Main Job** (`lifecycle.Run(fn)`). When the main function returns, the application is considered **Complete**. `lifecycle` automatically cancels the Global Context, signaling all background tasks (`lifecycle.Go`, `Supervisor`) to shut down immediately. This prevents "Orphaned Processes" where a finished CLI tool hangs indefinitely waiting for a metrics reporter.
+
+#### 2.6. Pragmatic Composition over Monoliths
+
+We believe in **Simple Primitives, Rich Behaviors**. Instead of a monolithic "Exit" function with 20 flags, we provide atomic events (`Suspend`, `Resume`, `Shutdown`, `Reload`) that can be chained.
+
+* **Composition is King**: A "Power Command" (like `x` or `terminate`) is simply a sequence: `SuspendEvent` (to ensure state is saved) followed by a `ShutdownEvent`.
+* **Context Cancellation is Normal**: During shutdown, receiving `context.Canceled` is not an "Error" to be warned about. It is the sign of a healthy, responding system fulfilling its contract.
 
 ---
 
@@ -399,6 +405,7 @@ The library provides predefined events for common lifecycle transitions:
 | `SuspendEvent`  | `lifecycle/suspend`    | Escalation logic / API   | Pause workers, persist state. |
 | `ResumeEvent`   | `lifecycle/resume`     | Escalation logic / API   | Resume workers from state.    |
 | `ShutdownEvent` | `lifecycle/shutdown`   | Input: `exit`, `quit`    | Cancel `SignalContext`.       |
+| `TerminateEvent`| `lifecycle/terminate`  | Input: `x`, `terminate`  | Suspend (Save) + Shutdown.    |
 | `ClearLineEvent`| `lifecycle/clear-line` | Ctrl+C Escalation Mode   | Clear CLI prompt, re-print `>`.|
 
 #### 11.3. Middleware Chains
