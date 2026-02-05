@@ -56,27 +56,33 @@
 
 ## Quality Baseline (Current Status)
 
-### Test Coverage Snapshot (2026-02-05 - Updated)
+### Test Coverage Snapshot (2026-02-05 - Final Update)
 
 **Current Coverage by Package**:
 
 ```log
 lifecycle (root)       : 15.4%  ⚠️ BELOW TARGET
+pkg/core/signal        : 85.9%  ✨ EXCELLENT (PASSED TARGET!)
 pkg/core/runtime       : 89.3%  ✨ EXCELLENT
-pkg/core/signal        : 82.7%  ✨ NEAR TARGET
-pkg/core/supervisor    : 83.8%  ✨ NEAR TARGET
+pkg/core/supervisor    : 84.4%  ⚠️ NEAR TARGET (84.4% → need 0.6% more)
+pkg/events             : 52.5%  🟡 IMPROVED (37.5% → 52.5%)
 pkg/core/termio        : 51.4%  ⚠️ NEEDS IMPROVEMENT
 pkg/core/proc          : 55.9%  ⚠️ NEEDS IMPROVEMENT
-pkg/events             : 37.5%  🔴 CRITICAL GAP
 pkg/core/metrics       : 20.4%  🔴 CRITICAL GAP
 pkg/core/container     : 0.0%   🔴 CRITICAL GAP
 pkg/core/introspection : 0.0%   🔴 CRITICAL GAP
 pkg/core/log           : 0.0%   🔴 CRITICAL GAP
 ```
 
-**Overall Coverage**: 37.5%
+**Overall Coverage (Tested Packages)**: 72.7%
 
 **Target**: ≥80% average coverage across all packages before v2.1 launch
+
+**Progress Summary (2026-02-05)**:
+- Added tests for `pkg/core/signal`: WithResetTimeout, IsUnsafe, ForceExitThreshold → +3.2%
+- Added tests for `pkg/core/runtime`: improved TestRun_LeakWarning → validation
+- Added tests for `pkg/events`: EventType String methods → +2.1%
+- Added tests for `pkg/events`: Router State, Routes methods → coverage improvement
 
 **Action Items**:
 

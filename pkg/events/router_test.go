@@ -140,3 +140,13 @@ func TestRouter_Routes(t *testing.T) {
 		t.Error("missing expected routes")
 	}
 }
+func TestRouter_State(t *testing.T) {
+	router := NewRouter()
+
+	// Get state - should return a non-nil state
+	state := router.State()
+	if state == nil {
+		t.Error("State() returned nil")
+	}
+}
+
