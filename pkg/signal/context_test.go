@@ -273,3 +273,25 @@ func TestSignalContext_HookTimeout(t *testing.T) {
 		t.Error("Expected HookExecuted metric even after stall warning")
 	}
 }
+
+func TestSignalContext_State_NoDestructiveRead(t *testing.T) {
+	ctx := NewContext(context.Background())
+	defer ctx.Stop()
+
+	// Put a signal in the channel
+	sig := os.Interrupt
+	ctx.sigCh <- sig
+
+	// Call State() - this used to call isChannelOpen which would consume the signal
+	_ = ctx.State()
+
+	// Verify the signal is still there
+	select {
+	case s := <-ctx.sigCh:
+		if s != sig {
+			t.Errorf("Expected signal %v, got %v", sig, s)
+		}
+	default:
+		t.Error("Signal was consumed by State()")
+	}
+}

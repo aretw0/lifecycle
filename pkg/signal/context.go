@@ -62,6 +62,7 @@ type Context struct {
 	// StateWatchers (Event-Driven Introspection)
 	stateWatchers []chan introspection.StateChange[State]
 	watchersMu    sync.RWMutex
+	stopped       bool
 }
 
 // Cancel terminates the context manually.
@@ -180,6 +181,7 @@ func (sc *Context) Stop() {
 		sc.mu.Unlock()
 		// Restore default signal handling
 		ossignal.Stop(sc.sigCh)
+		sc.stopped = true
 		close(sc.sigCh)
 	})
 }
@@ -407,18 +409,9 @@ func (sc *Context) State() State {
 			Stopping:      stopping,
 			SignalCount:   sc.signalCount,
 			ResetDeadline: deadline,
-			Enabled:       sc.sigVal == nil || isChannelOpen(sc.sigCh),
+			Enabled:       !sc.stopped,
 			Stopped:       stopped,
 		},
-	}
-}
-
-func isChannelOpen(ch <-chan os.Signal) bool {
-	select {
-	case _, ok := <-ch:
-		return ok
-	default:
-		return true // It's open but empty
 	}
 }
 
