@@ -125,7 +125,13 @@ func NewInteractiveRouter(suspendHandler *handlers.SuspendHandler, opts ...Inter
 	smartHandler := handlers.NewSmartSignalHandler(suspendHandler, quitHandler)
 	r.Handle("Signal(interrupt)", smartHandler)
 
-	// 5. Sources
+	// 5. High-level Facilitators (Composition)
+	terminateHandler := handlers.NewTerminate(suspendHandler, quitHandler)
+	r.Handle("lifecycle/terminate", terminateHandler)
+	r.Handle("command/terminate", terminateHandler)
+	r.Handle("command/x", terminateHandler)
+
+	// 6. Sources
 	if cfg.enableSignal {
 		r.AddSource(sources.NewOSSignalSource(os.Interrupt))
 	}
