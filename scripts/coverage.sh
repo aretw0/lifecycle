@@ -22,7 +22,6 @@ if [ -f "$COVERAGE_FILE" ]; then
         printf "%-20s %s\n" "$name" "$VAL"
     done
     echo "--------------------------------------------------"
-    rm "$COVERAGE_FILE"
 else
     echo "Failed to generate coverage profile."
     exit 1

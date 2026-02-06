@@ -1,7 +1,7 @@
 # scripts/coverage.ps1
 # Runs test coverage and displays results per package (PowerShell version).
 
-$CoverageFile = "./coverage.out"
+$CoverageFile = "coverage.out"
 
 Write-Host "`n[Lifecycle] Running tests and generating coverage profile..." -ForegroundColor Cyan
 go test -coverprofile="$CoverageFile" ./... | Out-Null
@@ -50,7 +50,6 @@ if (Test-Path $CoverageFile) {
     Write-Host "... (test results truncated for brevity) ..."
     
     Write-Host "--------------------------------------------------" -ForegroundColor Gray
-    Remove-Item $CoverageFile
 }
 else {
     Write-Error "Failed to generate coverage profile."
