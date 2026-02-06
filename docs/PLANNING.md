@@ -70,7 +70,7 @@ pkg/core/termio        : 51.4%  ⚠️ NEEDS IMPROVEMENT
 pkg/core/proc          : 55.9%  ⚠️ NEEDS IMPROVEMENT
 pkg/core/metrics       : 20.4%  🔴 CRITICAL GAP
 pkg/core/container     : 0.0%   🔴 CRITICAL GAP
-pkg/core/introspection : 0.0%   🔴 CRITICAL GAP
+pkg/core/introspection : ⏳ IN PROGRESS (initial test suite added - 2026-02-05)
 pkg/core/log           : 0.0%   🔴 CRITICAL GAP
 ```
 
@@ -79,16 +79,21 @@ pkg/core/log           : 0.0%   🔴 CRITICAL GAP
 **Target**: ≥80% average coverage across all packages before v2.1 launch
 
 **Progress Summary (2026-02-05)**:
+
 - Added tests for `pkg/core/signal`: WithResetTimeout, IsUnsafe, ForceExitThreshold → +3.2%
 - Added tests for `pkg/core/runtime`: improved TestRun_LeakWarning → validation
 - Added tests for `pkg/events`: EventType String methods → +2.1%
 - Added tests for `pkg/events`: Router State, Routes methods → coverage improvement
+- **NEW**: Created `pkg/core/introspection/introspection_test.go` with comprehensive test suite:
+  - 20+ test functions covering StateChange, StateSnapshot, TypedWatcher, EventSource interfaces
+  - Fixed 14 linting issues (unused assignments, unnecessary type arguments)
+  - Foundation for measuring introspection package coverage
 
 **Action Items**:
 
+- [ ] Check tests for regression or flakiness
 - [ ] Generate full coverage report: `go test -coverprofile=coverage.out ./...`
 - [ ] Identify untested critical paths (signal handling, Windows I/O, supervisor restarts)
-- [ ] Prioritize coverage for foundation packages (`signal`, `runtime`, `supervisor`)
 
 ---
 
