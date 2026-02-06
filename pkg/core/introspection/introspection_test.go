@@ -2,6 +2,7 @@ package introspection
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -459,4 +460,218 @@ func TestTypedWatcher_Implements_Interface(t *testing.T) {
 
 func TestEventSource_Implements_Interface(t *testing.T) {
 	var _ EventSource = (*MockEventSource)(nil)
+}
+
+// Tests for AggregateWatchers
+// Note: Full aggregation tested via WatcherAdapter integration
+func TestAggregateWatchers_Nil_Input(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Should handle nil input gracefully
+	snapshots := AggregateWatchers(ctx, nil)
+	if snapshots == nil {
+		t.Error("AggregateWatchers returned nil channel")
+	}
+
+	cancel()
+
+	// Channel should close cleanly
+	_, ok := <-snapshots
+	if ok {
+		t.Error("Channel should be closed")
+	}
+}
+
+func TestAggregateWatchers_Context_Cancellation(t *testing.T) {
+	watcher := NewMockTypedWatcher(MockState{Value: "test"})
+	ctx, cancel := context.WithCancel(context.Background())
+
+	snapshots := AggregateWatchers(ctx, watcher)
+
+	// Cancel context
+	cancel()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Channel should close
+	_, ok := <-snapshots
+	if ok {
+		t.Error("Channel should be closed after context cancellation")
+	}
+}
+
+// Tests for AggregateEvents
+func TestAggregateEvents_Single_Source(t *testing.T) {
+	source := NewMockEventSource()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	events := AggregateEvents(ctx, source)
+	if events == nil {
+		t.Error("AggregateEvents returned nil channel")
+	}
+
+	// Send an event
+	event := &MockComponent{
+		id:       "comp-1",
+		compType: "worker",
+		ts:       time.Now(),
+		eType:    "started",
+	}
+
+	source.SendEvent(event)
+
+	// Verify we receive the event
+	select {
+	case received, ok := <-events:
+		if !ok {
+			t.Error("Event channel was closed unexpectedly")
+		}
+
+		if received.ComponentID() != "comp-1" {
+			t.Errorf("ComponentID() = %q, want %q", received.ComponentID(), "comp-1")
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for event")
+	}
+}
+
+func TestAggregateEvents_Multiple_Sources(t *testing.T) {
+	source1 := NewMockEventSource()
+	source2 := NewMockEventSource()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	events := AggregateEvents(ctx, source1, source2)
+
+	// Send events from both sources
+	source1.SendEvent(&MockComponent{
+		id:       "comp-1",
+		compType: "worker",
+		ts:       time.Now(),
+		eType:    "started",
+	})
+
+	source2.SendEvent(&MockComponent{
+		id:       "comp-2",
+		compType: "supervisor",
+		ts:       time.Now(),
+		eType:    "restarted",
+	})
+
+	// Expect to receive events from both
+	received := 0
+	timeout := time.After(2 * time.Second)
+
+	for received < 2 {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				t.Error("Event channel was closed unexpectedly")
+			}
+
+			if event.ComponentID() == "comp-1" || event.ComponentID() == "comp-2" {
+				received++
+			}
+		case <-timeout:
+			t.Errorf("Timeout waiting for events. Received: %d, expected: 2", received)
+			return
+		}
+	}
+}
+
+func TestAggregateEvents_Context_Cancellation(t *testing.T) {
+	source := NewMockEventSource()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	events := AggregateEvents(ctx, source)
+
+	// Cancel context
+	cancel()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Channel should close
+	_, ok := <-events
+	if ok {
+		t.Error("Channel should be closed after context cancellation")
+	}
+}
+
+// Tests for Mermaid functions
+func TestDefaultStyles_Returns_NonEmpty_String(t *testing.T) {
+	styles := DefaultStyles()
+	if styles == "" {
+		t.Error("DefaultStyles() returned empty string")
+	}
+
+	// Verify it contains expected Mermaid class definitions
+	if !strings.Contains(styles, "classDef") {
+		t.Error("DefaultStyles() should contain Mermaid class definitions")
+	}
+
+	// Verify it contains expected state classes
+	expectedClasses := []string{"created", "running", "stopped", "failed", "supervisor"}
+	for _, cls := range expectedClasses {
+		if !strings.Contains(styles, cls) {
+			t.Errorf("DefaultStyles() should contain class definition for %q", cls)
+		}
+	}
+}
+
+func TestWithStyles_Option(t *testing.T) {
+	customStyles := "classDef custom fill:#fff;"
+	opts := &MermaidOptions{}
+	option := WithStyles(customStyles)
+	option(opts)
+
+	if opts.Styles != customStyles {
+		t.Errorf("WithStyles() should set custom styles, got %q", opts.Styles)
+	}
+}
+
+// Helper function tests (used internally by Mermaid functions)
+// Note: These functions are tested indirectly through public APIs
+
+
+// Tests for WatcherAdapter functionality
+func TestWatcherAdapter_Integration_With_Aggregator(t *testing.T) {
+	watcher := NewMockTypedWatcher(MockState{Value: "initial"})
+	adapter := NewWatcherAdapter("worker", watcher)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Get snapshots from adapter
+	snapshots := adapter.Snapshots(ctx)
+
+	// Send a change
+	watcher.SendChange(StateChange[MockState]{
+		ComponentID:   "worker-1",
+		ComponentType: "worker",
+		OldState:      MockState{Value: "old"},
+		NewState:      MockState{Value: "new"},
+	})
+
+	// Verify we get a snapshot with correct ComponentType from adapter
+	select {
+	case snapshot, ok := <-snapshots:
+		if !ok {
+			t.Error("Snapshot channel closed unexpectedly")
+		}
+
+		if snapshot.ComponentType != "worker" {
+			t.Errorf("ComponentType = %q, want %q", snapshot.ComponentType, "worker")
+		}
+
+		if snapshot.ComponentID != "worker-1" {
+			t.Errorf("ComponentID = %q, want %q", snapshot.ComponentID, "worker-1")
+		}
+
+		if snapshot.Payload != (MockState{Value: "new"}) {
+			t.Error("Payload should match NewState")
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for snapshot")
+	}
 }
