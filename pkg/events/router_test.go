@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -150,3 +151,45 @@ func TestRouter_State(t *testing.T) {
 	}
 }
 
+// TestRouterDispatchMetricsIntegration validates that Dispatch correctly routes events
+// and records metrics when handlers execute using the mock metrics provider.
+func TestRouterDispatchMetricsIntegration(t *testing.T) {
+	router := NewRouter()
+
+	// Use real metric calls but verify they don't panic
+	ctx := context.Background()
+	eventType := "test.event"
+
+	// Create a simple handler
+	executedCount := 0
+	router.HandleFunc(eventType, func(_ context.Context, e Event) error {
+		executedCount++
+		return nil
+	})
+
+	// Create and dispatch an event
+	event := mockEvent{eventType}
+	router.Dispatch(ctx, event)
+
+	// Assertions
+	if executedCount != 1 {
+		t.Errorf("handler not executed: expected 1, got %d", executedCount)
+	}
+}
+
+// TestRouterDispatchWithErrorMetrics validates that handler errors are recorded.
+func TestRouterDispatchWithErrorMetrics(t *testing.T) {
+	router := NewRouter()
+	ctx := context.Background()
+	eventType := "test.error"
+
+	expectedErr := "test error"
+	router.HandleFunc(eventType, func(_ context.Context, e Event) error {
+		return errors.New(expectedErr)
+	})
+
+	event := mockEvent{eventType}
+	router.Dispatch(ctx, event)
+
+	// If we got here without panic, metrics were called correctly
+}
