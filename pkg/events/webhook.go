@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
@@ -19,10 +20,11 @@ func (e WebhookEvent) String() string {
 	return fmt.Sprintf("webhook%s", e.Path) // e.g., "webhook/reload"
 }
 
-// WebhookSource listens for HTTP requests and converts them into lifecycle 
+// WebhookSource listens for HTTP requests and converts them into lifecycle
 type WebhookSource struct {
 	BaseSource
 	addr   string
+	ln     net.Listener
 	server *http.Server
 }
 
@@ -39,6 +41,15 @@ func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
 		opt(s)
 	}
 	return s
+}
+
+// Addr returns the address the source is listening on.
+// This is useful when using dynamic ports (":0").
+func (s *WebhookSource) Addr() string {
+	if s.ln != nil {
+		return s.ln.Addr().String()
+	}
+	return s.addr
 }
 
 func (s *WebhookSource) Start(ctx context.Context) error {
@@ -65,6 +76,12 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 		}
 	})
 
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return err
+	}
+	s.ln = ln
+
 	s.server = &http.Server{
 		Addr:    s.addr,
 		Handler: mux,
@@ -73,7 +90,7 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 	// Start server in a goroutine
 	errChan := make(chan error, 1)
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.server.Serve(s.ln); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
 	}()
@@ -87,5 +104,3 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 		return err
 	}
 }
-
-
