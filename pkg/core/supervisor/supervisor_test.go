@@ -570,5 +570,14 @@ func TestSupervisor_RestartPolicies(t *testing.T) {
 	}
 }
 
-
-
+func TestSupervisor_String(t *testing.T) {
+	supervisor := New("test-supervisor", StrategyOneForOne)
+	str := supervisor.String()
+	if str == "" {
+		t.Error("String() returned empty string")
+	}
+	expected := "Supervisor(test-supervisor)"
+	if str != expected {
+		t.Errorf("Expected %q, got %q", expected, str)
+	}
+}
