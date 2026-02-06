@@ -8,10 +8,10 @@ test:
 vet:
 	go vet ./...
 
-# Run coverage tests
+# Run coverage tests (powershell on Windows needs double quotes for file paths)
 coverage:
-	go test -coverprofile="./coverage.out" ./...
-	go tool cover -func="./coverage.out"
+	go test -coverprofile="coverage.out" ./...
+	go tool cover -func="coverage.out"
 
 # Run local Go documentation server (pkgsite)
 serve-docs:

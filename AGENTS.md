@@ -34,9 +34,11 @@ make test
 
 ### Running Coverage
 
+> Poweshell needs double quotes for file paths
+
 ```bash
-go test -coverprofile="./coverage.out" ./...
-go tool cover -func="./coverage.out"
+go test -coverprofile="coverage.out" ./...
+go tool cover -func="coverage.out"
 ```
 
 ### Running Examples
