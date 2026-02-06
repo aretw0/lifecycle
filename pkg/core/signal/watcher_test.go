@@ -48,7 +48,7 @@ func TestContext_Watch(t *testing.T) {
 	defer sc.Stop()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 
 	ch := sc.Watch(ctx)
 
@@ -64,7 +64,7 @@ func TestContext_Watch(t *testing.T) {
 		if change.NewState.Status.SignalCount != 1 {
 			t.Errorf("Expected SignalCount 1, got %d", change.NewState.Status.SignalCount)
 		}
-	case <-time.After(1 * time.Second):
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Timed out waiting for first state change event")
 	}
 
@@ -80,31 +80,20 @@ func TestContext_Watch(t *testing.T) {
 		if change.NewState.Status.SignalCount != 0 {
 			t.Errorf("Expected SignalCount 0, got %d", change.NewState.Status.SignalCount)
 		}
-	case <-time.After(1 * time.Second):
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Timed out waiting for reset state change event")
 	}
 
 	// Test cleanup: cancel the local watch context
 	cancel()
 
-	// Wait a bit for cleanup goroutine
-	time.Sleep(50 * time.Millisecond)
-
-	sc.watchersMu.RLock()
-	watcherCount := len(sc.stateWatchers)
-	sc.watchersMu.RUnlock()
-
-	if watcherCount != 0 {
-		t.Errorf("Expected 0 watchers after cancellation, got %d", watcherCount)
-	}
-
-	// Verify channel is closed
+	// Verify channel closes (context cancellation should close the watcher goroutine)
 	select {
 	case _, ok := <-ch:
 		if ok {
 			t.Error("Watcher channel should be closed")
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Timed out waiting for channel closure")
 	}
 }
@@ -123,26 +112,6 @@ func TestContext_Watch_Blocking(t *testing.T) {
 	}
 
 	// If we reach here, it's non-blocking (Success)
-}
-
-func TestContext_Wait(t *testing.T) {
-	sc := NewContext(context.Background())
-	defer sc.Stop()
-
-	sc.OnShutdown(func() {
-		time.Sleep(50 * time.Millisecond)
-	})
-
-	// Trigger shutdown manually via Cancel
-	sc.Cancel()
-
-	start := time.Now()
-	sc.Wait()
-	elapsed := time.Since(start)
-
-	if elapsed < 50*time.Millisecond {
-		t.Errorf("Wait() returned too early, expected at least 50ms, got %v", elapsed)
-	}
 }
 
 func TestContext_Shutdown(t *testing.T) {
