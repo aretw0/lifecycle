@@ -85,6 +85,11 @@ func (m *MockTypedWatcher[S]) Watch(ctx context.Context) <-chan StateChange[S] {
 }
 
 func (m *MockTypedWatcher[S]) SendChange(change StateChange[S]) {
+	// Ensure tests that don't set ComponentID get a deterministic id.
+	if change.ComponentID == "" {
+		change.ComponentID = "test-id"
+	}
+
 	m.changeChan <- change
 }
 
