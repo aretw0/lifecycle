@@ -32,6 +32,15 @@ func NewGenerator(output chan int, store *shared.Store) *Generator {
 }
 
 func (g *Generator) Start(ctx context.Context) error {
+	// sync.Cond is not context-aware. We need a background goroutine to
+	// broadcast and wake up the worker if the context is cancelled while paused.
+	lifecycle.Go(ctx, func(ctx context.Context) error {
+		<-ctx.Done()
+		g.mu.Lock()
+		g.cond.Broadcast()
+		g.mu.Unlock()
+		return nil
+	})
 	return g.StartFunc(ctx, g.Run)
 }
 
@@ -39,11 +48,15 @@ func (g *Generator) Run(ctx context.Context) error {
 	slog.Info("[GENERATOR] Started.")
 	for {
 		g.mu.Lock()
-		for g.paused {
+		for g.paused && ctx.Err() == nil {
 			slog.Info("[GENERATOR] Paused. Waiting for signal...")
 			g.cond.Wait()
-			slog.Info("[GENERATOR] Resuming production...")
 		}
+		if ctx.Err() != nil {
+			g.mu.Unlock()
+			return ctx.Err()
+		}
+		slog.Info("[GENERATOR] Resuming production...")
 		g.mu.Unlock()
 
 		select {
@@ -110,6 +123,15 @@ func NewWorker(input <-chan int, store *shared.Store) *Worker {
 }
 
 func (w *Worker) Start(ctx context.Context) error {
+	// sync.Cond is not context-aware. We need a background goroutine to
+	// broadcast and wake up the worker if the context is cancelled while paused.
+	lifecycle.Go(ctx, func(ctx context.Context) error {
+		<-ctx.Done()
+		w.mu.Lock()
+		w.cond.Broadcast()
+		w.mu.Unlock()
+		return nil
+	})
 	return w.StartFunc(ctx, w.Run)
 }
 
@@ -121,8 +143,12 @@ func (w *Worker) Run(ctx context.Context) error {
 			w.paused = true
 			w.cond.Broadcast() // Notify Suspend() that we are paused
 		}
-		for w.paused {
+		for w.paused && ctx.Err() == nil {
 			w.cond.Wait()
+		}
+		if ctx.Err() != nil {
+			w.mu.Unlock()
+			return ctx.Err()
 		}
 		w.mu.Unlock()
 
