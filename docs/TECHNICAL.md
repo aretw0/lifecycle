@@ -480,6 +480,8 @@ stateDiagram-v2
 
 * **Suspend**: Application is asked to pause processing, persist state, and stop accepting new work.
 * **Resume**: Application restarts processing from the persisted state.
+* **Transitioning State**: The `SuspendHandler` uses an internal `transitioning` flag to ensure that while hooks are running, duplicate events (e.g., rapid-fire suspend signals) are ignored. This prevents race conditions and ensures hook execution is atomic.
+* **Idempotency**: Requests to `Suspend` while already suspended (or `Resume` while running) are ignored safely.
 * **Quiescence Safety**: The `SuspendGate` primitive is context-aware, ensuring buffered workers can abort instantly if the application shuts down while they are paused.
 
 #### 11.6.1. Sequential Execution & Ordering (FIFO)
