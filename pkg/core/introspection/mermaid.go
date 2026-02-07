@@ -116,7 +116,7 @@ func SignalStateMachine(sig any, opts ...MermaidOption) string {
 	if stoppedState {
 		sb.WriteString("    class [*] stopped\n")
 	} else if stopping {
-		sb.WriteString("    class Graceful running\n")
+		sb.WriteString("    class Graceful stopping\n")
 	} else if received == nil {
 		sb.WriteString("    class Running running\n")
 	} else {

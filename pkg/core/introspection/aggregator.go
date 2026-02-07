@@ -3,7 +3,6 @@ package introspection
 import (
 	"context"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 )
@@ -70,24 +69,15 @@ func inferComponentType(watcher interface{}) string {
 	if watcher == nil {
 		return ""
 	}
-	typ := reflect.TypeOf(watcher)
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
+
+	// 1. Check if it implements Component interface
+	if c, ok := watcher.(Component); ok {
+		return c.ComponentType()
 	}
 
-	pkgPath := typ.PkgPath()
-	switch {
-	case strings.Contains(pkgPath, "pkg/worker"):
-		return "worker"
-	case strings.Contains(pkgPath, "pkg/signal"):
-		return "signal"
-	case strings.Contains(pkgPath, "pkg/supervisor"):
-		return "supervisor"
-	case strings.Contains(pkgPath, "pkg/core/introspection"):
-		return "introspection"
-	default:
-		return ""
-	}
+	// 2. Fallback to package path (Legacy/Internal)
+	// Deprecated: Core components should implement Component interface.
+	return ""
 }
 
 // AggregateEvents combines multiple event sources into a unified event stream.

@@ -44,7 +44,7 @@ func TestSignalStateMachine(t *testing.T) {
 				Enabled:  true,
 				Stopping: true,
 			},
-			contains: []string{"Running --> Graceful", "class Graceful running"},
+			contains: []string{"Running --> Graceful", "class Graceful stopping"},
 		},
 		{
 			name: "Stopped",

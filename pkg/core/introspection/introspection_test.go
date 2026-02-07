@@ -47,15 +47,21 @@ func (m *MockIntrospectable) State() any {
 
 // MockTypedWatcher implements TypedWatcher for testing.
 type MockTypedWatcher[S any] struct {
+	compType     string
 	currentState S
 	changeChan   chan StateChange[S]
 }
 
 func NewMockTypedWatcher[S any](initialState S) *MockTypedWatcher[S] {
 	return &MockTypedWatcher[S]{
+		compType:     "worker", // Default for valid aggregation
 		currentState: initialState,
 		changeChan:   make(chan StateChange[S], 10),
 	}
+}
+
+func (m *MockTypedWatcher[S]) ComponentType() string {
+	return m.compType
 }
 
 func (m *MockTypedWatcher[S]) State() S {
@@ -697,8 +703,8 @@ func TestAggregateWatchers_Consume(t *testing.T) {
 		if snap.ComponentID != "test-id" {
 			t.Errorf("Expected ComponentID test-id, got %s", snap.ComponentID)
 		}
-		if snap.ComponentType != "introspection" {
-			t.Errorf("Expected ComponentType introspection, got %s", snap.ComponentType)
+		if snap.ComponentType != "worker" {
+			t.Errorf("Expected ComponentType worker, got %s", snap.ComponentType)
 		}
 		state, ok := snap.Payload.(MockState)
 		if !ok || state.Value != "updated" {
