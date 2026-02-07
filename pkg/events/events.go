@@ -56,9 +56,10 @@ func (e TerminateEvent) String() string {
 	return "lifecycle/terminate"
 }
 
+// ReloadEvent is triggered when the application should reload its configuration.
+// It is intended for "Hot Reload" scenarios where a restart is not required.
+type ReloadEvent struct{}
 
-
-
-
-
-
+func (e ReloadEvent) String() string {
+	return "lifecycle/reload"
+}

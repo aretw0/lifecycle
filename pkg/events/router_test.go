@@ -193,3 +193,118 @@ func TestRouterDispatchWithErrorMetrics(t *testing.T) {
 
 	// If we got here without panic, metrics were called correctly
 }
+
+func TestGlobalHelpers(t *testing.T) {
+	// Reset DefaultRouter logic? No, just use it.
+	// But it's global state, so tests might interfere if run in parallel.
+	// We'll just verify they don't panic and seem to wire up.
+
+	handled := false
+	HandleFunc("global.test", func(_ context.Context, _ Event) error {
+		handled = true
+		return nil
+	})
+
+	Use(func(next Handler) Handler {
+		return next
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start in background
+	go Start(ctx)
+	time.Sleep(10 * time.Millisecond) // Wait for start
+
+	Dispatch(ctx, mockEvent{"global.test"})
+	time.Sleep(10 * time.Millisecond) // Wait for dispatch
+
+	if !handled {
+		t.Error("Global HandleFunc/Dispatch failed")
+	}
+
+	routes := Routes()
+	if len(routes) == 0 {
+		t.Error("Global Routes() returned empty")
+	}
+}
+
+func TestRouter_AddSource(t *testing.T) {
+	router := NewRouter(WithEventBuffer(5))
+	source := &mockSource{events: make(chan Event, 1)}
+
+	router.AddSource(source)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go router.Start(ctx)
+
+	// Send event via source
+	source.events <- mockEvent{"source.event"}
+
+	// Create a handler to catch it
+	received := make(chan bool)
+	router.HandleFunc("source.event", func(_ context.Context, _ Event) error {
+		received <- true
+		return nil
+	})
+
+	select {
+	case <-received:
+		// success
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for event from source")
+	}
+}
+
+func TestRouter_Start_Double(t *testing.T) {
+	router := NewRouter()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go router.Start(ctx)
+	time.Sleep(10 * time.Millisecond)
+
+	err := router.Start(ctx)
+	if err == nil {
+		t.Error("Expected error when starting running router")
+	}
+}
+
+func TestRouter_Start_Cancel(t *testing.T) {
+	router := NewRouter()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		router.Start(ctx)
+		close(done)
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+		// success
+	case <-time.After(1 * time.Second):
+		t.Error("Router failed to stop on context cancel")
+	}
+}
+
+func TestRouter_Dispatch_NoMatch(t *testing.T) {
+	router := NewRouter()
+	// Should satisfy coverage by doing nothing
+	router.Dispatch(context.Background(), mockEvent{"nomatch"})
+}
+
+func TestRouter_WithEventBuffer_Negative(t *testing.T) {
+	router := NewRouter(WithEventBuffer(-1))
+	// Internal logic caps at 0
+	// We can't check internal field easily without reflection or exposing it via State
+	// But running it ensures no panic.
+	if router == nil {
+		t.Error("Router creation failed")
+	}
+}

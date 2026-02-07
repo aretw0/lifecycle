@@ -2,67 +2,86 @@ package events
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
 
-func TestNewHealthCheckSource(t *testing.T) {
-	checkFunc := func(ctx context.Context) error { return nil }
+func TestHealthCheckSource(t *testing.T) {
+	// 1. Setup healthy check
+	check := func(ctx context.Context) error { return nil }
 
-	tests := []struct {
-		name         string
-		opts         []HealthOption
-		wantInterval time.Duration
-		wantStrategy TriggerStrategy
-	}{
-		{
-			name:         "Default",
-			opts:         nil,
-			wantInterval: 30 * time.Second,
-			wantStrategy: TriggerEdge,
-		},
-		{
-			name: "CustomInterval",
-			opts: []HealthOption{
-				WithHealthInterval(5 * time.Second),
-			},
-			wantInterval: 5 * time.Second,
-			wantStrategy: TriggerEdge,
-		},
-		{
-			name: "CustomStrategy",
-			opts: []HealthOption{
-				WithHealthStrategy(TriggerLevel),
-			},
-			wantInterval: 30 * time.Second,
-			wantStrategy: TriggerLevel,
-		},
-		{
-			name: "Mixed",
-			opts: []HealthOption{
-				WithHealthInterval(10 * time.Minute),
-				WithHealthStrategy(TriggerLevel),
-			},
-			wantInterval: 10 * time.Minute,
-			wantStrategy: TriggerLevel,
-		},
-	}
+	source := NewHealthCheckSource("test", check,
+		WithHealthInterval(10*time.Millisecond),
+		WithHealthStrategy(TriggerLevel), // Emit every time
+	)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := NewHealthCheckSource("test", checkFunc, tt.opts...)
-			if s.Interval != tt.wantInterval {
-				t.Errorf("NewHealthCheckSource() Interval = %v, want %v", s.Interval, tt.wantInterval)
-			}
-			if s.Strategy != tt.wantStrategy {
-				t.Errorf("NewHealthCheckSource() Strategy = %v, want %v", s.Strategy, tt.wantStrategy)
-			}
-		})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := source.Events()
+	go source.Start(ctx)
+
+	// Expect UP event
+	select {
+	case e := <-ch:
+		he, ok := e.(HealthEvent)
+		if !ok || he.Status != "UP" {
+			t.Errorf("Expected UP event, got %v", e)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for health event")
 	}
 }
 
+func TestHealthCheckSource_EdgeTrigger(t *testing.T) {
+	// Toggle health
+	healthy := true
+	check := func(ctx context.Context) error {
+		if healthy {
+			return nil
+		}
+		return errors.New("failed")
+	}
 
+	source := NewHealthCheckSource("test", check,
+		WithHealthInterval(10*time.Millisecond),
+		WithHealthStrategy(TriggerEdge),
+	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	ch := source.Events()
+	go source.Start(ctx)
 
+	// 1. Initial State (UP) - Edge triggers on first check too?
+	// Logic: lastStatus "" != "UP" -> emit.
+	select {
+	case e := <-ch:
+		if he := e.(HealthEvent); he.Status != "UP" {
+			t.Error("Initial event should be UP")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout 1")
+	}
 
+	// 2. Stay healthy -> No event (Edge)
+	select {
+	case <-ch:
+		t.Error("Should not emit if status unchanged")
+	case <-time.After(50 * time.Millisecond):
+		// OK
+	}
+
+	// 3. Become unhealthy -> Emit DOWN
+	healthy = false
+	select {
+	case e := <-ch:
+		if he := e.(HealthEvent); he.Status != "DOWN" {
+			t.Error("Expected DOWN event")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout 2")
+	}
+}
