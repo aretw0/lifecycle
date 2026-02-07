@@ -13,7 +13,7 @@ import (
 
 // Generator produces raw materials using sync.Cond for suspension.
 type Generator struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 	output chan int
 	paused bool
 	mu     sync.Mutex
@@ -23,7 +23,7 @@ type Generator struct {
 
 func NewGenerator(output chan int, store *shared.Store) *Generator {
 	g := &Generator{
-		BaseWorker: *lifecycle.NewBaseWorker("Generator"),
+		BaseWorker: lifecycle.NewBaseWorker("Generator"),
 		output:     output,
 		store:      store,
 	}
@@ -90,7 +90,7 @@ func (g *Generator) Resume(ctx context.Context) error {
 
 // Worker processes materials using sync.Cond for suspension with strict quiescence.
 type Worker struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 	input    <-chan int
 	store    *shared.Store
 	paused   bool
@@ -101,7 +101,7 @@ type Worker struct {
 
 func NewWorker(input <-chan int, store *shared.Store) *Worker {
 	w := &Worker{
-		BaseWorker: *lifecycle.NewBaseWorker("Worker"),
+		BaseWorker: lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
 	}

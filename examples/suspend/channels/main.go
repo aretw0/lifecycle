@@ -13,7 +13,7 @@ import (
 
 // Generator produces raw materials using SuspendGate for simplified suspension.
 type Generator struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 	output chan int
 	store  *shared.Store
 	gate   *worker.SuspendGate
@@ -21,7 +21,7 @@ type Generator struct {
 
 func NewGenerator(output chan int, store *shared.Store) *Generator {
 	return &Generator{
-		BaseWorker: *lifecycle.NewBaseWorker("Generator"),
+		BaseWorker: lifecycle.NewBaseWorker("Generator"),
 		output:     output,
 		store:      store,
 		gate:       worker.NewSuspendGate(),
@@ -66,7 +66,7 @@ func (g *Generator) Resume(ctx context.Context) error  { g.gate.Resume(); return
 
 // Worker processes materials using SuspendGate for simplified suspension.
 type Worker struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 	input chan int
 	store *shared.Store
 	gate  *worker.SuspendGate
@@ -74,7 +74,7 @@ type Worker struct {
 
 func NewWorker(input chan int, store *shared.Store) *Worker {
 	return &Worker{
-		BaseWorker: *lifecycle.NewBaseWorker("Worker"),
+		BaseWorker: lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
 		gate:       worker.NewSuspendGate(),

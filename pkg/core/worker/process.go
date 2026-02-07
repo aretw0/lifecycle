@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"sync"
 	"syscall"
 	"time"
 
@@ -15,43 +14,36 @@ import (
 
 // ProcessWorker is a Worker that manages an OS process.
 type ProcessWorker struct {
-	cmd  *exec.Cmd
-	name string
+	*BaseWorker
+	cmd *exec.Cmd
 
-	mu        sync.Mutex
-	status    Status
 	startedAt time.Time
 	stoppedAt time.Time
 	exitCode  int
 	err       error
-	waitChan  chan error
 	env       map[string]string
 }
 
 // NewProcessWorker creates a new ProcessWorker for the given command.
 func NewProcessWorker(name string, nameCmd string, args ...string) *ProcessWorker {
 	cmd := exec.Command(nameCmd, args...)
-	// proc.Start will handle hygiene (JobObjects/PDeathSig)
 
 	return &ProcessWorker{
-		cmd:      cmd,
-		name:     name,
-		status:   StatusCreated,
-		waitChan: make(chan error, 1),
-		env:      make(map[string]string),
+		BaseWorker: NewBaseWorker(name),
+		cmd:        cmd,
+		env:        make(map[string]string),
 	}
 }
 
 // Start starts the OS process.
 func (p *ProcessWorker) Start(ctx context.Context) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if p.status != StatusCreated && p.status != StatusPending {
-		return fmt.Errorf("worker %s already started (status: %s)", p.name, p.status)
+		p.mu.Unlock()
+		return fmt.Errorf("worker %s already started (status: %s)", p.String(), p.status)
 	}
 
-	log.Info("starting process worker", "name", p.name, "cmd", p.cmd.Path, "args", p.cmd.Args)
+	log.Info("starting process worker", "name", p.String(), "cmd", p.cmd.Path, "args", p.cmd.Args)
 
 	// Inject environment variables
 	for k, v := range p.env {
@@ -62,12 +54,16 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 	if err := proc.Start(p.cmd); err != nil {
 		p.status = StatusFailed
 		p.err = err
+		p.mu.Unlock()
+		p.emitStateChange(State{Name: p.String(), Status: StatusCreated}, State{Name: p.String(), Status: StatusFailed})
 		metrics.GetProvider().IncWorkerFailed("process")
-		return fmt.Errorf("failed to start worker %s: %w", p.name, err)
+		return fmt.Errorf("failed to start worker %s: %w", p.String(), err)
 	}
 
 	p.status = StatusRunning
 	p.startedAt = time.Now()
+	p.mu.Unlock()
+	p.emitStateChange(State{Name: p.String(), Status: StatusCreated}, State{Name: p.String(), Status: StatusRunning})
 	metrics.GetProvider().IncWorkerStarted("process")
 
 	// Monitor in background
@@ -78,6 +74,7 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 		p.stoppedAt = time.Now()
 		duration := p.stoppedAt.Sub(p.startedAt)
 		p.err = err
+		oldStatus := p.status
 		if err != nil {
 			// Try to extract exit code
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -92,18 +89,15 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 			p.status = StatusStopped
 			metrics.GetProvider().IncWorkerStopped("process")
 		}
+		newStatus := p.status
 		p.mu.Unlock()
 
+		p.emitStateChange(State{Name: p.String(), Status: oldStatus}, State{Name: p.String(), Status: newStatus})
 		metrics.GetProvider().ObserveWorkerDuration("process", duration)
-		log.Info("process worker stopped", "name", p.name, "exit_code", p.exitCode, "error", err, "duration", duration)
+		log.Info("process worker stopped", "name", p.String(), "exit_code", p.exitCode, "error", err, "duration", duration)
 
-		if err != nil {
-			// If process exits with status code != 0, Wait returns error
-			p.waitChan <- err
-		} else {
-			p.waitChan <- nil
-		}
-		close(p.waitChan)
+		p.done <- err
+		close(p.done)
 	}()
 
 	return nil
@@ -123,40 +117,29 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	log.Debug("stopping process worker", "name", p.name, "pid", process.Pid)
+	log.Debug("stopping process worker", "name", p.String(), "pid", process.Pid)
 	stopStart := time.Now()
 
 	// First try graceful storage (SIGINT/SIGTERM depending on platform/app)
-	// For generic processes, SIGTERM is standard.
-	// Windows note: Signal won't work same way, but os.Process.Signal handles some cases.
-	// Using proc library or os.Process.Signal.
 	_ = process.Signal(syscall.SIGTERM)
-	// We ignore the error because on Windows SIGTERM is not supported.
-	// We will wait for the process to exit (if it handles the signal or if it was the signal that stopped it)
-	// or eventually kill it when ctx expires.
 
 	// Wait for exit or context timeout (Force Kill)
 	select {
-	case <-p.waitChan:
+	case <-p.done:
 		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))
 		return nil
 	case <-ctx.Done():
 		// Context expired, force kill
-		log.Warn("force killing process worker", "name", p.name, "pid", process.Pid)
+		log.Warn("force killing process worker", "name", p.String(), "pid", process.Pid)
 		_ = process.Kill()
 		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))
 		return ctx.Err()
 	}
 }
 
-// Wait returns the channel to wait for process exit.
-func (p *ProcessWorker) Wait() <-chan error {
-	return p.waitChan
-}
-
 // String returns the worker name.
 func (p *ProcessWorker) String() string {
-	return fmt.Sprintf("Process(%s)", p.name)
+	return fmt.Sprintf("Process(%s)", p.BaseWorker.String())
 }
 
 // SetEnv adds an environment variable to the process.
@@ -168,29 +151,16 @@ func (p *ProcessWorker) SetEnv(key, value string) {
 
 // State returns a snapshot of the worker's status.
 func (p *ProcessWorker) State() State {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	pid := 0
-	if p.cmd.Process != nil {
-		pid = p.cmd.Process.Pid
-	}
-
-	metadata := map[string]string{
-		"type": "process",
-		"path": p.cmd.Path,
-		"args": fmt.Sprintf("%v", p.cmd.Args),
-	}
-
-	return State{
-		Name:     p.name,
-		Status:   p.status,
-		PID:      pid,
-		ExitCode: p.exitCode,
-		Error:    p.err,
-		Metadata: metadata,
-	}
+	return p.ExportState(func(s *State) {
+		if p.cmd.Process != nil {
+			s.PID = p.cmd.Process.Pid
+		}
+		s.ExitCode = p.exitCode
+		s.Error = p.err
+		s.Metadata = map[string]string{
+			"type": "process",
+			"path": p.cmd.Path,
+			"args": fmt.Sprintf("%v", p.cmd.Args),
+		}
+	})
 }
-
-
-

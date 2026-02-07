@@ -101,29 +101,21 @@ func (cw *ContainerWorker) String() string {
 
 // State returns the current worker state.
 func (cw *ContainerWorker) State() State {
-	cw.mu.RLock()
-	defer cw.mu.RUnlock()
-	return cw.buildState()
-}
+	return cw.ExportState(func(s *State) {
+		s.Metadata = make(map[string]string)
 
-// buildState constructs the container worker state.
-func (cw *ContainerWorker) buildState() State {
-	s := cw.BaseWorker.buildState()
-	s.Metadata = make(map[string]string)
+		// Use background context for state inspection with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
 
-	// Use background context for state inspection with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	if inspect, err := cw.c.Inspect(ctx); err == nil {
-		s.Metadata["image"] = inspect.Image
-		s.Metadata["ip"] = inspect.IP
-		s.Metadata["ports"] = fmt.Sprintf("%v", inspect.Ports)
-		for k, v := range inspect.Labels {
-			s.Metadata["label."+k] = v
+		if inspect, err := cw.c.Inspect(ctx); err == nil {
+			s.Metadata["image"] = inspect.Image
+			s.Metadata["ip"] = inspect.IP
+			s.Metadata["ports"] = fmt.Sprintf("%v", inspect.Ports)
+			for k, v := range inspect.Labels {
+				s.Metadata["label."+k] = v
+			}
 		}
-	}
-	s.Metadata["type"] = "container"
-
-	return s
+		s.Metadata["type"] = "container"
+	})
 }

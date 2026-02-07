@@ -243,18 +243,24 @@ func NewWorkerFromFunc(name string, fn func(context.Context) error) Worker {
 }
 
 // BaseWorker provides default implementations for Worker interface boilerplate.
-// Embed this in your worker types to avoid repeating Stop/Wait/String/State methods.
+// Embed this in your worker types to avoid repeating Stop/Wait/String methods.
 //
 // Example:
 //
 //	type MyWorker struct {
-//	    lifecycle.BaseWorker
+//	    *lifecycle.BaseWorker
 //	    // custom fields...
+//	}
+//
+//	func (w *MyWorker) State() lifecycle.WorkerState {
+//	    return w.ExportState(func(s *lifecycle.WorkerState) {
+//	        s.Metadata = map[string]string{"custom": "data"}
+//	    })
 //	}
 //
 //	func NewMyWorker() *MyWorker {
 //	    return &MyWorker{
-//	        BaseWorker: *lifecycle.NewBaseWorker("MyWorker"),
+//	        BaseWorker: lifecycle.NewBaseWorker("MyWorker"),
 //	    }
 //	}
 //

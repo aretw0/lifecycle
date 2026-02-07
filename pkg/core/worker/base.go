@@ -93,23 +93,27 @@ func (b *BaseWorker) String() string {
 	return b.name
 }
 
-// State returns the current worker state with thread-safe access.
-// If an embedding type overrides buildState(), it MUST also override State()
-// to ensure the override is called (Go embedding is not polymorphic).
+// State returns the current worker state (base fields only).
 func (b *BaseWorker) State() State {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.buildState()
+	return b.ExportState(nil)
 }
 
-// buildState constructs the worker state.
-// Override this method in subclasses to add custom fields.
-// The caller (State()) already holds the read lock, so this is safe.
-func (b *BaseWorker) buildState() State {
-	return State{
+// ExportState allows embedding workers to safely construct their state while holding the lock.
+// It builds the base state and passes it to the optional extension function 'fn'.
+func (b *BaseWorker) ExportState(fn func(*State)) State {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	s := State{
 		Name:   b.name,
 		Status: b.status,
 	}
+
+	if fn != nil {
+		fn(&s)
+	}
+
+	return s
 }
 
 // StartFunc is a helper that runs fn in a goroutine and manages the done channel.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/core/log"
@@ -12,26 +11,18 @@ import (
 )
 
 // FromFunc creates a Worker from a simple function.
-// The function is executed in a goroutine when Start is called.
-// The context passed to the function is cancelled when Stop is called.
 func FromFunc(name string, fn func(context.Context) error) Worker {
 	return &funcWorker{
-		name:   name,
-		fn:     fn,
-		wait:   make(chan error, 1),
-		status: StatusCreated,
+		BaseWorker: NewBaseWorker(name),
+		fn:         fn,
 	}
 }
 
 type funcWorker struct {
-	name string
-	fn   func(context.Context) error
-
-	mu     sync.Mutex
-	status Status
+	*BaseWorker
+	fn func(context.Context) error
 
 	cancel context.CancelFunc
-	wait   chan error
 
 	// Result
 	err error
@@ -39,27 +30,29 @@ type funcWorker struct {
 
 func (w *funcWorker) Start(ctx context.Context) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	if w.status != StatusCreated && w.status != StatusPending {
-		return fmt.Errorf("worker %s already started (status: %s)", w.name, w.status)
+		w.mu.Unlock()
+		return fmt.Errorf("worker %s already started (status: %s)", w.String(), w.status)
 	}
 
 	// Create context for the function
 	fnCtx, cancel := context.WithCancel(context.Background())
 	w.cancel = cancel
 	w.status = StatusRunning
+	w.mu.Unlock()
+	w.emitStateChange(State{Name: w.String(), Status: StatusCreated}, State{Name: w.String(), Status: StatusRunning})
 
 	// Monitor in background
 	go func() {
 		start := time.Now()
 		metrics.GetProvider().IncWorkerStarted("func")
-		log.Info("func worker started", "name", w.name)
+		log.Info("func worker started", "name", w.String())
 
 		err := w.fn(fnCtx)
 		duration := time.Since(start)
 
 		w.mu.Lock()
+		oldStatus := w.status
 		w.status = StatusStopped
 		if err != nil {
 			// Check if cancelled (normal stop)
@@ -68,23 +61,25 @@ func (w *funcWorker) Start(ctx context.Context) error {
 				w.status = StatusStopped
 				w.err = nil
 				metrics.GetProvider().IncWorkerStopped("func")
-				log.Info("func worker stopped (canceled)", "name", w.name, "duration", duration)
+				log.Info("func worker stopped (canceled)", "name", w.String(), "duration", duration)
 			} else {
 				w.status = StatusFailed
 				w.err = err
 				metrics.GetProvider().IncWorkerFailed("func")
-				log.Error("func worker failed", "name", w.name, "error", err, "duration", duration)
+				log.Error("func worker failed", "name", w.String(), "error", err, "duration", duration)
 			}
 		} else {
 			metrics.GetProvider().IncWorkerStopped("func")
-			log.Info("func worker stopped", "name", w.name, "duration", duration)
+			log.Info("func worker stopped", "name", w.String(), "duration", duration)
 		}
+		newStatus := w.status
 		w.mu.Unlock()
 
+		w.emitStateChange(State{Name: w.String(), Status: oldStatus}, State{Name: w.String(), Status: newStatus})
 		metrics.GetProvider().ObserveWorkerDuration("func", duration)
 
-		w.wait <- err
-		close(w.wait)
+		w.done <- err
+		close(w.done)
 	}()
 
 	return nil
@@ -96,27 +91,14 @@ func (w *funcWorker) Stop(ctx context.Context) error {
 
 	if w.cancel != nil {
 		w.cancel()
-		log.Debug("signaled func worker to stop", "name", w.name)
+		log.Debug("signaled func worker to stop", "name", w.String())
 	}
 	return nil
 }
 
-func (w *funcWorker) Wait() <-chan error {
-	return w.wait
-}
-
-func (w *funcWorker) String() string { return w.name }
-
 func (w *funcWorker) State() State {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return State{
-		Name:     w.name,
-		Status:   w.status,
-		Error:    w.err,
-		Metadata: map[string]string{"type": "func"},
-	}
+	return w.ExportState(func(s *State) {
+		s.Error = w.err
+		s.Metadata = map[string]string{"type": "func"}
+	})
 }
-
-
-

@@ -121,19 +121,17 @@ func TestBaseWorker_Embedding(t *testing.T) {
 	}
 }
 
-func TestBaseWorker_OverrideState(t *testing.T) {
-	// Real test of overriding buildState
-	type RichWorker struct {
-		BaseWorker
-	}
+func TestBaseWorker_ExportState(t *testing.T) {
+	w := NewBaseWorker("test")
 
-	worker := &RichWorker{
-		BaseWorker: *NewBaseWorker("Rich"),
-	}
+	state := w.ExportState(func(s *State) {
+		s.Metadata = map[string]string{"foo": "bar"}
+	})
 
-	// We can't easily override in a local struct without defining a new method on the type.
-	// But we can check that buildState is used.
-	if worker.State().Name != "Rich" {
-		t.Errorf("Expected Name Rich, got %s", worker.State().Name)
+	if state.Name != "test" {
+		t.Errorf("Expected name test, got %s", state.Name)
+	}
+	if state.Metadata["foo"] != "bar" {
+		t.Errorf("Expected metadata foo=bar, got %s", state.Metadata["foo"])
 	}
 }

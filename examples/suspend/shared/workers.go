@@ -10,12 +10,12 @@ import (
 
 // Watchdog is a system service that runs continuously, ignoring suspension.
 type Watchdog struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 }
 
 func NewWatchdog() *Watchdog {
 	return &Watchdog{
-		BaseWorker: *lifecycle.NewBaseWorker("Watchdog"),
+		BaseWorker: lifecycle.NewBaseWorker("Watchdog"),
 	}
 }
 
@@ -39,12 +39,12 @@ func (w *Watchdog) Run(ctx context.Context) error {
 
 // Blocker is a worker that refuses to suspend quickly, testing the USER's patience.
 type Blocker struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 }
 
 func NewBlocker() *Blocker {
 	return &Blocker{
-		BaseWorker: *lifecycle.NewBaseWorker("Blocker"),
+		BaseWorker: lifecycle.NewBaseWorker("Blocker"),
 	}
 }
 

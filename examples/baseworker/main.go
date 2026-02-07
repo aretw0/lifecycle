@@ -12,13 +12,13 @@ import (
 
 // SimpleWorker demonstrates minimal boilerplate using BaseWorker embedding.
 type SimpleWorker struct {
-	lifecycle.BaseWorker
+	*lifecycle.BaseWorker
 	message string
 }
 
 func NewSimpleWorker(message string) *SimpleWorker {
 	return &SimpleWorker{
-		BaseWorker: *lifecycle.NewBaseWorker("SimpleWorker"),
+		BaseWorker: lifecycle.NewBaseWorker("SimpleWorker"),
 		message:    message,
 	}
 }

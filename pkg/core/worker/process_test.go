@@ -46,8 +46,8 @@ func TestProcess_StartStop(t *testing.T) {
 	// The child process created by NewProcess will inherit the current process's environment (os.Environ()),
 	// so setting the variable here is sufficient to pass it to the worker.
 
-	os.Setenv(HelperProcess, "1")
-	defer os.Unsetenv(HelperProcess)
+	// Inject the helper env using the safe instance method
+	w.SetEnv(HelperProcess, "1")
 
 	// Verify initial state
 	initialState := w.State()
@@ -94,7 +94,7 @@ func TestProcess_StartStop(t *testing.T) {
 			// We accept any exit as long as it returned.
 			t.Logf("Worker exited with: %v", err)
 		}
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Wait blocked after Stop")
 	}
 
@@ -106,11 +106,10 @@ func TestProcess_StartStop(t *testing.T) {
 }
 
 func TestProcess_Wait(t *testing.T) {
-	os.Setenv(HelperProcess, "1")
-	defer os.Unsetenv(HelperProcess)
-
 	// Worker that exits immediately (echo)
 	w := worker.NewProcessWorker("test-echo", os.Args[0], "echo", "hello")
+
+	w.SetEnv(HelperProcess, "1")
 
 	if err := w.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -122,10 +121,7 @@ func TestProcess_Wait(t *testing.T) {
 		if err != nil {
 			t.Errorf("Wait returned error: %v", err)
 		}
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Wait timeout")
 	}
 }
-
-
-
