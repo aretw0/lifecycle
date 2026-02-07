@@ -21,7 +21,7 @@ type Generator struct {
 
 func NewGenerator(output chan int, store *shared.Store) *Generator {
 	return &Generator{
-		BaseWorker: lifecycle.NewBaseWorker("Generator"),
+		BaseWorker: *lifecycle.NewBaseWorker("Generator"),
 		output:     output,
 		store:      store,
 		gate:       worker.NewSuspendGate(),
@@ -74,7 +74,7 @@ type Worker struct {
 
 func NewWorker(input chan int, store *shared.Store) *Worker {
 	return &Worker{
-		BaseWorker: lifecycle.NewBaseWorker("Worker"),
+		BaseWorker: *lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
 		gate:       worker.NewSuspendGate(),
@@ -158,6 +158,3 @@ func main() {
 
 	shared.RunFactory(sup, store, suspendHandler)
 }
-
-
-

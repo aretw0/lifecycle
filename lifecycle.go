@@ -254,7 +254,7 @@ func NewWorkerFromFunc(name string, fn func(context.Context) error) Worker {
 //
 //	func NewMyWorker() *MyWorker {
 //	    return &MyWorker{
-//	        BaseWorker: lifecycle.NewBaseWorker("MyWorker"),
+//	        BaseWorker: *lifecycle.NewBaseWorker("MyWorker"),
 //	    }
 //	}
 //

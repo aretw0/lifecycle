@@ -15,7 +15,7 @@ type Watchdog struct {
 
 func NewWatchdog() *Watchdog {
 	return &Watchdog{
-		BaseWorker: lifecycle.NewBaseWorker("Watchdog"),
+		BaseWorker: *lifecycle.NewBaseWorker("Watchdog"),
 	}
 }
 
@@ -44,7 +44,7 @@ type Blocker struct {
 
 func NewBlocker() *Blocker {
 	return &Blocker{
-		BaseWorker: lifecycle.NewBaseWorker("Blocker"),
+		BaseWorker: *lifecycle.NewBaseWorker("Blocker"),
 	}
 }
 
@@ -66,6 +66,3 @@ func (b *Blocker) Suspend(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
-
-
-

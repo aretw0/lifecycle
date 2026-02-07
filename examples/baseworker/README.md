@@ -42,7 +42,7 @@ type MyWorker struct {
 
 func NewMyWorker() *MyWorker {
     return &MyWorker{
-        BaseWorker: lifecycle.NewBaseWorker("MyWorker"),
+        BaseWorker: *lifecycle.NewBaseWorker("MyWorker"),
     }
 }
 

@@ -18,7 +18,7 @@ type SimpleWorker struct {
 
 func NewSimpleWorker(message string) *SimpleWorker {
 	return &SimpleWorker{
-		BaseWorker: lifecycle.NewBaseWorker("SimpleWorker"),
+		BaseWorker: *lifecycle.NewBaseWorker("SimpleWorker"),
 		message:    message,
 	}
 }
@@ -97,6 +97,3 @@ func main() {
 	lifecycle.Run(sup)
 	fmt.Println("\n✅ Clean shutdown")
 }
-
-
-

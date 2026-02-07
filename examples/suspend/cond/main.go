@@ -23,7 +23,7 @@ type Generator struct {
 
 func NewGenerator(output chan int, store *shared.Store) *Generator {
 	g := &Generator{
-		BaseWorker: lifecycle.NewBaseWorker("Generator"),
+		BaseWorker: *lifecycle.NewBaseWorker("Generator"),
 		output:     output,
 		store:      store,
 	}
@@ -101,7 +101,7 @@ type Worker struct {
 
 func NewWorker(input <-chan int, store *shared.Store) *Worker {
 	w := &Worker{
-		BaseWorker: lifecycle.NewBaseWorker("Worker"),
+		BaseWorker: *lifecycle.NewBaseWorker("Worker"),
 		input:      input,
 		store:      store,
 	}
@@ -218,6 +218,3 @@ func main() {
 
 	shared.RunFactory(sup, store, suspendHandler)
 }
-
-
-
