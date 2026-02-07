@@ -42,8 +42,22 @@ func TestLifecycle_Job(t *testing.T) {
 }
 
 func TestLifecycle_Run(t *testing.T) {
-	// Minimal run test to verify signature compatibility.
-	// Behavioral tests for Run() are in any pkg/runtime/runtime_test.go to avoid signal interference.
+	// Verify that Run() correctly delegates to the runtime and executes the job.
+	// Since we are not running in parallel (t.Parallel() is not called),
+	// this is safe regarding signal handling within this package's test suite.
+
+	executed := false
+	err := lifecycle.Run(lifecycle.Job(func(ctx context.Context) error {
+		executed = true
+		return nil
+	}))
+
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !executed {
+		t.Error("Job was not executed")
+	}
 }
 
 func TestLifecycle_Do(t *testing.T) {
