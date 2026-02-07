@@ -266,15 +266,24 @@ func TestLifecycle_Interactive(t *testing.T) {
 	// Verify creation of the Interactive Router helper.
 	sh := lifecycle.NewSuspendHandler()
 
+	cmdCalled := false
+	cmdHandler := events.HandlerFunc(func(ctx context.Context, e events.Event) error {
+		cmdCalled = true
+		return nil
+	})
+
 	ir := lifecycle.NewInteractiveRouter(
 		sh,
-		lifecycle.WithShutdown(func() {}), // Corrected: func()
+		lifecycle.WithShutdown(func() {}),
 		lifecycle.WithInput(true),
 		lifecycle.WithSignal(false),
+		lifecycle.WithCommand("test-cmd", cmdHandler),
 	)
 
-	if ir == nil {
-		t.Error("NewInteractiveRouter returned nil")
+	// Verify command registration via Dispatch
+	ir.Dispatch(context.Background(), events.InputEvent{Command: "test-cmd"})
+	if !cmdCalled {
+		t.Error("Custom command handler was not called")
 	}
 }
 
