@@ -634,7 +634,6 @@ func TestWithStyles_Option(t *testing.T) {
 // Helper function tests (used internally by Mermaid functions)
 // Note: These functions are tested indirectly through public APIs
 
-
 // Tests for WatcherAdapter functionality
 func TestWatcherAdapter_Integration_With_Aggregator(t *testing.T) {
 	watcher := NewMockTypedWatcher(MockState{Value: "initial"})
@@ -673,5 +672,59 @@ func TestWatcherAdapter_Integration_With_Aggregator(t *testing.T) {
 		}
 	case <-time.After(1 * time.Second):
 		t.Error("Timeout waiting for snapshot")
+	}
+}
+
+func TestAggregateWatchers_Consume(t *testing.T) {
+	watcher := NewMockTypedWatcher(MockState{Value: "initial"})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	snapshots := AggregateWatchers(ctx, watcher)
+
+	// Send a change
+	newState := MockState{Value: "updated"}
+	watcher.SendChange(StateChange[MockState]{
+		ComponentID:   "test-id",
+		ComponentType: "worker",
+		OldState:      MockState{Value: "initial"},
+		NewState:      newState,
+		Timestamp:     time.Now(),
+	})
+
+	select {
+	case snap := <-snapshots:
+		if snap.ComponentID != "test-id" {
+			t.Errorf("Expected ComponentID test-id, got %s", snap.ComponentID)
+		}
+		if snap.ComponentType != "introspection" {
+			t.Errorf("Expected ComponentType introspection, got %s", snap.ComponentType)
+		}
+		state, ok := snap.Payload.(MockState)
+		if !ok || state.Value != "updated" {
+			t.Errorf("Expected payload updated, got %v", snap.Payload)
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for snapshot")
+	}
+}
+
+func TestAggregateWatchers_InvalidInputs(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 1. Struct without Watch method
+	snapshots := AggregateWatchers(ctx, struct{}{})
+	if snapshots == nil {
+		t.Error("AggregateWatchers returned nil channel")
+	}
+	if _, ok := <-snapshots; ok {
+		t.Error("Expected closed channel for empty struct")
+	}
+
+	// 2. Struct with wrong package path
+	snapshots = AggregateWatchers(ctx, time.Time{})
+	if _, ok := <-snapshots; ok {
+		t.Error("Expected closed channel for time.Time")
 	}
 }

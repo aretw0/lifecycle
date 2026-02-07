@@ -83,6 +83,8 @@ func inferComponentType(watcher interface{}) string {
 		return "signal"
 	case strings.Contains(pkgPath, "pkg/supervisor"):
 		return "supervisor"
+	case strings.Contains(pkgPath, "pkg/core/introspection"):
+		return "introspection"
 	default:
 		return ""
 	}
@@ -114,6 +116,3 @@ func AggregateEvents(ctx context.Context, sources ...EventSource) <-chan Compone
 
 	return out
 }
-
-
-
