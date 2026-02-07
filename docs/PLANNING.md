@@ -61,22 +61,22 @@
 **Current Coverage by Package (latest run)**:
 
 ```log
-lifecycle (root)            : 94.8%  ✨ EXCELLENT (complete facade coverage)
+lifecycle (root)            : 91.8%  ✨ EXCELLENT
 pkg/core/signal             : 85.3%  ✨ EXCELLENT
 pkg/core/runtime            : 90.0%  ✨ EXCELLENT
 pkg/core/supervisor         : 84.4%  ✨ EXCELLENT
-pkg/events                  : 82.2%  ✨ EXCELLENT
-pkg/core/termio             : 73.0%  ⚠️ NEEDS FOCUS (platform I/O, Windows)
+pkg/events                  : 81.5%  ✨ EXCELLENT
+pkg/core/termio             : 83.8%  ✨ EXCELLENT (improved)
 pkg/core/proc               : 55.9%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/metrics            : 100.0% ✅ Covered
+pkg/core/metrics            : 26.5%  💎 HONEST (removed theater/NoOp tests)
 pkg/core/container          : 100.0% ✅ Covered
 pkg/core/introspection      : 79.8%  ✨ EXCELLENT
 pkg/core/log                : 100.0% ✅ Covered
-pkg/core/worker             : 80.4%  ✨ EXCELLENT (added watcher/container tests)
+pkg/core/worker             : 80.4%  ✨ EXCELLENT
 pkg/core/worker/suspend     : 100.0% ✅ Covered
 ```
 
-**Overall Coverage (Tested Packages)**: ~81% (Weighted average exceeded target!)
+**Overall Coverage (Tested Packages)**: ~83.5% (Target: >80%)
 
 **Target**: ≥80% average coverage across all packages before v2.0 launch
 
