@@ -135,5 +135,3 @@ const (
 	FileOpRename FileOp = "RENAME"
 	FileOpChmod  FileOp = "CHMOD"
 )
-
-

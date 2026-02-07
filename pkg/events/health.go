@@ -120,5 +120,3 @@ func (s *HealthCheckSource) Start(ctx context.Context) error {
 func (s *HealthCheckSource) emit(ctx context.Context, e HealthEvent) error {
 	return s.Emit(ctx, e)
 }
-
-
