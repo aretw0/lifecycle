@@ -20,7 +20,7 @@ serve-docs:
 
 # Run stress tests
 stress:
-	go test -race -v -tags=stress -count=1 ./pkg/worker/...
+	go test -race -v -tags=stress -count=1 -timeout 2m ./pkg/worker/...
 
 # Cleanup leaked processes during development (OS specific)
 # Note: On Windows, we use powershell to find and kill processes with 'lifecycle' in the name.
