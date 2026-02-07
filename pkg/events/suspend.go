@@ -14,10 +14,11 @@ type SuspendHook func(ctx context.Context) error
 // SuspendHandler manages Suspend and Resume
 // It allows registering hooks that are executed when these events occur.
 type SuspendHandler struct {
-	mu        sync.RWMutex
-	onSuspend []SuspendHook
-	onResume  []SuspendHook
-	suspended bool
+	mu            sync.RWMutex
+	onSuspend     []SuspendHook
+	onResume      []SuspendHook
+	suspended     bool
+	transitioning bool
 }
 
 // NewSuspendHandler creates a new handler for suspend/resume
@@ -50,6 +51,13 @@ func (h *SuspendHandler) Manage(s worker.Suspendable) {
 func (h *SuspendHandler) HandleEvent(ctx context.Context, e Event) error {
 	h.mu.Lock()
 
+	// If already transitioning, ignore to prevent duplicate hook execution
+	if h.transitioning {
+		h.mu.Unlock()
+		log.Debug("lifecycle: already transitioning state")
+		return nil
+	}
+
 	var hooks []SuspendHook
 	var nextState bool
 	var logMsg string
@@ -80,18 +88,21 @@ func (h *SuspendHandler) HandleEvent(ctx context.Context, e Event) error {
 		return nil
 	}
 
+	// Mark as transitioning before unlocking to run hooks
+	h.transitioning = true
 	h.mu.Unlock()
 
 	log.Info(logMsg)
-	if err := h.executeHooks(ctx, hooks); err != nil {
-		return err
-	}
+	err := h.executeHooks(ctx, hooks)
 
 	h.mu.Lock()
-	h.suspended = nextState
+	h.transitioning = false
+	if err == nil {
+		h.suspended = nextState
+	}
 	h.mu.Unlock()
 
-	return nil
+	return err
 }
 
 func (h *SuspendHandler) executeHooks(ctx context.Context, hooks []SuspendHook) error {
