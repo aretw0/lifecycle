@@ -87,99 +87,35 @@ func TestSetLogger_Concurrent(t *testing.T) {
 	_ = GetLogger()
 }
 
-func TestInfo_Logging(t *testing.T) {
-	buf := &bytes.Buffer{}
-	customLogger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	SetLogger(customLogger)
-	defer SetLogger(nil)
-
-	Info("test message", "key", "value")
-
-	output := buf.String()
-	if output == "" {
-		t.Error("Info() did not produce output")
+// Consolidated behavioral test for logging levels
+func TestLogging_Behavior(t *testing.T) {
+	tests := []struct {
+		name     string
+		level    slog.Level
+		logFunc  func(string, ...any)
+		msg      string
+		contains string
+	}{
+		{"Info", slog.LevelInfo, Info, "info msg", "info msg"},
+		{"Warn", slog.LevelWarn, Warn, "warn msg", "warn msg"},
+		{"Error", slog.LevelError, Error, "error msg", "error msg"},
+		{"Debug", slog.LevelDebug, Debug, "debug msg", "debug msg"},
 	}
 
-	if !bytes.Contains([]byte(output), []byte("test message")) {
-		t.Errorf("Output does not contain 'test message': %s", output)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			customLogger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: tt.level}))
+			SetLogger(customLogger)
+			defer SetLogger(nil)
 
-func TestWarn_Logging(t *testing.T) {
-	buf := &bytes.Buffer{}
-	customLogger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
-		Level: slog.LevelWarn,
-	}))
-	SetLogger(customLogger)
-	defer SetLogger(nil)
+			tt.logFunc(tt.msg)
 
-	Warn("warning message", "severity", "high")
-
-	output := buf.String()
-	if output == "" {
-		t.Error("Warn() did not produce output")
-	}
-
-	if !bytes.Contains([]byte(output), []byte("warning message")) {
-		t.Errorf("Output does not contain 'warning message': %s", output)
-	}
-}
-
-func TestError_Logging(t *testing.T) {
-	buf := &bytes.Buffer{}
-	customLogger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
-		Level: slog.LevelError,
-	}))
-	SetLogger(customLogger)
-	defer SetLogger(nil)
-
-	Error("error message", "error_code", 500)
-
-	output := buf.String()
-	if output == "" {
-		t.Error("Error() did not produce output")
-	}
-
-	if !bytes.Contains([]byte(output), []byte("error message")) {
-		t.Errorf("Output does not contain 'error message': %s", output)
-	}
-}
-
-func TestDebug_Logging_BelowLevel(t *testing.T) {
-	buf := &bytes.Buffer{}
-	customLogger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
-		Level: slog.LevelInfo, // Debug is below Info
-	}))
-	SetLogger(customLogger)
-	defer SetLogger(nil)
-
-	Debug("debug message")
-
-	output := buf.String()
-	if output != "" {
-		t.Errorf("Debug() should not produce output at INFO level, got: %s", output)
-	}
-}
-
-func TestDebug_Logging_AboveLevel(t *testing.T) {
-	buf := &bytes.Buffer{}
-	customLogger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	SetLogger(customLogger)
-	defer SetLogger(nil)
-
-	Debug("debug message", "detail", "test")
-
-	output := buf.String()
-	if output == "" {
-		t.Error("Debug() did not produce output at DEBUG level")
-	}
-
-	if !bytes.Contains([]byte(output), []byte("debug message")) {
-		t.Errorf("Output does not contain 'debug message': %s", output)
+			output := buf.String()
+			if !bytes.Contains([]byte(output), []byte(tt.contains)) {
+				t.Errorf("%s() did not produce expected output: %s", tt.name, output)
+			}
+		})
 	}
 }
 

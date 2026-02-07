@@ -69,6 +69,7 @@ pkg/events                  : 81.5%  ✨ EXCELLENT
 pkg/core/termio             : 83.8%  ✨ EXCELLENT (improved)
 pkg/core/proc               : 55.9%  ⚠️ NEEDS IMPROVEMENT
 pkg/core/metrics            : 26.5%  💎 HONEST (removed theater/NoOp tests)
+pkg/core/metrics/mock       : 18.8%  💎 HONEST (added behavioral tests)
 pkg/core/container          : 100.0% ✅ Covered
 pkg/core/introspection      : 79.8%  ✨ EXCELLENT
 pkg/core/log                : 100.0% ✅ Covered
