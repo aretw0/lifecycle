@@ -1,8 +1,9 @@
 .PHONY: test vet coverage serve-docs stress clean-zombies
 
 # Run all tests
+# Note: -race is mandatory for verifying behavioral logic and concurrency safety.
 test:
-	go test ./...
+	go test -race -timeout 90s -v ./...
 
 # Run vet tool in all files
 vet:
@@ -10,7 +11,7 @@ vet:
 
 # Run coverage tests (powershell on Windows needs double quotes for file paths)
 coverage:
-	go test -coverprofile="coverage.out" ./...
+	go test -race -timeout 90s -v -coverprofile="coverage.out" ./...
 	go tool cover -func="coverage.out"
 
 # Run local Go documentation server (pkgsite)
@@ -19,7 +20,7 @@ serve-docs:
 
 # Run stress tests
 stress:
-	go test -v -tags=stress -count=1 ./pkg/worker/...
+	go test -race -v -tags=stress -count=1 ./pkg/worker/...
 
 # Cleanup leaked processes during development (OS specific)
 # Note: On Windows, we use powershell to find and kill processes with 'lifecycle' in the name.
