@@ -70,13 +70,11 @@ func inferComponentType(watcher interface{}) string {
 		return ""
 	}
 
-	// 1. Check if it implements Component interface
+	// Check if it implements Component interface
 	if c, ok := watcher.(Component); ok {
 		return c.ComponentType()
 	}
 
-	// 2. Fallback to package path (Legacy/Internal)
-	// Deprecated: Core components should implement Component interface.
 	return ""
 }
 
