@@ -2,8 +2,8 @@
 /**/*.exe
 
 # Coverage
-coverage_results.txt
-*.out
+*coverage*.txt
+*coverage*.out
 
 # Examples
 examples/**/config.json
