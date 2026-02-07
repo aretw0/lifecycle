@@ -91,23 +91,16 @@ func Run(r Runnable, opts ...any) error {
 	var wg sync.WaitGroup
 	sigCtx := signal.NewContext(context.Background(), sigOpts...)
 	defer sigCtx.Stop()
-	defer sigCtx.Stop()
 
 	// Inject the task tracker into the context passed to the application
 	appCtx := WithTaskTracking(sigCtx, &wg)
 
 	err := r.Start(appCtx)
 
-	// Explicitly cancel the context to signal background workers (lifecycle.Go) to stop.
-	// This ensures that when the main function exits, the application shuts down cleanly.
-	sigCtx.Cancel()
-
-	// If shutdown was triggered by a signal, wait for hooks to complete.
-	// We avoid calling Wait() on normal exit or manual stop, as it would block forever.
-	reason := sigCtx.Reason()
-	if reason == signal.ReasonInterrupt || reason == signal.ReasonTerminate {
-		sigCtx.Wait()
-	}
+	// Explicitly cancel the context and trigger shutdown hooks.
+	// This ensures that when the main function exits, the application cleans up.
+	// We use the internal ShutdownWait() convenience method.
+	sigCtx.ShutdownWait()
 
 	// Wait for all background tasks to finish cleaning up
 	waitForTasks(&wg, diagTimeout)
@@ -137,6 +130,3 @@ func waitForTasks(wg *sync.WaitGroup, timeout time.Duration) {
 		<-done
 	}
 }
-
-
-
