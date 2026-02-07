@@ -279,14 +279,15 @@ finish:
 }
 
 type childExit struct {
-	name string
-	err  error
+	name   string
+	worker worker.Worker
+	err    error
 }
 
 func (s *supervisor) guard(name string, w worker.Worker, ch chan<- childExit) {
 	// Wait for worker to exit
 	err := <-w.Wait()
-	ch <- childExit{name: name, err: err}
+	ch <- childExit{name: name, worker: w, err: err}
 	s.guardsWg.Done()
 }
 
@@ -308,6 +309,15 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 	if !found {
 		log.Debug("handleExit: spec not found", "name", exit.name)
 		return
+	}
+
+	// Verify if the exit event matches the current active worker.
+	// This prevents stale exit events (from previous restarts) from affecting the new worker.
+	if current, ok := s.children[exit.name]; ok {
+		if current != exit.worker {
+			log.Debug("ignoring stale exit event", "name", exit.name)
+			return
+		}
 	}
 
 	// Determine if the exit is "expected" (graceful shutdown or requested stop)
@@ -462,8 +472,8 @@ func (s *supervisor) handleOneForAll(exit childExit) {
 // restartChildLocked handles the actual start logic for a single child after backoff.
 // MUST hold lock.
 func (s *supervisor) restartChildLocked(name string, spec Spec, prevErr error) {
-	// Verify supervisor is still running
-	if !s.started {
+	// Verify supervisor is still running and not stopping
+	if !s.started || s.stopping {
 		return
 	}
 

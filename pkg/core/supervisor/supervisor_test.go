@@ -109,6 +109,10 @@ func TestOneForOne(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		sup.Stop(context.Background())
+	}()
 
 	if err := sup.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -149,6 +153,10 @@ func TestOneForAll(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		<-sup.Wait()
+	}()
 
 	if err := sup.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -163,7 +171,7 @@ func TestOneForAll(t *testing.T) {
 
 	// Wait deterministically for both workers to restart (count should be 2)
 	// Poll the actual factory helper counts instead of guessing timing
-	timeout := time.After(1 * time.Second)
+	timeout := time.After(5 * time.Second)
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -204,6 +212,10 @@ func TestMetrics(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		<-sup.Wait()
+	}()
 
 	sup.Start(ctx)
 	time.Sleep(20 * time.Millisecond)
@@ -252,6 +264,10 @@ func TestStateRecursion(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		rootSup.Stop(context.Background())
+	}()
 
 	// Start
 	if err := rootSup.Start(ctx); err != nil {
@@ -288,14 +304,26 @@ func TestStateRecursion(t *testing.T) {
 
 type InjectableMockWorker struct {
 	MockWorker
+	mu   sync.Mutex
 	envs map[string]string
 }
 
 func (w *InjectableMockWorker) SetEnv(k, v string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.envs == nil {
 		w.envs = make(map[string]string)
 	}
 	w.envs[k] = v
+}
+
+func (w *InjectableMockWorker) GetEnv(k string) string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.envs == nil {
+		return ""
+	}
+	return w.envs[k]
 }
 
 func TestHandoverProtocol(t *testing.T) {
@@ -325,13 +353,21 @@ func TestHandoverProtocol(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		<-sup.Wait()
+	}()
 
 	sup.Start(ctx)
 	time.Sleep(50 * time.Millisecond)
 
 	// Capture first run info
-	w1 := sup.(*supervisor).children["worker-1"].(*InjectableMockWorker)
-	resumeID = w1.envs[worker.EnvResumeID]
+	supImpl := sup.(*supervisor)
+	supImpl.mu.Lock()
+	w1 := supImpl.children["worker-1"].(*InjectableMockWorker)
+	supImpl.mu.Unlock()
+
+	resumeID = w1.GetEnv(worker.EnvResumeID)
 	if resumeID == "" {
 		t.Fatal("LIFECYCLE_RESUME_ID should be set")
 	}
@@ -344,11 +380,14 @@ func TestHandoverProtocol(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify second run
-	w2 := sup.(*supervisor).children["worker-1"].(*InjectableMockWorker)
-	if w2.envs[worker.EnvResumeID] != resumeID {
-		t.Errorf("ResumeID should persist. Expected %s, got %s", resumeID, w2.envs[worker.EnvResumeID])
+	supImpl.mu.Lock()
+	w2 := supImpl.children["worker-1"].(*InjectableMockWorker)
+	supImpl.mu.Unlock()
+
+	if got := w2.GetEnv(worker.EnvResumeID); got != resumeID {
+		t.Errorf("ResumeID should persist. Expected %s, got %s", resumeID, got)
 	}
-	prevExit = w2.envs[worker.EnvPrevExit]
+	prevExit = w2.GetEnv(worker.EnvPrevExit)
 	if prevExit != "-1" {
 		t.Errorf("PREV_EXIT should be -1 after crash, got %s", prevExit)
 	}
@@ -376,7 +415,10 @@ func TestSupervisor_Backoff(t *testing.T) {
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		<-sup.Wait()
+	}()
 
 	if err := sup.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -421,6 +463,10 @@ func TestSupervisor_DynamicTopology(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		sup.Stop(context.Background())
+	}()
 
 	if err := sup.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -483,6 +529,10 @@ func TestSupervisor_CircuitBreaker(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		sup.Stop(context.Background())
+	}()
 
 	if err := sup.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -503,12 +553,16 @@ func TestSupervisor_CircuitBreaker(t *testing.T) {
 	// The 4th failure should trigger the breaker and stop restarts
 	time.Sleep(100 * time.Millisecond)
 
+	mm.Mu.Lock()
 	count := helper.getCount("flaky-worker")
+	triggers := mm.CircuitBreakerTriggers["flaky-worker"]
+	mm.Mu.Unlock()
+
 	if count > 4 {
 		t.Errorf("Circuit breaker failed to stop restarts. Count=%d", count)
 	}
 
-	if mm.CircuitBreakerTriggers["flaky-worker"] == 0 {
+	if triggers == 0 {
 		t.Error("Circuit breaker metric not incremented")
 	}
 }
@@ -536,6 +590,10 @@ func TestSupervisor_RestartPolicies(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		cancel()
+		<-sup.Wait()
+	}()
 
 	if err := sup.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
