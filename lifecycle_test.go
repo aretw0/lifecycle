@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aretw0/lifecycle"
+	"github.com/aretw0/lifecycle/pkg/core/proc"
 	"github.com/aretw0/lifecycle/pkg/events"
 )
 
@@ -311,5 +312,17 @@ func TestLifecycle_IO(t *testing.T) {
 }
 
 func TestLifecycle_Proc(t *testing.T) {
+	// Verify that the facade actually mutates the underlying state.
+	initial := proc.StrictMode
+	defer lifecycle.SetStrictMode(initial) // Restore after test
+
+	lifecycle.SetStrictMode(true)
+	if !proc.StrictMode {
+		t.Error("SetStrictMode(true) failed to update proc.StrictMode")
+	}
+
 	lifecycle.SetStrictMode(false)
+	if proc.StrictMode {
+		t.Error("SetStrictMode(false) failed to update proc.StrictMode")
+	}
 }
