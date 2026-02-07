@@ -58,42 +58,42 @@
 
 ### Test Coverage Snapshot (2026-02-05 - Final Update)
 
-**Current Coverage by Package**:
+**Current Coverage by Package (latest run)**:
 
 ```log
-lifecycle (root)       : 15.4%  ⚠️ BELOW TARGET
-pkg/core/signal        : 85.9%  ✨ EXCELLENT (PASSED TARGET!)
-pkg/core/runtime       : 89.3%  ✨ EXCELLENT
-pkg/core/supervisor    : 84.4%  ⚠️ NEAR TARGET (84.4% → need 0.6% more)
-pkg/events             : 52.5%  🟡 IMPROVED (37.5% → 52.5%)
-pkg/core/termio        : 51.4%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/proc          : 55.9%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/metrics       : 20.4%  🔴 CRITICAL GAP
-pkg/core/container     : 0.0%   🔴 CRITICAL GAP
-pkg/core/introspection : ⏳ IN PROGRESS (initial test suite added - 2026-02-05)
-pkg/core/log           : 0.0%   🔴 CRITICAL GAP
+lifecycle (root)            : 15.4%  ⚠️ BELOW TARGET (critical - needs integration tests)
+pkg/core/signal             : 86.4%  ✨ EXCELLENT
+pkg/core/runtime            : 89.3%  ✨ EXCELLENT
+pkg/core/supervisor        : 84.1%  ⚠️ NEAR TARGET
+pkg/events                  : 53.2%  🟡 IMPROVED
+pkg/core/termio             : 73.0%  ⚠️ NEEDS FOCUS (platform I/O, Windows)
+pkg/core/proc               : 55.9%  ⚠️ NEEDS IMPROVEMENT
+pkg/core/metrics           : 100.0%  ✅ Covered (unit tests present)
+pkg/core/container         : 100.0%  ✅ Covered (cached tests)
+pkg/core/introspection     : 16.4%  🔴 LOW (more unit tests required)
+pkg/core/log               : 100.0%  ✅ Covered (logging provider exercised)
 ```
+
+Critical next focus:
+
+- Root package (`lifecycle`) at 15.4% — add integration tests and simple runners that exercise exported facade APIs.
+- `pkg/core/introspection` at 16.4% — expand the new test suite to cover snapshots, watchers and adapters.
+- `pkg/core/proc` and `pkg/core/termio` — add targeted platform tests (Windows CONIN$ paths, process fallback behaviors).
+
+Notes: Recent test runs show many provider-level packages (`metrics`, `container`, `log`) already have unit tests; the remaining gap is integration coverage and platform-specific behaviors.
 
 **Overall Coverage (Tested Packages)**: 72.7%
 
 **Target**: ≥80% average coverage across all packages before v2.1 launch
 
-**Progress Summary (2026-02-05)**:
-
-- Added tests for `pkg/core/signal`: WithResetTimeout, IsUnsafe, ForceExitThreshold → +3.2%
-- Added tests for `pkg/core/runtime`: improved TestRun_LeakWarning → validation
-- Added tests for `pkg/events`: EventType String methods → +2.1%
-- Added tests for `pkg/events`: Router State, Routes methods → coverage improvement
-- **NEW**: Created `pkg/core/introspection/introspection_test.go` with comprehensive test suite:
-  - 20+ test functions covering StateChange, StateSnapshot, TypedWatcher, EventSource interfaces
-  - Fixed 14 linting issues (unused assignments, unnecessary type arguments)
-  - Foundation for measuring introspection package coverage
-
 **Action Items**:
 
 - [ ] Check tests for regression or flakiness
-- [ ] Generate full coverage report: `go test -coverprofile=coverage.out ./...`
-- [ ] Identify untested critical paths (signal handling, Windows I/O, supervisor restarts)
+- [x] Generate full coverage report: `go test -coverprofile=coverage.out ./...` (latest run: 2026-02-06)
+- [x] Identify untested critical paths (root package, Windows I/O, supervisor restarts)
+- [ ] Add integration tests for root package (exercise facade APIs)
+- [ ] Expand tests for `pkg/core/introspection` (snapshots, watchers, adapters)
+- [ ] Add targeted Windows platform tests for `pkg/core/termio` and `pkg/core/proc`
 
 ---
 
