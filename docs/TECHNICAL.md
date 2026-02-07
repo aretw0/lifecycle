@@ -40,6 +40,11 @@
 
 This section defines the architectural pillars that govern the library.
 
+> **Architecture Note (Facade Pattern)**:
+> The root `lifecycle` package acts as a **Facade**, exposing a curated subset of functionality from `pkg/core` and `pkg/events` for 90% of use cases.
+> Deep consumers should import from the core packages directly, while application authors should prefer the root package for ergonomics.
+> Tests in `lifecycle_test.go` verify this wiring but do not duplicate the exhaustive behavioral tests found in the core packages.
+
 ### 1. Formal Definition (Identity)
 
 Technically, `lifecycle` is a **Signal-Aware Control Plane** and **Interruptible I/O Supervisor** for modern applications (Services, Agents, CLIs).

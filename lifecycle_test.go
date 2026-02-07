@@ -10,7 +10,13 @@ import (
 	"github.com/aretw0/lifecycle/pkg/events"
 )
 
-// Test facade methods in the root package
+// Test facade methods in the root package.
+//
+// NOTE: These tests primarily verify that the facade functions allow data to pass through correctly
+// to the underlying packages. They are NOT intended to be exhaustive behavioral tests;
+// those reside in `pkg/core/*` and `pkg/events`.
+//
+// We use a clean/integration style here where possible.
 
 func TestLifecycle_Go(t *testing.T) {
 	done := make(chan bool)
