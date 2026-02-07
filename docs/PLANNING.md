@@ -86,25 +86,16 @@
 
 #### 🧪 Test Coverage Sanity
 
-- [ ] **Foundation Packages** (Target: 85%+):
-  - [ ] `pkg/signal`: Full state machine coverage (all transitions, edge cases)
-  - [ ] `pkg/runtime`: lifecycle.Go, Do, Group (panic recovery, wait groups)
-  - [ ] `pkg/supervisor`: All restart policies, circuit breaker, handover protocol
-  - [ ] `pkg/termio`: Windows CONIN$, Unix stdin, interrupt handling
-  
-- [ ] **Control Plane Packages** (Target: 75%+):
-  - [ ] `pkg/events`: Router, Sources and Handlers consolidated.
-  
-- [ ] **Integration Tests**:
-  - [ ] Windows-specific tests (CONIN$, Job Objects)
-  - [ ] Signal escalation scenarios (1st SIGINT, 2nd SIGINT, SIGTERM)
-  - [ ] Supervisor recovery (child crashes, circuit breaker triggers)
-  - [ ] Shutdown timeout diagnostics (goroutine dump)
-  
-- [ ] **CI/CD**:
-  - [ ] Add coverage badge to README
-  - [ ] Fail CI if coverage drops below 80%
-  - [ ] Run tests on Windows, macOS, Linux
+> See **[TESTING.md](TESTING.md)** for our "Honest Coverage" policy and exclusions.
+
+- [x] **Analysis**: Identified gaps in `supervisor` and `router`.
+- [x] **Implementation**:
+  - [x] `pkg/core/supervisor`: Backoff & State Tests
+  - [ ] `pkg/events/router`: Introspection Tests
+  - [ ] `pkg/events/suspend`: Robustness Tests
+- [ ] **Verification**:
+  - [ ] Verify mapped exclusions (`metrics`, `termio`) are documented.
+  - [ ] Achieve target coverage for Core Logic.
 
 ---
 
@@ -119,6 +110,12 @@
 - [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
 - [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
 - [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
+
+#### **Coordinated Lifecycle & Shared State**: (v2.1+)
+
+- [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
+- [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
+- [ ] **State Bridge**: Mechanism to hand over "hot" state (e.g., open file descriptors, active sessions) across restarts without serialization.
 
 #### 🐛 Technical Debt Resolution
 
