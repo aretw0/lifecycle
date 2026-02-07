@@ -356,6 +356,13 @@ state := rootSup.State()
 
 This enables full topology visualization in introspection diagrams, showing the complete supervision tree regardless of nesting depth.
 
+#### Worker Identity Shield (Reliability)
+
+To prevent race conditions during rapid failures and restarts (e.g., `OneForAll` strategy), the supervisor implements a **Worker Identity Shield**.
+
+* **The Problem**: In asynchronous environments, an exit event from a *previous* worker instance might arrive after a *new* instance has already been started. Without protection, the supervisor might process this stale event and accidentally shut down or remove the new, healthy worker.
+* **The Solution**: Every `childExit` event carries a reference to the specific `worker.Worker` instance that triggered it. The supervisor's monitor loop verifies this identity against the currently active child before taking action. Stale events are logged and ignored.
+
 ### 10. Handover Protocol
 
 Allows "Durable Execution" across restarts.
