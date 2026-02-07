@@ -56,43 +56,38 @@
 
 ## Quality Baseline (Current Status)
 
-### Test Coverage Snapshot (2026-02-05 - Final Update)
+### Test Coverage Snapshot (2026-02-07 - Final Update)
 
 **Current Coverage by Package (latest run)**:
 
 ```log
-lifecycle (root)            : 15.4%  ⚠️ BELOW TARGET (critical - needs integration tests)
-pkg/core/signal             : 86.4%  ✨ EXCELLENT
-pkg/core/runtime            : 89.3%  ✨ EXCELLENT
-pkg/core/supervisor        : 84.1%  ⚠️ NEAR TARGET
-pkg/events                  : 53.2%  🟡 IMPROVED
+lifecycle (root)            : 61.9%  🟡 IMPROVED (facade covered by examples/integration)
+pkg/core/signal             : 85.3%  ✨ EXCELLENT
+pkg/core/runtime            : 90.0%  ✨ EXCELLENT
+pkg/core/supervisor         : 84.4%  ✨ EXCELLENT
+pkg/events                  : 82.2%  ✨ EXCELLENT (massive jump from 53%)
 pkg/core/termio             : 73.0%  ⚠️ NEEDS FOCUS (platform I/O, Windows)
 pkg/core/proc               : 55.9%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/metrics           : 100.0%  ✅ Covered (unit tests present)
-pkg/core/container         : 100.0%  ✅ Covered (cached tests)
-pkg/core/introspection     : 16.4%  🔴 LOW (more unit tests required)
-pkg/core/log               : 100.0%  ✅ Covered (logging provider exercised)
+pkg/core/metrics            : 100.0% ✅ Covered
+pkg/core/container          : 100.0% ✅ Covered
+pkg/core/introspection      : 79.8%  ✨ EXCELLENT (massive jump from 16%)
+pkg/core/log                : 100.0% ✅ Covered
+pkg/core/worker             : 60.9%  ⚠️ NEEDS IMPROVEMENT (container worker pending)
+pkg/core/worker/suspend     : 100.0% ✅ Covered
 ```
 
-Critical next focus:
-
-- Root package (`lifecycle`) at 15.4% — add integration tests and simple runners that exercise exported facade APIs.
-- `pkg/core/introspection` at 16.4% — expand the new test suite to cover snapshots, watchers and adapters.
-- `pkg/core/proc` and `pkg/core/termio` — add targeted platform tests (Windows CONIN$ paths, process fallback behaviors).
-
-Notes: Recent test runs show many provider-level packages (`metrics`, `container`, `log`) already have unit tests; the remaining gap is integration coverage and platform-specific behaviors.
-
-**Overall Coverage (Tested Packages)**: 72.7%
+**Overall Coverage (Tested Packages)**: ~81% (Weighted average exceeded target!)
 
 **Target**: ≥80% average coverage across all packages before v2.0 launch
 
 **Action Items**:
 
-- [ ] Check tests for regression or flakiness
-- [x] Generate full coverage report: `go test -coverprofile=coverage.out ./...` (latest run: 2026-02-06)
+- [x] Check tests for regression or flakiness
+- [x] Generate full coverage report: `go test -coverprofile=coverage.out ./...` (latest run: 2026-02-07)
 - [x] Identify untested critical paths (root package, Windows I/O, supervisor restarts)
-- [ ] Add integration tests for root package (exercise facade APIs)
-- [ ] Expand tests for `pkg/core/introspection` (snapshots, watchers, adapters)
+- [x] Add integration tests for root package (exercise facade APIs)
+- [x] Expand tests for `pkg/core/introspection` (snapshots, watchers, adapters)
+- [x] Elevate `pkg/events` coverage (router, handlers, sources)
 - [ ] Add targeted Windows platform tests for `pkg/core/termio` and `pkg/core/proc`
 
 ---
