@@ -57,6 +57,3 @@ func DoDetached(parent context.Context, fn func(ctx context.Context) error) erro
 
 	return Do(ctx, fn)
 }
-
-
-

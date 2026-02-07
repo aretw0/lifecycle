@@ -67,3 +67,21 @@ func TestDoDetached(t *testing.T) {
 		t.Error("Function was not executed")
 	}
 }
+
+func TestDo_ExecutionDespiteCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel upfront
+
+	executed := false
+	err := Do(ctx, func(ctx context.Context) error {
+		executed = true
+		return nil
+	})
+
+	if err != nil {
+		t.Errorf("Expected nil error despite cancellation (reliability block), got %v", err)
+	}
+	if !executed {
+		t.Error("Function should have been executed (Do is a reliability block)")
+	}
+}

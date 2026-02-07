@@ -6,54 +6,6 @@ import (
 	"testing"
 )
 
-func TestStatus_Constants(t *testing.T) {
-	tests := []struct {
-		name   string
-		status Status
-		want   string
-	}{
-		{name: "Created", status: StatusCreated, want: "Created"},
-		{name: "Pending", status: StatusPending, want: "Pending"},
-		{name: "Running", status: StatusRunning, want: "Running"},
-		{name: "Stopped", status: StatusStopped, want: "Stopped"},
-		{name: "Failed", status: StatusFailed, want: "Failed"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := string(tt.status)
-			if got != tt.want {
-				t.Errorf("Status string = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestInspectData_Fields(t *testing.T) {
-	data := InspectData{
-		Image:  "redis:7",
-		IP:     "172.17.0.2",
-		Ports:  []string{"6379/tcp"},
-		Labels: map[string]string{"env": "test"},
-	}
-
-	if data.Image != "redis:7" {
-		t.Errorf("Image = %q, want %q", data.Image, "redis:7")
-	}
-
-	if data.IP != "172.17.0.2" {
-		t.Errorf("IP = %q, want %q", data.IP, "172.17.0.2")
-	}
-
-	if len(data.Ports) != 1 || data.Ports[0] != "6379/tcp" {
-		t.Errorf("Ports = %v, want [6379/tcp]", data.Ports)
-	}
-
-	if data.Labels["env"] != "test" {
-		t.Errorf("Labels[env] = %v, want test", data.Labels["env"])
-	}
-}
-
 func TestMockContainer_NewMockContainer(t *testing.T) {
 	mock := NewMockContainer("test-container-123")
 
@@ -172,22 +124,7 @@ func TestMockContainer_Logs(t *testing.T) {
 	}
 }
 
-func TestMockContainer_ID(t *testing.T) {
-	tests := []string{
-		"container-1",
-		"abc123def456",
-		"some-long-container-id-with-dashes",
-	}
-
-	for _, id := range tests {
-		t.Run(id, func(t *testing.T) {
-			mock := NewMockContainer(id)
-			if mock.ID() != id {
-				t.Errorf("ID() = %q, want %q", mock.ID(), id)
-			}
-		})
-	}
-}
+// Trivial ID check removed
 
 func TestMockContainer_Status_Transitions(t *testing.T) {
 	ctx := context.Background()

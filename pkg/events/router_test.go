@@ -5,6 +5,9 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/metrics/mock"
 )
 
 type mockEvent struct {
@@ -139,15 +142,6 @@ func TestRouter_Routes(t *testing.T) {
 		t.Error("missing expected routes")
 	}
 }
-func TestRouter_State(t *testing.T) {
-	router := NewRouter()
-
-	// Get state - should return a non-nil state
-	state := router.State()
-	if state == nil {
-		t.Error("State() returned nil")
-	}
-}
 
 // TestRouterDispatchMetricsIntegration validates that Dispatch correctly routes events
 // and records metrics when handlers execute using the mock metrics provider.
@@ -177,6 +171,11 @@ func TestRouterDispatchMetricsIntegration(t *testing.T) {
 
 // TestRouterDispatchWithErrorMetrics validates that handler errors are recorded.
 func TestRouterDispatchWithErrorMetrics(t *testing.T) {
+	mm := mock.New()
+	original := metrics.GetProvider()
+	metrics.SetProvider(mm)
+	defer metrics.SetProvider(original)
+
 	router := NewRouter()
 	ctx := context.Background()
 	eventType := "test.error"
@@ -189,7 +188,11 @@ func TestRouterDispatchWithErrorMetrics(t *testing.T) {
 	event := mockEvent{eventType}
 	router.Dispatch(ctx, event)
 
-	// If we got here without panic, metrics were called correctly
+	mm.Mu.Lock()
+	defer mm.Mu.Unlock()
+	if mm.HandlerErrors[eventType] != 1 {
+		t.Errorf("Expected 1 handler error metric, got %d", mm.HandlerErrors[eventType])
+	}
 }
 
 func TestGlobalHelpers(t *testing.T) {

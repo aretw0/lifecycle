@@ -1,6 +1,9 @@
 # Binaries
 /**/*.exe
 
+# Test Output
+*test*.txt
+
 # Coverage
 *coverage*.txt
 *coverage*.out
