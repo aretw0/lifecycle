@@ -61,18 +61,18 @@
 **Current Coverage by Package (latest run)**:
 
 ```log
-lifecycle (root)            : 61.9%  🟡 IMPROVED (facade covered by examples/integration)
+lifecycle (root)            : 94.8%  ✨ EXCELLENT (complete facade coverage)
 pkg/core/signal             : 85.3%  ✨ EXCELLENT
 pkg/core/runtime            : 90.0%  ✨ EXCELLENT
 pkg/core/supervisor         : 84.4%  ✨ EXCELLENT
-pkg/events                  : 82.2%  ✨ EXCELLENT (massive jump from 53%)
+pkg/events                  : 82.2%  ✨ EXCELLENT
 pkg/core/termio             : 73.0%  ⚠️ NEEDS FOCUS (platform I/O, Windows)
 pkg/core/proc               : 55.9%  ⚠️ NEEDS IMPROVEMENT
 pkg/core/metrics            : 100.0% ✅ Covered
 pkg/core/container          : 100.0% ✅ Covered
-pkg/core/introspection      : 79.8%  ✨ EXCELLENT (massive jump from 16%)
+pkg/core/introspection      : 79.8%  ✨ EXCELLENT
 pkg/core/log                : 100.0% ✅ Covered
-pkg/core/worker             : 60.9%  ⚠️ NEEDS IMPROVEMENT (container worker pending)
+pkg/core/worker             : 80.4%  ✨ EXCELLENT (added watcher/container tests)
 pkg/core/worker/suspend     : 100.0% ✅ Covered
 ```
 
