@@ -63,6 +63,7 @@ type Context struct {
 	stateWatchers []chan introspection.StateChange[State]
 	watchersMu    sync.RWMutex
 	stopped       bool
+	hooksOnce     sync.Once
 }
 
 // Cancel terminates the context manually.
@@ -78,11 +79,20 @@ func (sc *Context) Cancel() {
 
 	newState := sc.State()
 	sc.emitStateChange(oldState, newState)
+
+	go sc.runHooks()
 }
 
 // Shutdown is an alias for Cancel for consistency with other components.
 func (sc *Context) Shutdown() {
 	sc.Cancel()
+}
+
+// ShutdownWait initiates a graceful shutdown and blocks until all hooks have completed.
+// It is a shorthand for Shutdown() followed by Wait().
+func (sc *Context) ShutdownWait() {
+	sc.Shutdown()
+	sc.Wait()
 }
 
 // ResetSignalCount resets the signal counter and clears the last received signal.
@@ -417,28 +427,32 @@ func (sc *Context) State() State {
 
 // runHooks executes registered hooks in LIFO order using a Pop-Loop strategy.
 // This allows hooks to register *new* hooks that will be executed immediately (LIFO).
+// runHooks executes registered hooks in LIFO order using a Pop-Loop strategy.
+// This allows hooks to register *new* hooks that will be executed immediately (LIFO).
 func (sc *Context) runHooks() {
-	oldState := sc.State()
-	defer func() {
-		close(sc.hooksDone)
-		newState := sc.State()
-		sc.emitStateChange(oldState, newState)
-	}()
+	sc.hooksOnce.Do(func() {
+		oldState := sc.State()
+		defer func() {
+			close(sc.hooksDone)
+			newState := sc.State()
+			sc.emitStateChange(oldState, newState)
+		}()
 
-	for {
-		sc.mu.Lock()
-		if len(sc.hooks) == 0 {
+		for {
+			sc.mu.Lock()
+			if len(sc.hooks) == 0 {
+				sc.mu.Unlock()
+				return
+			}
+			// Pop the last hook
+			lastIdx := len(sc.hooks) - 1
+			h := sc.hooks[lastIdx]
+			sc.hooks = sc.hooks[:lastIdx]
 			sc.mu.Unlock()
-			return
-		}
-		// Pop the last hook
-		lastIdx := len(sc.hooks) - 1
-		h := sc.hooks[lastIdx]
-		sc.hooks = sc.hooks[:lastIdx]
-		sc.mu.Unlock()
 
-		safeRunLoop(h, sc.opts.hookTimeout)
-	}
+			safeRunLoop(h, sc.opts.hookTimeout)
+		}
+	})
 }
 
 func safeRunLoop(f func(), timeout time.Duration) {
@@ -474,6 +488,3 @@ func safeRunLoop(f func(), timeout time.Duration) {
 		metrics.GetProvider().ObserveHookDuration(time.Since(start))
 	}
 }
-
-
-
