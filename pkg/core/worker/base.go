@@ -94,7 +94,8 @@ func (b *BaseWorker) String() string {
 }
 
 // State returns the current worker state with thread-safe access.
-// DO NOT OVERRIDE THIS METHOD. Override buildState() instead.
+// If an embedding type overrides buildState(), it MUST also override State()
+// to ensure the override is called (Go embedding is not polymorphic).
 func (b *BaseWorker) State() State {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
