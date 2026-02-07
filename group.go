@@ -48,11 +48,10 @@ func (g *Group) Go(fn func(ctx context.Context) error) {
 
 	// We need to track Goroutine semantics explicitly for Group,
 	// because runtime.Do tracks "Critical Operations" which is slightly different.
-	metrics.GetProvider().IncGoroutineStarted()
-	defer metrics.GetProvider().IncGoroutineFinished()
-
 	g.g.Go(func() (err error) {
 		metrics.GetProvider().DecGoroutineWaiting()
+		metrics.GetProvider().IncGoroutineStarted()
+		defer metrics.GetProvider().IncGoroutineFinished()
 
 		defer func() {
 			if r := recover(); r != nil {
@@ -80,6 +79,3 @@ func (g *Group) Go(fn func(ctx context.Context) error) {
 func (g *Group) Wait() error {
 	return g.g.Wait()
 }
-
-
-
