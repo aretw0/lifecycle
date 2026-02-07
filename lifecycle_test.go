@@ -72,7 +72,7 @@ func TestLifecycle_Receive(t *testing.T) {
 	close(ch)
 
 	count := 0
-	for _ = range lifecycle.Receive(context.Background(), ch) {
+	for range lifecycle.Receive(context.Background(), ch) {
 		count++
 	}
 	if count != 2 {
