@@ -84,7 +84,7 @@ Notes: Recent test runs show many provider-level packages (`metrics`, `container
 
 **Overall Coverage (Tested Packages)**: 72.7%
 
-**Target**: ≥80% average coverage across all packages before v2.1 launch
+**Target**: ≥80% average coverage across all packages before v2.0 launch
 
 **Action Items**:
 
@@ -251,6 +251,7 @@ Notes: Recent test runs show many provider-level packages (`metrics`, `container
   - [ ] Recipe: Migrate existing app (context.Background → lifecycle)
   - [ ] Recipe: Hot reload config without restart
   - [ ] Recipe: REPL with history and autocomplete
+  - [ ] Recipe: Signal Detachment (Stop vs Cancel) - demonstrate handing over control
   
 - [ ] **docs/LIMITATIONS.md** (new — Transparency):
   - [ ] Windows: Go 1.20+ required for full Job Objects support
