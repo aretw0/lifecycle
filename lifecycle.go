@@ -138,10 +138,39 @@ func OnShutdown(ctx context.Context, fn func()) {
 	}
 }
 
-// Shutdown initiates a graceful shutdown of the application.
+// Shutdown initiates a graceful shutdown of the application asynchronously.
+// It cancels the context and triggers all registered OnShutdown hooks.
+//
+// When to use:
+//   - Inside an HTTP handler or RPC method where blocking is undesirable.
+//   - When you want to trigger shutdown but don't need to wait for it (fire-and-forget).
+//   - In tests where you want to assert intermediate states during shutdown.
+//
+// Difference from Stop():
+//   - Shutdown() triggers application teardown (hooks run, context cancels).
+//   - Stop() only stops signal monitoring (hooks do NOT run, context remains valid).
 func Shutdown(ctx context.Context) {
 	if sc, ok := signal.FromContext(ctx); ok {
 		sc.Shutdown()
+	}
+}
+
+// ShutdownAndWait initiates a graceful shutdown and blocks until all hooks have completed.
+// It is a shorthand for Shutdown(ctx) followed by Wait(ctx).
+//
+// When to use:
+//   - In your main() function to ensure strict cleanup before exit.
+//   - When the next line of code assumes all resources are released.
+func ShutdownAndWait(ctx context.Context) {
+	if sc, ok := signal.FromContext(ctx); ok {
+		sc.ShutdownWait()
+	}
+}
+
+// Wait blocks until all shutdown hooks have finished.
+func Wait(ctx context.Context) {
+	if sc, ok := signal.FromContext(ctx); ok {
+		sc.Wait()
 	}
 }
 
