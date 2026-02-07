@@ -268,7 +268,7 @@ type BaseWorker = worker.BaseWorker
 // NewBaseWorker creates a BaseWorker with the given name.
 // The name is immutable (construct a new worker to change it).
 // Alias for pkg/worker.NewBaseWorker.
-func NewBaseWorker(name string) BaseWorker {
+func NewBaseWorker(name string) *BaseWorker {
 	return worker.NewBaseWorker(name)
 }
 
