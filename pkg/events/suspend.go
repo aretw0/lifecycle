@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/aretw0/lifecycle/pkg/core/log"
@@ -12,7 +11,7 @@ import (
 // SuspendHook is a function called when a suspend/resume event occurs.
 type SuspendHook func(ctx context.Context) error
 
-// SuspendHandler manages Suspend and Resume 
+// SuspendHandler manages Suspend and Resume
 // It allows registering hooks that are executed when these events occur.
 type SuspendHandler struct {
 	mu        sync.RWMutex
@@ -21,7 +20,7 @@ type SuspendHandler struct {
 	suspended bool
 }
 
-// NewSuspendHandler creates a new handler for suspend/resume 
+// NewSuspendHandler creates a new handler for suspend/resume
 func NewSuspendHandler() *SuspendHandler {
 	return &SuspendHandler{}
 }
@@ -41,7 +40,7 @@ func (h *SuspendHandler) OnResume(fn SuspendHook) {
 }
 
 // Manage registers a worker.Suspendable component to be managed by this handler.
-// It automatically wires up the Suspend and Resume methods to the respective 
+// It automatically wires up the Suspend and Resume methods to the respective
 func (h *SuspendHandler) Manage(s worker.Suspendable) {
 	h.OnSuspend(s.Suspend)
 	h.OnResume(s.Resume)
@@ -50,36 +49,49 @@ func (h *SuspendHandler) Manage(s worker.Suspendable) {
 // HandleEvent processes SuspendEvent and ResumeEvent.
 func (h *SuspendHandler) HandleEvent(ctx context.Context, e Event) error {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+
+	var hooks []SuspendHook
+	var nextState bool
+	var logMsg string
 
 	switch e.(type) {
 	case SuspendEvent:
 		if h.suspended {
+			h.mu.Unlock()
 			log.Debug("lifecycle: already suspended")
 			return nil
 		}
-		log.Info("lifecycle: suspending application")
-		if err := h.executeHooks(ctx, h.onSuspend); err != nil {
-			return fmt.Errorf("suspend failed: %w", err)
-		}
-		h.suspended = true
-		return nil
+		logMsg = "lifecycle: suspending application"
+		hooks = append([]SuspendHook(nil), h.onSuspend...)
+		nextState = true
 
 	case ResumeEvent:
 		if !h.suspended {
+			h.mu.Unlock()
 			log.Debug("lifecycle: not suspended")
 			return nil
 		}
-		log.Info("lifecycle: resuming application")
-		if err := h.executeHooks(ctx, h.onResume); err != nil {
-			return fmt.Errorf("resume failed: %w", err)
-		}
-		h.suspended = false
-		return nil
+		logMsg = "lifecycle: resuming application"
+		hooks = append([]SuspendHook(nil), h.onResume...)
+		nextState = false
 
 	default:
+		h.mu.Unlock()
 		return nil
 	}
+
+	h.mu.Unlock()
+
+	log.Info(logMsg)
+	if err := h.executeHooks(ctx, hooks); err != nil {
+		return err
+	}
+
+	h.mu.Lock()
+	h.suspended = nextState
+	h.mu.Unlock()
+
+	return nil
 }
 
 func (h *SuspendHandler) executeHooks(ctx context.Context, hooks []SuspendHook) error {
@@ -101,5 +113,3 @@ func (h *SuspendHandler) State() any {
 		"resume_hooks":  len(h.onResume),
 	}
 }
-
-
