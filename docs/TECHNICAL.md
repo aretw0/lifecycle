@@ -31,8 +31,13 @@
 
 * [**V. Ecosystem & Operations**](#v-ecosystem--operations)
 
-    13. [Introspection & Visualization](#13-introspection--visualization)
-    14. [Observability](#14-observability)
+13. [Introspection & Visualization](#13-introspection--visualization)
+14. [Observability](#14-observability)
+
+* [**VI. Quality & Reliability**](#vi-quality--reliability)
+
+15. [Honest Coverage Philosophy](#15-honest-coverage-philosophy)
+16. [Coverage Rigidity vs. Reality](#16-coverage-rigidity-vs-reality)
 
 ---
 
@@ -637,6 +642,25 @@ The library is instrumented via `pkg/metrics` and `pkg/log`.
 * **Hooks**: `ObserveHookDuration`
 * **Data Safety**: `IncTerminalUpgrade` (Windows `CONIN$` usage)
 
-## Design Philosophy
+## VI. Quality & Reliability
 
-For a detailed log of architectural choices, please refer to **[DECISIONS.md](DECISIONS.md)**.
+### 15. Honest Coverage Philosophy
+
+`lifecycle` adopts an **"Honest Coverage"** baseline. Instead of pursuing an arbitrary 100% or even 80% statement coverage across every line of code, we prioritize the verification of **Behavioral Logic** and **Critical Path Resilience**.
+
+We distinguish between two types of code:
+
+* **Primary Behavioral Logic**: The state machines, concurrent primitives, and event routing logic. These must have near-total coverage (effectively 100% of meaningful states).
+* **Secondary Plumbing & Syscall Wrappers**: Code that interfaces with OS primitives (e.g., job objects, pdeathsig) or provides boilerplate (NoOp/Mock providers).
+
+### 16. Coverage Rigidity vs. Reality
+
+In certain packages, "100% coverage" often indicates **Test Theater**—tests that exercise no-op paths or force unreachable error states (like mock syscall failures) just to satisfy a metric.
+
+We consider a package "Satisfactory" even with lower metrics if the missing coverage falls into these categories:
+
+* **Unreachable Syscall Errors**: Windows and Linux syscall error paths that only trigger under extreme or non-existent conditions.
+* **Boilerplate/NoOp Paths**: Methods in `NoOpProvider` or `LogProvider` that exist for interface compatibility and possess no complex logic.
+* **Platform-Specific Mocks**: Code used primarily for testing other components that doesn't hold its own business logic.
+
+By setting an **Honest Baseline**, we ensure that our engineering efforts are spent on validating the reliability of the system, not on maintaining the theater of perfect metrics.
