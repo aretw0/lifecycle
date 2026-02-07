@@ -53,8 +53,8 @@ type BaseWorker struct {
 
 // NewBaseWorker creates a new BaseWorker with the given name.
 // The name is immutable after creation (construct a new worker to change it).
-func NewBaseWorker(name string) BaseWorker {
-	return BaseWorker{
+func NewBaseWorker(name string) *BaseWorker {
+	return &BaseWorker{
 		name:   name,
 		done:   make(chan error, 1),
 		status: StatusCreated,
