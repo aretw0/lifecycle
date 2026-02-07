@@ -12,7 +12,7 @@ import (
 
 // ContainerWorker is a Worker that manages a container via the container.Container interface.
 type ContainerWorker struct {
-	BaseWorker
+	*BaseWorker
 	c container.Container
 
 	// runtime cache for metrics
@@ -22,7 +22,7 @@ type ContainerWorker struct {
 // NewContainerWorker creates a new Worker for a given container.
 func NewContainerWorker(name string, c container.Container) *ContainerWorker {
 	return &ContainerWorker{
-		BaseWorker: *NewBaseWorker(name),
+		BaseWorker: NewBaseWorker(name),
 		c:          c,
 	}
 }

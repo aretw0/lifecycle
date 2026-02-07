@@ -193,10 +193,10 @@ func (sc *Context) Stop() {
 		if sc.reason == ReasonNone {
 			sc.reason = ReasonManualStop
 		}
+		sc.stopped = true
 		sc.mu.Unlock()
 		// Restore default signal handling
 		ossignal.Stop(sc.sigCh)
-		sc.stopped = true
 		close(sc.sigCh)
 	})
 }

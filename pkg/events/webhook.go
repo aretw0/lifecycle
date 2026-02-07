@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync" // Added import
 	"time"
 )
 
@@ -20,10 +21,11 @@ func (e WebhookEvent) String() string {
 	return fmt.Sprintf("webhook%s", e.Path) // e.g., "webhook/reload"
 }
 
-// WebhookSource listens for HTTP requests and converts them into lifecycle
+// WebhookSource listens for HTTP requests and converts them into lifecycle events.
 type WebhookSource struct {
 	BaseSource
 	addr   string
+	mu     sync.Mutex
 	ln     net.Listener
 	server *http.Server
 }
@@ -46,6 +48,8 @@ func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
 // Addr returns the address the source is listening on.
 // This is useful when using dynamic ports (":0").
 func (s *WebhookSource) Addr() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.ln != nil {
 		return s.ln.Addr().String()
 	}
@@ -68,9 +72,11 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			w.WriteHeader(http.StatusServiceUnavailable)
 		default:
-			_ = s.Emit(ctx, event) // Best effort in HTTP handler, or should we use TryEmit?
-			// Using Emit(ctx) is safer for backpressure but might block the HTTP goroutine.
-			// Given it's a webhook, backpressure is likely desired.
+			// Emit blocks to enforce backpressure on the HTTP client.
+			if err := s.Emit(ctx, event); err != nil {
+				http.Error(w, "Server shutting down", http.StatusServiceUnavailable)
+				return
+			}
 			w.WriteHeader(http.StatusAccepted)
 			fmt.Fprintf(w, "Event accepted: %s\n", event)
 		}
@@ -80,7 +86,9 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	s.mu.Lock()
 	s.ln = ln
+	s.mu.Unlock()
 
 	s.server = &http.Server{
 		Addr:    s.addr,

@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -35,9 +36,13 @@ func TestHealthCheckSource(t *testing.T) {
 }
 
 func TestHealthCheckSource_EdgeTrigger(t *testing.T) {
-	// Toggle health
+	// Toggle health safely
+	var mu sync.Mutex
 	healthy := true
+
 	check := func(ctx context.Context) error {
+		mu.Lock()
+		defer mu.Unlock()
 		if healthy {
 			return nil
 		}
@@ -55,8 +60,7 @@ func TestHealthCheckSource_EdgeTrigger(t *testing.T) {
 	ch := source.Events()
 	go source.Start(ctx)
 
-	// 1. Initial State (UP) - Edge triggers on first check too?
-	// Logic: lastStatus "" != "UP" -> emit.
+	// 1. Initial State: Expect immediate UP event (transition from empty state).
 	select {
 	case e := <-ch:
 		if he := e.(HealthEvent); he.Status != "UP" {
@@ -75,7 +79,9 @@ func TestHealthCheckSource_EdgeTrigger(t *testing.T) {
 	}
 
 	// 3. Become unhealthy -> Emit DOWN
+	mu.Lock()
 	healthy = false
+	mu.Unlock()
 	select {
 	case e := <-ch:
 		if he := e.(HealthEvent); he.Status != "DOWN" {

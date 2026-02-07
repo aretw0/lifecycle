@@ -27,7 +27,7 @@ go mod tidy
 ### Running Tests
 
 ```bash
-go test -v ./...
+go test -timeout 90s -race -v ./...
 # or
 make test
 ```
@@ -37,7 +37,7 @@ make test
 > Poweshell needs double quotes for file paths
 
 ```bash
-go test -coverprofile="coverage.out" ./...
+go test -v -timeout 90s -coverprofile="coverage.out" ./...
 go tool cover -func="coverage.out"
 ```
 

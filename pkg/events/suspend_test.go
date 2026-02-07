@@ -105,3 +105,46 @@ func TestSuspendQuiescence(t *testing.T) {
 		t.Errorf("Worker did not resume working. Count at resume: %d, Current count: %d", finalCount, w.count.Load())
 	}
 }
+
+func TestSuspend_EdgeCases(t *testing.T) {
+	handler := events.NewSuspendHandler()
+	ctx := context.Background()
+
+	// 1. Double Resume (should be no-op)
+	if err := handler.HandleEvent(ctx, events.ResumeEvent{}); err != nil {
+		t.Errorf("Double resume should be no-op, got error: %v", err)
+	}
+
+	// 2. Double Suspend (should be no-op)
+	if err := handler.HandleEvent(ctx, events.SuspendEvent{}); err != nil {
+		t.Fatalf("First suspend failed: %v", err)
+	}
+
+	state := handler.State().(map[string]any)
+	if !state["suspended"].(bool) {
+		t.Error("Should be suspended")
+	}
+
+	if err := handler.HandleEvent(ctx, events.SuspendEvent{}); err != nil {
+		t.Errorf("Double suspend should be no-op, got error: %v", err)
+	}
+
+	// 3. Unknown Event (should be no-op)
+	if err := handler.HandleEvent(ctx, events.StatusEvent{}); err != nil {
+		t.Errorf("Unknown event should be ignored, got error: %v", err)
+	}
+
+	// 4. Hook Failure
+	failHandler := events.NewSuspendHandler()
+	failHandler.OnResume(func(ctx context.Context) error {
+		return context.DeadlineExceeded
+	})
+
+	// Force suspended state to test resume failure
+	// We use public API to suspend first
+	failHandler.HandleEvent(ctx, events.SuspendEvent{})
+
+	if err := failHandler.HandleEvent(ctx, events.ResumeEvent{}); err == nil {
+		t.Error("Expected error from failing hook, got nil")
+	}
+}

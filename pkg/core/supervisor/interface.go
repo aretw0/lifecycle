@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 
+	"github.com/aretw0/lifecycle/pkg/core/introspection"
 	"github.com/aretw0/lifecycle/pkg/core/worker"
 )
 
@@ -22,7 +23,7 @@ type Supervisor interface {
 
 	// Resume resumes all suspendable children.
 	Resume(context.Context) error
+
+	// Watch returns a channel that emits state changes.
+	Watch(context.Context) <-chan introspection.StateChange[worker.State]
 }
-
-
-

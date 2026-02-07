@@ -31,12 +31,12 @@ func TestWebhookSource(t *testing.T) {
 	deadline := time.Now().Add(1 * time.Second)
 	var url string
 	for time.Now().Before(deadline) {
-		if source.ln != nil {
-			addr := source.ln.Addr()
-			if addr != nil {
-				url = fmt.Sprintf("http://%s/test/path", addr.String())
-				break
-			}
+		// Use public thread-safe method
+		addr := source.Addr()
+		// Wait for the listener to bind to a concrete port (resolving ":0").
+		if addr != ":0" && !strings.HasSuffix(addr, ":0") {
+			url = fmt.Sprintf("http://%s/test/path", addr)
+			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

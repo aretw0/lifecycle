@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/aretw0/lifecycle/pkg/core/worker"
@@ -10,15 +11,20 @@ import (
 // MockSuspendableWorker implements worker.Suspendable
 type MockSuspendableWorker struct {
 	MockWorker
+	mu        sync.Mutex
 	suspended bool
 }
 
 func (m *MockSuspendableWorker) Suspend(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.suspended = true
 	return nil
 }
 
 func (m *MockSuspendableWorker) Resume(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.suspended = false
 	return nil
 }
@@ -44,19 +50,24 @@ func TestSupervisor_SuspendResume(t *testing.T) {
 	).(*supervisor)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		<-s.Wait()
+	}()
 
 	if err := s.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
-	defer s.Stop(context.Background())
 
 	// Test Suspend
 	if err := s.Suspend(ctx); err != nil {
 		t.Fatalf("Suspend failed: %v", err)
 	}
 
-	if !w1.suspended {
+	w1.mu.Lock()
+	suspended := w1.suspended
+	w1.mu.Unlock()
+	if !suspended {
 		t.Error("worker1 should be suspended")
 	}
 
@@ -65,15 +76,11 @@ func TestSupervisor_SuspendResume(t *testing.T) {
 		t.Fatalf("Resume failed: %v", err)
 	}
 
-	if w1.suspended {
+	w1.mu.Lock()
+	suspended = w1.suspended
+	w1.mu.Unlock()
+	if suspended {
 		t.Error("worker1 should be active")
 	}
 
-	// Clean up: finalize workers so guards can exit
-	cancel() // Cancel context first
-	close(w1.WaitChan)
-	close(w2.WaitChan)
 }
-
-
-
