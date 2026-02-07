@@ -105,12 +105,7 @@ func main() {
 		)
 
 		// Wire up the Supervisor to the Suspend/Resume system
-		lifecycle.Handle("lifecycle/suspend", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			return sup.Suspend(ctx)
-		}))
-		lifecycle.Handle("lifecycle/resume", lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
-			return sup.Resume(ctx)
-		}))
+		suspendHandler.Manage(sup)
 
 		// Start supervisor in background via lifecycle.Go
 		lifecycle.Go(ctx, func(ctx context.Context) error {
