@@ -195,9 +195,12 @@ func TestRouterDispatchWithErrorMetrics(t *testing.T) {
 }
 
 func TestGlobalHelpers(t *testing.T) {
-	// Reset DefaultRouter logic? No, just use it.
-	// But it's global state, so tests might interfere if run in parallel.
-	// We'll just verify they don't panic and seem to wire up.
+	// Isolate global state
+	originalRouter := DefaultRouter
+	DefaultRouter = NewRouter()
+	defer func() {
+		DefaultRouter = originalRouter
+	}()
 
 	handled := false
 	HandleFunc("global.test", func(_ context.Context, _ Event) error {
