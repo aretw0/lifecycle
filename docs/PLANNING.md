@@ -54,45 +54,6 @@
 
 ---
 
-## Quality Baseline (Current Status)
-
-### Test Coverage Snapshot (2026-02-07 - Final Update)
-
-**Current Coverage by Package (latest run)**:
-
-```log
-lifecycle (root)            : 91.8%  ✨ EXCELLENT
-pkg/core/signal             : 85.3%  ✨ EXCELLENT
-pkg/core/runtime            : 90.0%  ✨ EXCELLENT
-pkg/core/supervisor         : 84.4%  ✨ EXCELLENT
-pkg/events                  : 81.5%  ✨ EXCELLENT
-pkg/core/termio             : 83.8%  ✨ EXCELLENT (improved)
-pkg/core/proc               : 55.9%  ⚠️ NEEDS IMPROVEMENT
-pkg/core/metrics            : 26.5%  💎 HONEST (removed theater/NoOp tests)
-pkg/core/metrics/mock       : 18.8%  💎 HONEST (added behavioral tests)
-pkg/core/container          : 100.0% ✅ Covered
-pkg/core/introspection      : 79.8%  ✨ EXCELLENT
-pkg/core/log                : 100.0% ✅ Covered
-pkg/core/worker             : 80.4%  ✨ EXCELLENT
-pkg/core/worker/suspend     : 100.0% ✅ Covered
-```
-
-**Overall Coverage (Tested Packages)**: ~83.5% (Target: >80%)
-
-**Target**: ≥80% average coverage across all packages before v2.0 launch
-
-**Action Items**:
-
-- [x] Check tests for regression or flakiness
-- [x] Generate full coverage report: `go test -coverprofile=coverage.out ./...` (latest run: 2026-02-07)
-- [x] Identify untested critical paths (root package, Windows I/O, supervisor restarts)
-- [x] Add integration tests for root package (exercise facade APIs)
-- [x] Expand tests for `pkg/core/introspection` (snapshots, watchers, adapters)
-- [x] Elevate `pkg/events` coverage (router, handlers, sources)
-- [ ] Add targeted Windows platform tests for `pkg/core/termio` and `pkg/core/proc`
-
----
-
 ### v2.0 Refinement (Stable Blockers)
 
 #### 🏗️ Architecture Refinement
