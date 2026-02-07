@@ -91,11 +91,11 @@
 - [x] **Analysis**: Identified gaps in `supervisor` and `router`.
 - [x] **Implementation**:
   - [x] `pkg/core/supervisor`: Backoff & State Tests
-  - [ ] `pkg/events/router`: Introspection Tests
-  - [ ] `pkg/events/suspend`: Robustness Tests
-- [ ] **Verification**:
-  - [ ] Verify mapped exclusions (`metrics`, `termio`) are documented.
-  - [ ] Achieve target coverage for Core Logic.
+  - [x] `pkg/events/router`: Introspection Tests
+- [x] `pkg/events/suspend`: Robustness Tests
+- [x] **Verification**:
+  - [x] Verify mapped exclusions (`metrics`, `termio`) are documented.
+  - [x] Achieve target coverage for Core Logic.
 
 ---
 

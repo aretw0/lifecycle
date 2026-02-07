@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aretw0/lifecycle/pkg/events"
 )
@@ -79,12 +80,12 @@ func TestRouter_Introspection(t *testing.T) {
 	go router.Start(ctx)
 
 	// Wait a bit for start
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 50; i++ {
 		state = router.State().(events.RouterState)
 		if state.Running {
 			break
 		}
-		// Minimal wait
+		time.Sleep(2 * time.Millisecond)
 	}
 
 	if !state.Running {
