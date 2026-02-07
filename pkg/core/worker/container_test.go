@@ -15,17 +15,17 @@ func TestContainerWorker(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 1. Start
+	// Start the worker
 	if err := cw.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	// verify mock state
+	// Verify mock state
 	if mock.Status() != container.StatusRunning {
 		t.Errorf("Mock container should be running, got %v", mock.Status())
 	}
 
-	// 2. State
+	// Check State inspection
 	state := cw.State()
 	if state.Name != "worker-1" {
 		t.Errorf("Expected name worker-1, got %s", state.Name)
@@ -37,12 +37,12 @@ func TestContainerWorker(t *testing.T) {
 		t.Errorf("Expected type container, got %s", state.Metadata["type"])
 	}
 
-	// 3. String
+	// Verify String representation
 	if str := cw.String(); str != "ContainerWorker(worker-1, test-container)" {
 		t.Errorf("Unexpected String(): %s", str)
 	}
 
-	// 4. Stop
+	// Stop the worker
 	if err := cw.Stop(ctx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestContainerWorker(t *testing.T) {
 		t.Errorf("Mock container should be stopped, got %v", mock.Status())
 	}
 
-	// 5. Wait
+	// Wait for completion
 	waitCh := cw.Wait()
 	select {
 	case err := <-waitCh:

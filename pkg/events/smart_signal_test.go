@@ -24,7 +24,7 @@ func TestSmartSignalHandler(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 1. Initial State: Not Suspended.
+	// Initial State: Not Suspended.
 	// Handling an event should trigger Suspend (not Quit).
 
 	// We need to ensure SuspendHandler handles the event correctly.
@@ -42,10 +42,6 @@ func TestSmartSignalHandler(t *testing.T) {
 	// Verify state is suspended
 	state := suspendHandler.State().(map[string]any)
 	if suspended, ok := state["suspended"].(bool); !ok || !suspended {
-		// Wait a bit? SuspendHandler might be async?
-		// Reading suspend.go source implies synchronous execution for HandleEvent?
-		// Let's assume yes. If not, we might need a small sleep.
-		// Re-read suspend.go if this fails.
 		t.Error("Expected to be suspended after first signal")
 	}
 
@@ -57,8 +53,7 @@ func TestSmartSignalHandler(t *testing.T) {
 		// OK
 	}
 
-	// 2. Second Trigger: Already Suspended.
-	// Should trigger Quit.
+	// Second Trigger: Already Suspended -> Trigger Quit.
 	if err := smartHandler.HandleEvent(ctx, evt); err != nil {
 		t.Errorf("HandleEvent (2nd) failed: %v", err)
 	}
@@ -71,8 +66,7 @@ func TestSmartSignalHandler(t *testing.T) {
 		t.Error("Quit handler should be called on second signal")
 	}
 
-	// 3. Third Trigger: Already Quitting.
-	// Should be ignored (idempotent).
+	// Third Trigger: Already Quitting -> Ignored (Idempotent).
 	// Reset mock channel
 	close(quitHandler.quitCalled)
 	quitHandler.quitCalled = make(chan bool, 1)

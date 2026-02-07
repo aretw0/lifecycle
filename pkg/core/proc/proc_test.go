@@ -51,10 +51,9 @@ func runHelper() {
 }
 
 func TestStart(t *testing.T) {
-	// This test verifies that proc.Start works (starts the process).
-	// It does NOT strictly verify the "kill on exit" behavior because that requires
-	// an external observer that outlives the test process, which is complex to orchestrate reliably in 'go test'.
-	// However, we verify it doesn't crash and returns a valid process.
+	// Verifies basic process startup logic.
+	// Note: Platform-specific lifecycle guarantees (e.g. job objects) are not verified here
+	// as they require external observation outliving the test process.
 
 	cmd := exec.Command(os.Args[0], "child")
 	cmd.Env = append(os.Environ(), HelperProcess+"=1")
@@ -71,6 +70,3 @@ func TestStart(t *testing.T) {
 	// Clean up
 	cmd.Process.Kill()
 }
-
-
-

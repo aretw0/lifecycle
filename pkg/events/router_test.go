@@ -98,9 +98,7 @@ func TestRouter_Middleware(t *testing.T) {
 		return nil
 	})
 
-	// Dispatch doesn't technically require Start() to be running if we call it directly,
-	// but it's good practice. However, Dispatch lock logic is independent of Start loop
-	// for direct calls.
+	// Dispatch is thread-safe and independent of the Start loop.
 
 	router.Dispatch(context.Background(), mockEvent{"foo"})
 
@@ -304,9 +302,7 @@ func TestRouter_Dispatch_NoMatch(t *testing.T) {
 
 func TestRouter_WithEventBuffer_Negative(t *testing.T) {
 	router := NewRouter(WithEventBuffer(-1))
-	// Internal logic caps at 0
-	// We can't check internal field easily without reflection or exposing it via State
-	// But running it ensures no panic.
+	// Verify no panic on invalid buffer size (capped internally).
 	if router == nil {
 		t.Error("Router creation failed")
 	}
