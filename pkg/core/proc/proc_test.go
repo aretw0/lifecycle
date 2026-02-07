@@ -70,3 +70,12 @@ func TestStart(t *testing.T) {
 	// Clean up
 	cmd.Process.Kill()
 }
+
+func TestStart_Failure(t *testing.T) {
+	// Test failure to start (non-existent binary)
+	cmd := exec.Command("non-existent-binary-for-lifecycle-test")
+	err := proc.Start(cmd)
+	if err == nil {
+		t.Error("Expected error for non-existent binary, got nil")
+	}
+}
