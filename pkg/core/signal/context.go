@@ -95,6 +95,11 @@ func (sc *Context) ShutdownWait() {
 	sc.Wait()
 }
 
+// ComponentType returns the component type for introspection.
+func (sc *Context) ComponentType() string {
+	return "signal"
+}
+
 // ResetSignalCount resets the signal counter and clears the last received signal.
 // This is useful for "Smart Handlers" that successfully handle a signal (e.g. Suspend)
 // and want to reset the "Force Exit" threshold.

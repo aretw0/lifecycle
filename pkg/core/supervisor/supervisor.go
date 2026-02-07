@@ -698,6 +698,11 @@ func (s *supervisor) State() worker.State {
 	return s.stateLocked()
 }
 
+// ComponentType returns the component type for introspection.
+func (s *supervisor) ComponentType() string {
+	return "supervisor"
+}
+
 // stateLocked returns the snapshot of the supervisor's state.
 // MUST hold lock.
 func (s *supervisor) stateLocked() worker.State {
@@ -924,6 +929,3 @@ func (s *supervisor) Resume(ctx context.Context) error {
 	}
 	return nil
 }
-
-
-

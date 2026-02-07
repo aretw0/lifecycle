@@ -127,5 +127,7 @@ func (b *BaseWorker) StartFunc(ctx context.Context, fn func(context.Context) err
 	return nil
 }
 
-
-
+// ComponentType returns the component type for introspection.
+func (b *BaseWorker) ComponentType() string {
+	return "worker"
+}
