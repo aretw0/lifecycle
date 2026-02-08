@@ -68,6 +68,3 @@ func TestFromFunc(t *testing.T) {
 		t.Fatal("Timeout waiting for cancelled worker")
 	}
 }
-
-
-

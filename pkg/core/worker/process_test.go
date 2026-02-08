@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -79,7 +80,7 @@ func TestProcess_StartStop(t *testing.T) {
 	defer cancel()
 
 	if err := w.Stop(stopCtx); err != nil {
-		if err != context.DeadlineExceeded {
+		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("Stop failed with unexpected error: %v", err)
 		}
 		// DeadlineExceeded is acceptable for "sleep" on Windows (force exit)
