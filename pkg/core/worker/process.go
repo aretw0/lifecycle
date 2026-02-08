@@ -17,13 +17,9 @@ type ProcessWorker struct {
 	*BaseWorker
 	cmd *exec.Cmd
 
-	startedAt     time.Time
-	stoppedAt     time.Time
-	exitCode      int
-	err           error
-	env           map[string]string
-	stopRequested bool
-	killed        bool
+	startedAt time.Time
+	stoppedAt time.Time
+	env       map[string]string
 }
 
 // NewProcessWorker creates a new ProcessWorker for the given command.
@@ -55,7 +51,7 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 	// Use pkg/proc to start with hygiene guarantees
 	if err := proc.Start(p.cmd); err != nil {
 		p.status = StatusFailed
-		p.err = err
+		p.Err = err
 		p.mu.Unlock()
 		p.emitStateChange(State{Name: p.String(), Status: StatusCreated}, State{Name: p.String(), Status: StatusFailed})
 		metrics.GetProvider().IncWorkerFailed("process")
@@ -75,39 +71,30 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 		p.mu.Lock()
 		p.stoppedAt = time.Now()
 		duration := p.stoppedAt.Sub(p.startedAt)
-		p.err = err
+		p.Err = err
 		oldStatus := p.status
-		if p.killed {
-			p.status = StatusKilled
-			// Should we consider "killed" as a failure metric? usage dependent.
-			// Ideally, we have IncWorkerKilled
-			log.Warn("process worker killed", "name", p.String(), "exit_code", p.exitCode, "error", err, "duration", duration)
-		} else if err != nil {
+
+		if err != nil {
 			// Try to extract exit code
 			if exitErr, ok := err.(*exec.ExitError); ok {
-				p.exitCode = exitErr.ExitCode()
+				p.ExitCode = exitErr.ExitCode()
 			} else {
-				p.exitCode = -1
+				p.ExitCode = -1
 			}
-			p.status = StatusFailed
 			metrics.GetProvider().IncWorkerFailed("process")
-		} else if p.stopRequested {
-			p.exitCode = 0
-			p.status = StatusStopped
-			metrics.GetProvider().IncWorkerStopped("process")
 		} else {
-			p.exitCode = 0
-			p.status = StatusFinished
-			// New Metric for proper Finished? For now reusing Stopped or adding new?
-			// Using Stopped metric for now to avoid breaking changes, or rely on state.
+			p.ExitCode = 0
 			metrics.GetProvider().IncWorkerStopped("process")
 		}
+
+		// Centralized State Logic
+		p.status = p.DeriveStatus()
 		newStatus := p.status
 		p.mu.Unlock()
 
 		p.emitStateChange(State{Name: p.String(), Status: oldStatus}, State{Name: p.String(), Status: newStatus})
 		metrics.GetProvider().ObserveWorkerDuration("process", duration)
-		log.Info("process worker stopped", "name", p.String(), "exit_code", p.exitCode, "error", err, "duration", duration)
+		log.Info("process worker stopped", "name", p.String(), "exit_code", p.ExitCode, "error", err, "duration", duration)
 
 		p.done <- err
 		close(p.done)
@@ -124,7 +111,7 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 		return nil
 	}
 	process := p.cmd.Process
-	p.stopRequested = true
+	p.StopRequested = true
 	p.mu.Unlock()
 
 	if process == nil {
@@ -145,7 +132,7 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		// Context expired, force kill
 		p.mu.Lock()
-		p.killed = true
+		p.Killed = true
 		p.mu.Unlock()
 
 		log.Warn("force killing process worker", "name", p.String(), "pid", process.Pid)
@@ -173,8 +160,8 @@ func (p *ProcessWorker) State() State {
 		if p.cmd.Process != nil {
 			s.PID = p.cmd.Process.Pid
 		}
-		s.ExitCode = p.exitCode
-		s.Error = p.err
+		s.ExitCode = p.ExitCode
+		s.Error = p.Err
 		s.Metadata = map[string]string{
 			"type": "process",
 			"path": p.cmd.Path,

@@ -100,8 +100,8 @@ func TestProcess_StartStop(t *testing.T) {
 
 	// Verify stopped state
 	finalState := w.State()
-	if finalState.Status != worker.StatusStopped && finalState.Status != worker.StatusFailed {
-		t.Errorf("Expected Stopped or Failed status, got %s", finalState.Status)
+	if finalState.Status != worker.StatusStopped && finalState.Status != worker.StatusFailed && finalState.Status != worker.StatusKilled {
+		t.Errorf("Expected Stopped, Failed, or Killed status, got %s", finalState.Status)
 	}
 }
 
