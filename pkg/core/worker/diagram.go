@@ -23,12 +23,17 @@ func MermaidState(s State) string {
 	sb.WriteString(fmt.Sprintf("    class %s active\n", s.Status))
 
 	// Terminal states
-	sb.WriteString("    Running --> Stopped: Success (Exit 0)\n")
+	// Terminal states
+	sb.WriteString("    Running --> Stopped: Requested (Exit 0)\n")
+	sb.WriteString("    Running --> Finished: Natural (Exit 0)\n")
+	sb.WriteString("    Running --> Killed: Force Kill\n")
 	sb.WriteString("    Running --> Failed: Error (Exit != 0)\n")
 
 	// Styling
 	sb.WriteString(introspection.DefaultStyles())
 	sb.WriteString("    class Stopped stopped\n")
+	sb.WriteString("    class Finished finished\n")
+	sb.WriteString("    class Killed killed\n")
 	sb.WriteString("    class Failed failed\n")
 
 	// Details note
@@ -37,7 +42,7 @@ func MermaidState(s State) string {
 	if s.PID > 0 {
 		sb.WriteString(fmt.Sprintf("        PID: %d\n", s.PID))
 	}
-	if s.Status == StatusStopped || s.Status == StatusFailed {
+	if s.Status == StatusStopped || s.Status == StatusFinished || s.Status == StatusKilled || s.Status == StatusFailed {
 		sb.WriteString(fmt.Sprintf("        ExitCode: %d\n", s.ExitCode))
 	}
 	if s.Error != nil {
@@ -155,7 +160,3 @@ func buildNodeLabel(s State, icon string) string {
 
 	return strings.Join(labelParts, "<br/>")
 }
-
-
-
-

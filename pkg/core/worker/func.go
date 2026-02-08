@@ -22,7 +22,8 @@ type funcWorker struct {
 	*BaseWorker
 	fn func(context.Context) error
 
-	cancel context.CancelFunc
+	cancel        context.CancelFunc
+	stopRequested bool
 
 	// Result
 	err error
@@ -53,7 +54,6 @@ func (w *funcWorker) Start(ctx context.Context) error {
 
 		w.mu.Lock()
 		oldStatus := w.status
-		w.status = StatusStopped
 		if err != nil {
 			// Check if cancelled (normal stop)
 			if errors.Is(err, context.Canceled) {
@@ -69,8 +69,15 @@ func (w *funcWorker) Start(ctx context.Context) error {
 				log.Error("func worker failed", "name", w.String(), "error", err, "duration", duration)
 			}
 		} else {
-			metrics.GetProvider().IncWorkerStopped("func")
-			log.Info("func worker stopped", "name", w.String(), "duration", duration)
+			if w.stopRequested {
+				w.status = StatusStopped
+				metrics.GetProvider().IncWorkerStopped("func")
+				log.Info("func worker stopped", "name", w.String(), "duration", duration)
+			} else {
+				w.status = StatusFinished
+				metrics.GetProvider().IncWorkerStopped("func") // Reusing metric for now
+				log.Info("func worker finished", "name", w.String(), "duration", duration)
+			}
 		}
 		newStatus := w.status
 		w.mu.Unlock()
@@ -90,6 +97,7 @@ func (w *funcWorker) Stop(ctx context.Context) error {
 	defer w.mu.Unlock()
 
 	if w.cancel != nil {
+		w.stopRequested = true
 		w.cancel()
 		log.Debug("signaled func worker to stop", "name", w.String())
 	}

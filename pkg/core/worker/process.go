@@ -17,11 +17,13 @@ type ProcessWorker struct {
 	*BaseWorker
 	cmd *exec.Cmd
 
-	startedAt time.Time
-	stoppedAt time.Time
-	exitCode  int
-	err       error
-	env       map[string]string
+	startedAt     time.Time
+	stoppedAt     time.Time
+	exitCode      int
+	err           error
+	env           map[string]string
+	stopRequested bool
+	killed        bool
 }
 
 // NewProcessWorker creates a new ProcessWorker for the given command.
@@ -75,7 +77,12 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 		duration := p.stoppedAt.Sub(p.startedAt)
 		p.err = err
 		oldStatus := p.status
-		if err != nil {
+		if p.killed {
+			p.status = StatusKilled
+			// Should we consider "killed" as a failure metric? usage dependent.
+			// Ideally, we have IncWorkerKilled
+			log.Warn("process worker killed", "name", p.String(), "exit_code", p.exitCode, "error", err, "duration", duration)
+		} else if err != nil {
 			// Try to extract exit code
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				p.exitCode = exitErr.ExitCode()
@@ -84,9 +91,15 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 			}
 			p.status = StatusFailed
 			metrics.GetProvider().IncWorkerFailed("process")
-		} else {
+		} else if p.stopRequested {
 			p.exitCode = 0
 			p.status = StatusStopped
+			metrics.GetProvider().IncWorkerStopped("process")
+		} else {
+			p.exitCode = 0
+			p.status = StatusFinished
+			// New Metric for proper Finished? For now reusing Stopped or adding new?
+			// Using Stopped metric for now to avoid breaking changes, or rely on state.
 			metrics.GetProvider().IncWorkerStopped("process")
 		}
 		newStatus := p.status
@@ -111,6 +124,7 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 		return nil
 	}
 	process := p.cmd.Process
+	p.stopRequested = true
 	p.mu.Unlock()
 
 	if process == nil {
@@ -130,6 +144,10 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		// Context expired, force kill
+		p.mu.Lock()
+		p.killed = true
+		p.mu.Unlock()
+
 		log.Warn("force killing process worker", "name", p.String(), "pid", process.Pid)
 		_ = process.Kill()
 		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))

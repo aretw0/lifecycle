@@ -85,12 +85,16 @@ const (
 	StatusStopping Status = "Stopping"
 
 	// StatusStopped indicates the worker was explicitly requested to stop (Manual/API).
-	// Transition: Stop() called → StatusStopped
+	// Transition: Stop() called → StatusStopped (if exit code 0)
 	StatusStopped Status = "Stopped"
 
 	// StatusFinished indicates the worker has cleanly terminated execution naturally (exit code 0).
 	// Transition: Work completed without error → StatusFinished
 	StatusFinished Status = "Finished"
+
+	// StatusKilled indicates the worker needed to be forcefully terminated (SIGKILL/Kill).
+	// Transition: Stop() timed out → Kill() → StatusKilled
+	StatusKilled Status = "Killed"
 
 	// StatusFailed indicates the worker terminated with an error (exit code != 0).
 	// Transition: Work completed with error → StatusFailed
@@ -153,6 +157,3 @@ type State struct {
 	Metadata    map[string]string
 	Children    []State
 }
-
-
-

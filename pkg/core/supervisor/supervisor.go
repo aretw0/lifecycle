@@ -345,6 +345,13 @@ func (s *supervisor) handleExit(ctx context.Context, exit childExit) {
 		s.lastResults[exit.name] = worker.StatusFinished
 	}
 
+	// Override if the worker explicitly reports it was Killed
+	// This handles the "Stop timed out -> Kill" scenario where err might be "signal: killed"
+	// but we want the specific StatusKilled semantics.
+	if exit.worker.State().Status == worker.StatusKilled {
+		s.lastResults[exit.name] = worker.StatusKilled
+	}
+
 	// Remove from stop requested (capture first to check if we should apply strategy)
 	wasRequested := s.stopRequested[exit.name]
 	delete(s.stopRequested, exit.name)

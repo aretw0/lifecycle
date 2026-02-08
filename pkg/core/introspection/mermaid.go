@@ -23,6 +23,7 @@ func DefaultStyles() string {
     classDef stopping fill:#f8d7da,stroke:#f5c6cb,color:#721c24;
     classDef stopped fill:#e9ecef,stroke:#adb5bd,color:#495057;
     classDef finished fill:#d4edda,stroke:#c3e6cb,color:#155724;
+    classDef killed fill:#343a40,stroke:#212529,color:#ffffff;
     classDef failed fill:#f8d7da,stroke:#f5c6cb,color:#721c24;
     classDef container stroke-width:3px,stroke-dasharray: 0;
     classDef process stroke-width:1px;
