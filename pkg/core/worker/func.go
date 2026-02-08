@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -27,6 +26,10 @@ type funcWorker struct {
 
 func (w *funcWorker) Start(ctx context.Context) error {
 	w.mu.Lock()
+	if ctx.Err() != nil {
+		w.mu.Unlock()
+		return ctx.Err()
+	}
 	if w.status != StatusCreated && w.status != StatusPending {
 		w.mu.Unlock()
 		return fmt.Errorf("worker %s already started (status: %s)", w.String(), w.status)
@@ -48,39 +51,8 @@ func (w *funcWorker) Start(ctx context.Context) error {
 		err := w.fn(fnCtx)
 		duration := time.Since(start)
 
-		w.mu.Lock()
-		oldStatus := w.status
-		// Define Outcome
-		w.Err = err
-
-		// If cancelled, treated as Stopped (implicitly StopRequested via context propagation)
-		if errors.Is(err, context.Canceled) {
-			w.Err = nil
-			w.StopRequested = true
-		}
-
-		// Centralized Logic
-		w.SetStatus(w.DeriveFinalStatus())
-
-		switch w.status {
-		case StatusFailed:
-			metrics.GetProvider().IncWorkerFailed("func")
-			log.Error("func worker failed", "name", w.String(), "error", err, "duration", duration)
-		case StatusStopped:
-			metrics.GetProvider().IncWorkerStopped("func")
-			log.Info("func worker stopped", "name", w.String(), "duration", duration)
-		default: // StatusFinished
-			metrics.GetProvider().IncWorkerStopped("func") // Reusing metric
-			log.Info("func worker finished", "name", w.String(), "duration", duration)
-		}
-		newStatus := w.status
-		w.mu.Unlock()
-
-		w.emitStateChange(State{Name: w.String(), Status: oldStatus}, State{Name: w.String(), Status: newStatus})
+		w.Finish(err)
 		metrics.GetProvider().ObserveWorkerDuration("func", duration)
-
-		w.done <- err
-		close(w.done)
 	}()
 
 	return nil
@@ -88,14 +60,15 @@ func (w *funcWorker) Start(ctx context.Context) error {
 
 func (w *funcWorker) Stop(ctx context.Context) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	if w.cancel != nil {
 		w.StopRequested = true
 		w.cancel()
 		log.Debug("signaled func worker to stop", "name", w.String())
 	}
-	return nil
+	w.mu.Unlock()
+
+	// Wait for quiescence using Base implementation
+	return w.BaseWorker.Stop(ctx)
 }
 
 func (w *funcWorker) State() State {
