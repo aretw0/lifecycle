@@ -50,15 +50,39 @@ func TestContainerWorker(t *testing.T) {
 		t.Errorf("Mock container should be stopped, got %v", mock.Status())
 	}
 
-	// Wait for completion
-	waitCh := cw.Wait()
+	// Wait and Check Final Status
 	select {
-	case err := <-waitCh:
-		if err != nil {
-			t.Errorf("Wait returned error: %v", err)
+	case <-cw.Wait():
+		state = cw.State()
+		if state.Status != StatusStopped {
+			t.Errorf("Expected StatusStopped after Stop(), got %s", state.Status)
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Error("Wait timed out")
+	}
+}
+
+func TestContainerWorker_NaturalCompletion(t *testing.T) {
+	mock := container.NewMockContainer("natural-container")
+	cw := NewContainerWorker("natural-worker", mock)
+
+	if err := cw.Start(context.Background()); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Simulate container exiting naturally (without Worker.Stop being called)
+	// We access the mock directly to change its state.
+	mock.Stop(context.Background())
+
+	// Wait for worker to detect change
+	select {
+	case <-cw.Wait():
+		state := cw.State()
+		if state.Status != StatusFinished {
+			t.Errorf("Expected StatusFinished for natural exit, got %s", state.Status)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Wait timed out waiting for natural completion")
 	}
 }
 

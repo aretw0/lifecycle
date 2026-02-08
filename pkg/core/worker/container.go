@@ -57,17 +57,33 @@ func (cw *ContainerWorker) Start(ctx context.Context) error {
 				return
 			default:
 				status := cw.c.Status()
+
+				// Map Container Status to Worker Status using Intent
 				if status == container.StatusStopped {
-					cw.SetStatus(StatusStopped)
+					cw.mu.RLock()
+					stopRequested := cw.StopRequested
+					cw.mu.RUnlock()
+
+					if stopRequested {
+						cw.SetStatus(StatusStopped)
+						metrics.GetProvider().IncContainerStopped(cw.image)
+					} else {
+						cw.SetStatus(StatusFinished)
+						metrics.GetProvider().IncContainerStopped(cw.image)
+					}
+					// Note: We don't have exit code here easily without Inspection,
+					// but sticking to semantics: No Stop Request + Stop = Finished (Natural).
+
 					cw.done <- nil
 					return
 				}
+
 				if status == container.StatusFailed {
+					cw.Err = fmt.Errorf("container failed")
 					cw.SetStatus(StatusFailed)
 					metrics.GetProvider().IncContainerFailed(cw.image)
-					err := fmt.Errorf("container failed")
 					log.Error("container worker failure", "name", cw.String(), "container_id", cw.c.ID())
-					cw.done <- err
+					cw.done <- cw.Err
 					return
 				}
 				// Poll interval for mock/simple impls
@@ -80,6 +96,10 @@ func (cw *ContainerWorker) Start(ctx context.Context) error {
 }
 
 func (cw *ContainerWorker) Stop(ctx context.Context) error {
+	cw.mu.Lock()
+	cw.StopRequested = true
+	cw.mu.Unlock()
+
 	log.Info("stopping container worker", "name", cw.String(), "container_id", cw.c.ID())
 	start := time.Now()
 
