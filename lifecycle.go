@@ -477,6 +477,11 @@ func HandleFunc(pattern string, handler func(context.Context, Event) error) {
 // Alias for pkg/events.InterceptEvent.
 type InterceptEvent = events.InterceptEvent
 
+var (
+	// ErrNotHandled is a sentinel error that handlers can return to indicate they did not process the event.
+	ErrNotHandled = events.ErrNotHandled
+)
+
 // SmartSignalOption configures the SmartSignalHandler.
 // Alias for pkg/events.SmartSignalOption.
 type SmartSignalOption = events.SmartSignalOption
