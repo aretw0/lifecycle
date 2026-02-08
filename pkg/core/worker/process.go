@@ -88,7 +88,7 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 		}
 
 		// Centralized State Logic
-		p.status = p.DeriveStatus()
+		p.SetStatus(p.DeriveFinalStatus())
 		newStatus := p.status
 		p.mu.Unlock()
 

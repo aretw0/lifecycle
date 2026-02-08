@@ -67,13 +67,13 @@ func NewBaseWorker(name string) *BaseWorker {
 	}
 }
 
-// DeriveStatus determines the final status based on the strict Intent vs Outcome logic.
+// DeriveFinalStatus determines the final status based on the strict Intent vs Outcome logic.
 // This centralizes the state machine rules:
 // Killed -> StatusKilled
 // Err != nil -> StatusFailed
 // StopRequested -> StatusStopped
 // Default -> StatusFinished
-func (b *BaseWorker) DeriveStatus() Status {
+func (b *BaseWorker) DeriveFinalStatus() Status {
 	if b.Killed {
 		return StatusKilled
 	}

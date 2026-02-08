@@ -60,7 +60,7 @@ func (w *funcWorker) Start(ctx context.Context) error {
 		}
 
 		// Centralized Logic
-		w.status = w.DeriveStatus()
+		w.SetStatus(w.DeriveFinalStatus())
 
 		if w.status == StatusFailed {
 			metrics.GetProvider().IncWorkerFailed("func")
