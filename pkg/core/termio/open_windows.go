@@ -29,10 +29,7 @@ func Open() (io.ReadCloser, error) {
 func openConsole() (io.ReadCloser, error) {
 	f, err := os.OpenFile("CONIN$", os.O_RDWR, 0)
 	if err == nil {
-		log.Info("successfully opened Windows CONIN$ for interruptible reads")
+		log.Debug("successfully opened Windows CONIN$ for interruptible reads")
 	}
 	return f, err
 }
-
-
-

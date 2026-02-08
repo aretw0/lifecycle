@@ -111,7 +111,7 @@ func (e InputEvent) String() string {
 }
 
 func (s *InputSource) Start(ctx context.Context) error {
-	slog.Info("lifecycle: input source started", "mappings", len(s.mappings))
+	slog.Debug("lifecycle: input source started", "mappings", len(s.mappings))
 
 	// Create a Done channel for the detached goroutine to signal exit
 	// We don't wait for it if context dies first, implementing "Leak but Exit" pattern for blocked IO.

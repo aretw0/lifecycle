@@ -101,7 +101,14 @@ func (h *SmartSignalHandler) HandleEvent(ctx context.Context, e Event) error {
 				if _, ok := h.intercept.(StateChecker); ok {
 					msg += " (Send signal again to Quit)"
 				}
-				log.Info("SmartSignalHandler: " + msg)
+
+				// Noise Reduction: If using interactive semantics ("Interrupted..."),
+				// move to Debug so we don't break the REPL prompt.
+				if h.actionMsg == "Interrupted..." {
+					log.Debug("SmartSignalHandler: " + msg)
+				} else {
+					log.Info("SmartSignalHandler: " + msg)
+				}
 			}
 			return err
 		}
