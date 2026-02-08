@@ -62,13 +62,14 @@ func (w *funcWorker) Start(ctx context.Context) error {
 		// Centralized Logic
 		w.SetStatus(w.DeriveFinalStatus())
 
-		if w.status == StatusFailed {
+		switch w.status {
+		case StatusFailed:
 			metrics.GetProvider().IncWorkerFailed("func")
 			log.Error("func worker failed", "name", w.String(), "error", err, "duration", duration)
-		} else if w.status == StatusStopped {
+		case StatusStopped:
 			metrics.GetProvider().IncWorkerStopped("func")
 			log.Info("func worker stopped", "name", w.String(), "duration", duration)
-		} else {
+		default: // StatusFinished
 			metrics.GetProvider().IncWorkerStopped("func") // Reusing metric
 			log.Info("func worker finished", "name", w.String(), "duration", duration)
 		}
