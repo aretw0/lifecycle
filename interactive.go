@@ -50,16 +50,18 @@ func WithShutdown(fn func()) InteractiveOption {
 // NewInteractiveRouter creates a router pre-configured for interactive CLI applications.
 //
 // It wires up:
-//   - OS Signals (Interrupt/Term) -> SmartSignalHandler (Suspend first, then Quit)
+//   - OS Signals (Interrupt/Term) -> SmartSignalHandler (Intercept first, then Quit)
 //   - Input (Stdin) -> Router (reads lines as commands)
 //   - Commands: "suspend", "resume" -> SuspendHandler
 //
-// To handle "Quit", it routes "command/quit" to a generic no-op handler.
+// The 'interceptHandler' is the primary action taken on the first Sigma(interrupt).
+// For REPLs, this might be a simple line-clearer. For durable services, it might
+// be a full SuspendHandler.
 //
 // The quit handler is automatically wrapped in events.Once() to ensure that
 // user-provided shutdown logic is executed exactly once, even if multiple
 // shutdown events (e.g. SIGINT followed by typing 'q') are received.
-func NewInteractiveRouter(suspendHandler *events.SuspendHandler, opts ...InteractiveOption) *events.Router {
+func NewInteractiveRouter(interceptHandler events.Handler, opts ...InteractiveOption) *events.Router {
 	cfg := &interactiveConfig{
 		enableInput:  true,
 		enableSignal: true,
@@ -72,11 +74,16 @@ func NewInteractiveRouter(suspendHandler *events.SuspendHandler, opts ...Interac
 	r := events.NewRouter()
 
 	// 1. Standard Routes
-	r.Handle("lifecycle/suspend", suspendHandler)
-	r.Handle("command/suspend", suspendHandler)
-
-	r.Handle("lifecycle/resume", suspendHandler)
-	r.Handle("command/resume", suspendHandler)
+	if sh, ok := interceptHandler.(events.SuspendableHandler); ok {
+		r.Handle("lifecycle/suspend", sh)
+		r.Handle("lifecycle/intercept", sh)
+		r.Handle("command/suspend", sh)
+		r.Handle("lifecycle/resume", sh)
+		r.Handle("command/resume", sh)
+	} else {
+		// Generic Intercept Handler
+		r.Handle("lifecycle/intercept", interceptHandler)
+	}
 
 	// 2. Custom Commands
 	for name, h := range cfg.commands {
@@ -117,11 +124,15 @@ func NewInteractiveRouter(suspendHandler *events.SuspendHandler, opts ...Interac
 		r.Handle("command/quit", quitHandler)
 	}
 
-	smartHandler := events.NewSmartSignalHandler(suspendHandler, quitHandler)
+	smartHandler := events.NewSmartSignalHandler(interceptHandler, quitHandler)
+	if _, ok := interceptHandler.(events.StateChecker); !ok {
+		// Use interactive semantics if not using a stateful interceptor
+		events.WithInteractiveSemantics()(smartHandler)
+	}
 	r.Handle("Signal(interrupt)", smartHandler)
 
 	// 5. High-level Facilitators (Composition)
-	terminateHandler := events.NewTerminate(suspendHandler, quitHandler)
+	terminateHandler := events.NewTerminate(interceptHandler, quitHandler)
 	r.Handle("lifecycle/terminate", terminateHandler)
 	r.Handle("command/terminate", terminateHandler)
 	r.Handle("command/x", terminateHandler)

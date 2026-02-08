@@ -38,10 +38,14 @@ func main() {
 	defer ctx.Stop()
 
 	// 2. Setup Handlers & Router
-	suspendHandler := lifecycle.NewSuspendHandler()
+	clearLineHandler := lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
+		fmt.Print("\n^C (Line Cleared)\n> ")
+		return nil
+	})
 
-	// Use NewInteractiveRouter but disable default input so we can inject our custom one
-	mux := lifecycle.NewInteractiveRouter(suspendHandler,
+	// Use NewInteractiveRouter with a stateless clearLineHandler.
+	// This will not trigger "Suspending..." logs or persistent suspended state.
+	mux := lifecycle.NewInteractiveRouter(clearLineHandler,
 		lifecycle.WithInput(false), // We will add our own source below
 	)
 
@@ -63,10 +67,7 @@ func main() {
 
 	// 4. Handle Events
 	// We use HandleFunc to register functions
-	mux.HandleFunc(lifecycle.ClearLineEvent{}.String(), func(ctx context.Context, e events.Event) error {
-		fmt.Print("\n^C (Line Cleared)\n> ")
-		return nil
-	})
+	mux.HandleFunc(lifecycle.InterceptEvent{}.String(), clearLineHandler)
 
 	mux.HandleFunc(lifecycle.ShutdownEvent{}.String(), func(ctx context.Context, e events.Event) error {
 		fmt.Println("\n👋 Shell exiting gracefully...")
@@ -89,4 +90,3 @@ func main() {
 	<-ctx.Done()
 	fmt.Println("Shell terminated.")
 }
-

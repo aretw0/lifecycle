@@ -429,6 +429,14 @@ type HandlerFunc = events.HandlerFunc
 // Alias for pkg/events.Source.
 type Source = events.Source
 
+// StateChecker is an optional interface for handlers that can report if they
+// are in an "Active" (e.g. Suspended) state.
+type StateChecker = events.StateChecker
+
+// SuspendableHandler is an optional interface for handlers that support the full
+// Suspend/Resume lifecycle (Suspend, Intercept, Resume).
+type SuspendableHandler = events.SuspendableHandler
+
 // Router maps events to reactions.
 // Alias for pkg/events.events.
 type Router = events.Router
@@ -453,10 +461,44 @@ func Handle(pattern string, handler Handler) {
 	events.Handle(pattern, handler)
 }
 
+// Dispatch finds the handler for an event on the DefaultRouter and executes it.
+// Alias for pkg/events.Dispatch.
+func Dispatch(ctx context.Context, e Event) {
+	events.Dispatch(ctx, e)
+}
+
 // HandleFunc registers a handler function on the Defaultevents.
 // Alias for pkg/events.HandleFunc.
 func HandleFunc(pattern string, handler func(context.Context, Event) error) {
 	events.HandleFunc(pattern, handler)
+}
+
+// InterceptEvent is a CLI-friendly alias for SuspendEvent.
+// Alias for pkg/events.InterceptEvent.
+type InterceptEvent = events.InterceptEvent
+
+// SmartSignalOption configures the SmartSignalHandler.
+// Alias for pkg/events.SmartSignalOption.
+type SmartSignalOption = events.SmartSignalOption
+
+// WithActionMessage sets the log message for the first trigger.
+func WithActionMessage(msg string) SmartSignalOption {
+	return events.WithActionMessage(msg)
+}
+
+// WithActionEvent sets the event emitted on the first trigger.
+func WithActionEvent(ev Event) SmartSignalOption {
+	return events.WithActionEvent(ev)
+}
+
+// WithInteractiveSemantics configures the handler to use "Interrupted" language.
+func WithInteractiveSemantics() SmartSignalOption {
+	return events.WithInteractiveSemantics()
+}
+
+// NewSmartSignalHandler creates a handler that arbitrates between Interruption and Quit.
+func NewSmartSignalHandler(intercept Handler, q Handler, opts ...SmartSignalOption) Handler {
+	return events.NewSmartSignalHandlerWithOpts(intercept, q, opts...)
 }
 
 // TerminateEvent is a high-level event that chains Suspend and Shutdown.
@@ -477,6 +519,12 @@ func WithContinueOnFailure(continueOnFailure bool) TerminateOption {
 // Alias for pkg/events.NewTerminate.
 func NewTerminateHandler(suspend Handler, shutdown Handler, opts ...TerminateOption) Handler {
 	return events.NewTerminate(suspend, shutdown, opts...)
+}
+
+// Start begins the listening loop for the DefaultRouter.
+// Alias for pkg/events.Start.
+func Start(ctx context.Context) error {
+	return events.Start(ctx)
 }
 
 // ======================================================================================
@@ -643,12 +691,6 @@ func NewSuspendHandler() *SuspendHandler {
 // SmartSignalHandler implements "Double-Tap" signal logic (Suspend -> Quit).
 // Alias for pkg/events.SmartSignalHandler.
 type SmartSignalHandler = events.SmartSignalHandler
-
-// NewSmartSignalHandler creates a new smart signal handler.
-// Alias for pkg/events.NewSmartSignalHandler.
-func NewSmartSignalHandler(s *SuspendHandler, q Handler) *SmartSignalHandler {
-	return events.NewSmartSignalHandler(s, q)
-}
 
 // ClearLineEvent is triggered when an interactive input is interrupted.
 // Alias for pkg/events.ClearLineEvent.
