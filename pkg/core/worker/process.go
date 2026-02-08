@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"syscall"
@@ -63,6 +64,7 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 	p.mu.Unlock()
 	p.emitStateChange(State{Name: p.String(), Status: StatusCreated}, State{Name: p.String(), Status: StatusRunning})
 	metrics.GetProvider().IncWorkerStarted("process")
+	log.Info("process worker started", "name", p.String(), "cmd", p.cmd.Path)
 
 	// Monitor in background
 	go func() {
@@ -71,33 +73,19 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 		p.mu.Lock()
 		p.stoppedAt = time.Now()
 		duration := p.stoppedAt.Sub(p.startedAt)
-		p.Err = err
-		oldStatus := p.status
 
-		if err != nil {
-			// Try to extract exit code
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				p.ExitCode = exitErr.ExitCode()
-			} else {
-				p.ExitCode = -1
-			}
-			metrics.GetProvider().IncWorkerFailed("process")
-		} else {
-			p.ExitCode = 0
-			metrics.GetProvider().IncWorkerStopped("process")
+		// Capture results for metrics only
+		exitCode := -1
+		if p.cmd.ProcessState != nil {
+			exitCode = p.cmd.ProcessState.ExitCode()
 		}
 
-		// Centralized State Logic
-		p.SetStatus(p.DeriveFinalStatus())
-		newStatus := p.status
+		p.ExitCode = exitCode
 		p.mu.Unlock()
 
-		p.emitStateChange(State{Name: p.String(), Status: oldStatus}, State{Name: p.String(), Status: newStatus})
+		p.Finish(err)
 		metrics.GetProvider().ObserveWorkerDuration("process", duration)
 		log.Info("process worker stopped", "name", p.String(), "exit_code", p.ExitCode, "error", err, "duration", duration)
-
-		p.done <- err
-		close(p.done)
 	}()
 
 	return nil
@@ -119,27 +107,27 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 	}
 
 	log.Debug("stopping process worker", "name", p.String(), "pid", process.Pid)
-	stopStart := time.Now()
 
 	// First try graceful storage (SIGINT/SIGTERM depending on platform/app)
-	_ = process.Signal(syscall.SIGTERM)
+	sigErr := process.Signal(syscall.SIGTERM)
 
-	// Wait for exit or context timeout (Force Kill)
-	select {
-	case <-p.done:
-		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))
-		return nil
-	case <-ctx.Done():
-		// Context expired, force kill
+	// Wait for quiescence or timeout using Base implementation
+	err := p.BaseWorker.Stop(ctx)
+	if err != nil && (errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
 		p.mu.Lock()
 		p.Killed = true
 		p.mu.Unlock()
 
 		log.Warn("force killing process worker", "name", p.String(), "pid", process.Pid)
-		_ = process.Kill()
-		metrics.GetProvider().ObserveShutdownDuration("process", time.Since(stopStart))
-		return ctx.Err()
+		killErr := process.Kill()
+		return errors.Join(err, sigErr, killErr)
 	}
+
+	if err != nil {
+		return errors.Join(err, sigErr)
+	}
+
+	return nil
 }
 
 // String returns the worker name.
