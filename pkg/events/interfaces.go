@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 
 	"github.com/aretw0/lifecycle/pkg/core/introspection"
 )
@@ -25,11 +26,11 @@ func (f HandlerFunc) HandleEvent(ctx context.Context, e Event) error {
 	return f(ctx, e)
 }
 
-// Source is a producer of 
+// Source is a producer of
 // It listens for external or internal triggers and emits them to the Events channel.
 // The Start method should block until the context is done or a fatal error occurs.
 type Source interface {
-	// Events returns a read-only channel where the source emits 
+	// Events returns a read-only channel where the source emits
 	Events() <-chan Event
 
 	// Start begins the listening process. It should be non-blocking or managed
@@ -48,9 +49,21 @@ type (
 	Introspectable = introspection.Introspectable
 )
 
+// StateChecker is an optional interface for handlers that can report if they
+// are in an "Active" (e.g. Suspended) state. This allows generic handlers
+// like SmartSignalHandler to decide when to escalate a signal.
+type StateChecker interface {
+	IsActive() bool
+}
 
+// SuspendableHandler is an optional interface for handlers that support
+// the full Suspend/Resume lifecycle (Suspend, Intercept, Resume).
+type SuspendableHandler interface {
+	Handler
+	IsActive() bool
+}
 
-
-
-
-
+// ErrNotHandled is a sentinel error that handlers can return to indicate
+// they did not process the event, allowing the caller (e.g. SmartSignalHandler)
+// to attempt a fallback action.
+var ErrNotHandled = errors.New("event not handled")

@@ -63,13 +63,16 @@ func (h *SuspendHandler) HandleEvent(ctx context.Context, e Event) error {
 	var logMsg string
 
 	switch e.(type) {
-	case SuspendEvent:
+	case SuspendEvent, InterceptEvent:
 		if h.suspended {
 			h.mu.Unlock()
-			log.Debug("lifecycle: already suspended")
+			log.Debug("lifecycle: already suspended/intercepted")
 			return nil
 		}
 		logMsg = "lifecycle: suspending application"
+		if _, ok := e.(InterceptEvent); ok {
+			logMsg = "lifecycle: intercepting application"
+		}
 		hooks = append([]SuspendHook(nil), h.onSuspend...)
 		nextState = true
 
@@ -112,6 +115,14 @@ func (h *SuspendHandler) executeHooks(ctx context.Context, hooks []SuspendHook) 
 		}
 	}
 	return nil
+}
+
+// IsActive returns true if the system is currently suspended.
+// Implements StateChecker interface.
+func (h *SuspendHandler) IsActive() bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.suspended
 }
 
 // State returns the current state of the handler.
