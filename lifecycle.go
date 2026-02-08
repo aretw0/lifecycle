@@ -198,6 +198,15 @@ func GetSignalState(ctx context.Context) (SignalState, bool) {
 	return SignalState{}, false
 }
 
+// Signal returns the signal that caused the context to be cancelled/interrupted, or nil.
+// It safely unwraps the context to find the SignalContext.
+func Signal(ctx context.Context) os.Signal {
+	if sc, ok := signal.FromContext(ctx); ok {
+		return sc.Signal()
+	}
+	return nil
+}
+
 // SignalStateDiagram returns a Mermaid state diagram string representing the signal context configuration.
 // Alias for pkg/signal.MermaidState.
 func SignalStateDiagram(s SignalState) string {
