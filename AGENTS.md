@@ -14,6 +14,11 @@ It is designed to be the foundational entry point for modern Go Applications (Se
 * **[TECHNICAL.md](docs/TECHNICAL.md)**: Architecture (Foundation & Control Plane).
 * **[PLANNING.md](docs/PLANNING.md)**: Roadmap (v2.0 Focus).
 * **[PRODUCT.md](docs/PRODUCT.md)**: Vision and "Why?" (The problem space).
+* **[DECISIONS.md](docs/DECISIONS.md)**: Design Decisions.
+* **[STATE_MACHINE.md](docs/STATE_MACHINE.md)**: Worker State Machine.
+* **[CONFIGURATION.md](docs/CONFIGURATION.md)**: Configuration Philosophy.
+* **[RECIPES.md](docs/RECIPES.md)**: Common Usage Patterns.
+* **[TESTING.md](docs/TESTING.md)**: Testing Philosophy.
 * **[examples/](examples/)**: Runnable recipes (`basic`, `hooks`, `termio`, `supervisor`).
 
 ## Key Commands
@@ -37,8 +42,10 @@ make test
 > Poweshell needs double quotes for file paths
 
 ```bash
-go test -v -timeout 90s -coverprofile="coverage.out" ./...
+go test -race -v -timeout 90s -coverprofile="coverage.out" ./...
 go tool cover -func="coverage.out"
+# or
+make coverage
 ```
 
 ### Running Examples
