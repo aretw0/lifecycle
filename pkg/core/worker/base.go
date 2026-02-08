@@ -49,6 +49,12 @@ type BaseWorker struct {
 	// StateWatchers (Event-Driven Introspection)
 	stateWatchers []chan introspection.StateChange[State]
 	watchersMu    sync.RWMutex
+
+	// Standardized State Fields (for centralized logic)
+	StopRequested bool
+	Killed        bool
+	ExitCode      int
+	Err           error
 }
 
 // NewBaseWorker creates a new BaseWorker with the given name.
@@ -59,6 +65,25 @@ func NewBaseWorker(name string) *BaseWorker {
 		done:   make(chan error, 1),
 		status: StatusCreated,
 	}
+}
+
+// DeriveStatus determines the final status based on the strict Intent vs Outcome logic.
+// This centralizes the state machine rules:
+// Killed -> StatusKilled
+// Err != nil -> StatusFailed
+// StopRequested -> StatusStopped
+// Default -> StatusFinished
+func (b *BaseWorker) DeriveStatus() Status {
+	if b.Killed {
+		return StatusKilled
+	}
+	if b.Err != nil {
+		return StatusFailed
+	}
+	if b.StopRequested {
+		return StatusStopped
+	}
+	return StatusFinished
 }
 
 // SetStatus updates the worker's status and emits a state change event.
