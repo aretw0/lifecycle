@@ -22,11 +22,7 @@ type funcWorker struct {
 	*BaseWorker
 	fn func(context.Context) error
 
-	cancel        context.CancelFunc
-	stopRequested bool
-
-	// Result
-	err error
+	cancel context.CancelFunc
 }
 
 func (w *funcWorker) Start(ctx context.Context) error {
@@ -54,30 +50,27 @@ func (w *funcWorker) Start(ctx context.Context) error {
 
 		w.mu.Lock()
 		oldStatus := w.status
-		if err != nil {
-			// Check if cancelled (normal stop)
-			if errors.Is(err, context.Canceled) {
-				// Treat context.Canceled as a clean stop
-				w.status = StatusStopped
-				w.err = nil
-				metrics.GetProvider().IncWorkerStopped("func")
-				log.Info("func worker stopped (canceled)", "name", w.String(), "duration", duration)
-			} else {
-				w.status = StatusFailed
-				w.err = err
-				metrics.GetProvider().IncWorkerFailed("func")
-				log.Error("func worker failed", "name", w.String(), "error", err, "duration", duration)
-			}
+		// Define Outcome
+		w.Err = err
+
+		// If cancelled, treated as Stopped (implicitly StopRequested via context propagation)
+		if errors.Is(err, context.Canceled) {
+			w.Err = nil
+			w.StopRequested = true
+		}
+
+		// Centralized Logic
+		w.status = w.DeriveStatus()
+
+		if w.status == StatusFailed {
+			metrics.GetProvider().IncWorkerFailed("func")
+			log.Error("func worker failed", "name", w.String(), "error", err, "duration", duration)
+		} else if w.status == StatusStopped {
+			metrics.GetProvider().IncWorkerStopped("func")
+			log.Info("func worker stopped", "name", w.String(), "duration", duration)
 		} else {
-			if w.stopRequested {
-				w.status = StatusStopped
-				metrics.GetProvider().IncWorkerStopped("func")
-				log.Info("func worker stopped", "name", w.String(), "duration", duration)
-			} else {
-				w.status = StatusFinished
-				metrics.GetProvider().IncWorkerStopped("func") // Reusing metric for now
-				log.Info("func worker finished", "name", w.String(), "duration", duration)
-			}
+			metrics.GetProvider().IncWorkerStopped("func") // Reusing metric
+			log.Info("func worker finished", "name", w.String(), "duration", duration)
 		}
 		newStatus := w.status
 		w.mu.Unlock()
@@ -97,7 +90,7 @@ func (w *funcWorker) Stop(ctx context.Context) error {
 	defer w.mu.Unlock()
 
 	if w.cancel != nil {
-		w.stopRequested = true
+		w.StopRequested = true
 		w.cancel()
 		log.Debug("signaled func worker to stop", "name", w.String())
 	}
@@ -106,7 +99,7 @@ func (w *funcWorker) Stop(ctx context.Context) error {
 
 func (w *funcWorker) State() State {
 	return w.ExportState(func(s *State) {
-		s.Error = w.err
+		s.Error = w.Err
 		s.Metadata = map[string]string{"type": "func"}
 	})
 }
