@@ -38,9 +38,9 @@ func (w *funcWorker) Start(ctx context.Context) error {
 	// Create context for the function
 	fnCtx, cancel := context.WithCancel(context.Background())
 	w.cancel = cancel
-	w.status = StatusRunning
 	w.mu.Unlock()
-	w.emitStateChange(State{Name: w.String(), Status: StatusCreated}, State{Name: w.String(), Status: StatusRunning})
+
+	w.SetStatus(StatusRunning)
 
 	// Monitor in background
 	go func() {

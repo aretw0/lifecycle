@@ -51,18 +51,18 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 
 	// Use pkg/proc to start with hygiene guarantees
 	if err := proc.Start(p.cmd); err != nil {
-		p.status = StatusFailed
 		p.Err = err
 		p.mu.Unlock()
-		p.emitStateChange(State{Name: p.String(), Status: StatusCreated}, State{Name: p.String(), Status: StatusFailed})
+
+		p.SetStatus(StatusFailed)
 		metrics.GetProvider().IncWorkerFailed("process")
 		return fmt.Errorf("failed to start worker %s: %w", p.String(), err)
 	}
 
-	p.status = StatusRunning
 	p.startedAt = time.Now()
 	p.mu.Unlock()
-	p.emitStateChange(State{Name: p.String(), Status: StatusCreated}, State{Name: p.String(), Status: StatusRunning})
+
+	p.SetStatus(StatusRunning)
 	metrics.GetProvider().IncWorkerStarted("process")
 	log.Info("process worker started", "name", p.String(), "cmd", p.cmd.Path)
 
