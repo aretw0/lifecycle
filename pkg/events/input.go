@@ -148,7 +148,7 @@ func (s *InputSource) readLoop(ctx context.Context) {
 		}
 
 		if err != nil {
-			if shouldStop := s.handleReadError(ctx, err, &eofCount); shouldStop {
+			if shouldStop := s.handleReadError(ctx, err, &eofCount, &lineBuilder); shouldStop {
 				return
 			}
 			continue
@@ -160,10 +160,15 @@ func (s *InputSource) readLoop(ctx context.Context) {
 	}
 }
 
-func (s *InputSource) handleReadError(ctx context.Context, err error, eofCount *int) bool {
-	if err == io.EOF {
+func (s *InputSource) handleReadError(ctx context.Context, err error, eofCount *int, lineBuilder *strings.Builder) bool {
+	if termio.IsInterrupted(err) {
+		// On Windows, Ctrl+C can cause a transient EOF or another interrupted error.
+		// We treat these as Interruptions.
+		lineBuilder.Reset()
+		_ = s.Emit(ctx, ClearLineEvent{})
 		return s.handleEOF(ctx, eofCount)
 	}
+
 	// Other errors: Log and retry with backoff
 	slog.Debug("input source: read error (retrying)", "error", err)
 	time.Sleep(s.backoff)
@@ -190,13 +195,13 @@ func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
 
 	*eofCount++
 
-	// desisted if we exceeded the threshold and we are not in unsafe mode
+	// threshold exceeded: stop the source
 	if *eofCount > threshold && !unsafe {
 		slog.Debug("input source: persistent EOF received, stopping", "attempts", *eofCount, "limit", threshold)
 		return true
 	}
 
-	slog.Debug("input source: transient EOF (Ctrl+C?), retrying...",
+	slog.Debug("input source: transient interrupt, retrying...",
 		"attempt", *eofCount,
 		"limit", func() string {
 			if unsafe {
@@ -204,12 +209,6 @@ func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
 			}
 			return fmt.Sprintf("%d", threshold)
 		}())
-
-	// If we are still running, it means the context didn't cancel on Ctrl+C.
-	// This indicates a REPL-like behavior where we should clear the line.
-	// If we are still running, it means the context didn't cancel on Ctrl+C.
-	// This indicates a REPL-like behavior where we should clear the line.
-	_ = s.Emit(ctx, ClearLineEvent{})
 
 	time.Sleep(s.backoff)
 	return false

@@ -16,6 +16,10 @@ const (
 	THRESHOLD_SAFE = 3
 )
 
+func showPrompt() {
+	fmt.Print("> ")
+}
+
 func printHelp(forceExitThreshold int) {
 	fmt.Println("Commands: any text... | exit | quit")
 	fmt.Println("Behavior: Ctrl+C clears the line (like a real shell)")
@@ -24,7 +28,7 @@ func printHelp(forceExitThreshold int) {
 	} else {
 		fmt.Printf("Safe Mode: WithForceExit(%d) - Killswitch enabled\n", forceExitThreshold)
 	}
-	fmt.Println("> ")
+	showPrompt()
 }
 
 func main() {
@@ -39,7 +43,8 @@ func main() {
 
 	// 2. Setup Handlers & Router
 	clearLineHandler := lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
-		fmt.Print("\n^C (Line Cleared)\n> ")
+		fmt.Print("\n^C (Line Cleared)\n")
+		showPrompt()
 		return nil
 	})
 
@@ -52,11 +57,12 @@ func main() {
 	// Create custom InputSource with our UnknownHandler
 	input := lifecycle.NewInputSource(
 		lifecycle.WithUnknownHandler(func(cmd string, known []string) {
-			slog.Warn("Unknown command received",
+			slog.Debug("Unknown command received",
 				"command", cmd,
 				"available", known,
 			)
-			fmt.Printf(" [!] '%s' is not valid. Try one of: %v\n> ", cmd, known)
+			fmt.Printf(" [!] '%s' is not valid. Try one of: %v\n", cmd, known)
+			showPrompt()
 		}),
 	)
 	mux.AddSource(input)
@@ -70,7 +76,7 @@ func main() {
 	mux.HandleFunc(lifecycle.InterceptEvent{}.String(), clearLineHandler)
 
 	mux.HandleFunc(lifecycle.ShutdownEvent{}.String(), func(ctx context.Context, e events.Event) error {
-		fmt.Println("\n👋 Shell exiting gracefully...")
+		fmt.Println("👋 Shell exiting gracefully...")
 		ctx.(*lifecycle.Context).Cancel()
 		return nil
 	})
@@ -79,7 +85,8 @@ func main() {
 	// Pattern matching supports glob-like patterns.
 	mux.HandleFunc("input/*", func(ctx context.Context, ev events.Event) error {
 		inputEv := ev.(lifecycle.InputEvent)
-		fmt.Printf("Executing command: %q\n> ", inputEv.Command)
+		fmt.Printf("Executing command: %q\n", inputEv.Command)
+		showPrompt()
 		return nil
 	})
 
