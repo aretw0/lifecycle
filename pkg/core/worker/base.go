@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/lifecycle/pkg/core/termio"
 )
 
 // BaseWorker provides default implementations for common Worker interface methods.
@@ -41,10 +42,11 @@ import (
 //
 // These can be overridden if custom behavior is needed.
 type BaseWorker struct {
-	name   string
-	done   chan error
-	status Status
-	mu     sync.RWMutex
+	name     string
+	done     chan error
+	finished chan struct{}
+	status   Status
+	mu       sync.RWMutex
 
 	// StateWatchers (Event-Driven Introspection)
 	stateWatchers []chan introspection.StateChange[State]
@@ -61,9 +63,10 @@ type BaseWorker struct {
 // The name is immutable after creation (construct a new worker to change it).
 func NewBaseWorker(name string) *BaseWorker {
 	return &BaseWorker{
-		name:   name,
-		done:   make(chan error, 1),
-		status: StatusCreated,
+		name:     name,
+		done:     make(chan error, 1),
+		finished: make(chan struct{}),
+		status:   StatusCreated,
 	}
 }
 
@@ -76,6 +79,9 @@ func NewBaseWorker(name string) *BaseWorker {
 func (b *BaseWorker) DeriveFinalStatus() Status {
 	if b.Killed {
 		return StatusKilled
+	}
+	if b.Err != nil && termio.IsInterrupted(b.Err) {
+		return StatusStopped
 	}
 	if b.Err != nil {
 		return StatusFailed
@@ -99,11 +105,54 @@ func (b *BaseWorker) SetStatus(new Status) {
 	}
 }
 
-// Stop is a no-op implementation.
-// Most workers rely on context cancellation for cleanup.
-// Override this method if your worker needs explicit stop logic.
+// Finish is the terminal checkpoint for a worker. It centralizes the final state
+// transition logic, metrics, and signaling.
+func (b *BaseWorker) Finish(err error) {
+	b.mu.Lock()
+	// Capture the raw error
+	b.Err = err
+
+	// Determine and set terminal status
+	oldStatus := b.status
+	b.status = b.DeriveFinalStatus()
+	newStatus := b.status
+	b.mu.Unlock()
+
+	// Emit state change for the terminal transition
+	b.emitStateChange(State{Name: b.name, Status: oldStatus}, State{Name: b.name, Status: newStatus})
+
+	// Signal completion
+	// 1. Send error to buffered channel (single-result observer)
+	b.done <- err
+	close(b.done)
+
+	// 2. Close finished channel (broadcast observer - multiple waiters allowed)
+	close(b.finished)
+}
+
+// Stop satisfies the Worker interface. In BaseWorker, it only handles
+// the "Strict Wait" protocol using the provided context.
+// Embedding types should override this to trigger their specific cleanup
+// (e.g. canceling a context or signaling a process) but should call
+// this base implementation if they want to wait for quiescence.
 func (b *BaseWorker) Stop(ctx context.Context) error {
-	return nil
+	b.mu.Lock()
+	b.StopRequested = true
+
+	// If not yet running, return immediately (nothing to quiesce)
+	if b.status == StatusCreated || b.status == StatusPending {
+		b.mu.Unlock()
+		return nil
+	}
+	b.mu.Unlock()
+
+	// Wait for quiescence or timeout
+	select {
+	case <-b.finished:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Wait returns the done channel.
@@ -151,8 +200,7 @@ func (b *BaseWorker) ExportState(fn func(*State)) State {
 // The function result is sent to the done channel, then the channel is closed.
 func (b *BaseWorker) StartFunc(ctx context.Context, fn func(context.Context) error) error {
 	go func() {
-		b.done <- fn(ctx)
-		close(b.done)
+		b.Finish(fn(ctx))
 	}()
 	return nil
 }
