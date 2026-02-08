@@ -207,6 +207,15 @@ func Signal(ctx context.Context) os.Signal {
 	return nil
 }
 
+// ResetSignalCount resets the signal counter and clears the last received signal.
+// This is useful for "Smart Handlers" (like REPLs) that successfully handle a signal
+// and want to prevent the "Force Exit" threshold from being reached on subsequent signals.
+func ResetSignalCount(ctx context.Context) {
+	if sc, ok := signal.FromContext(ctx); ok {
+		sc.ResetSignalCount()
+	}
+}
+
 // SignalStateDiagram returns a Mermaid state diagram string representing the signal context configuration.
 // Alias for pkg/signal.MermaidState.
 func SignalStateDiagram(s SignalState) string {
