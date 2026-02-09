@@ -222,3 +222,33 @@ func main() {
 
 > [!TIP]
 > This pattern breaks the "Zombie Process" fear. Even if your `SmartHandler` deadlocks or fails to valid state, the user always has a panic button (Mash Ctrl+C).
+
+---
+
+## 🔌 7. Raw Input Streams (JSON/binary)
+
+**Problem**: You want to read structured input (like JSON lines from another process) instead of interactive commands, but still want to use the `lifecycle` event loop.
+
+**Solution**: Use `sources.NewInputSource()` with the `WithRawInput` option. This bypasses the default command parser and gives you the raw strings.
+
+```go
+// 1. Create a Source that reads from Stdin
+source := lifecycle.NewInputSource(
+    lifecycle.WithInputReader(os.Stdin),
+    // 2. Register a Raw Input Handler
+    lifecycle.WithRawInput(func(line string) {
+        var msg MyMessage
+        if err := json.Unmarshal([]byte(line), &msg); err != nil {
+            slog.Error("Invalid JSON", "error", err)
+            return
+        }
+        // Process message or dispatch event
+        router.Dispatch(ctx, "custom/event", msg)
+    }),
+)
+
+router.AddSource(source)
+```
+
+> [!NOTE]
+> When `WithRawInput` is used, the default "command/quit" and "command/suspend" parsing is **disabled**. You must handle all input logic yourself.

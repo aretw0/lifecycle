@@ -532,6 +532,18 @@ func NewInputSource(opts ...InputOption) *InputSource {
 	return events.NewInputSource(opts...)
 }
 
+// WithInputReader configures the reader for InputSource.
+// Alias for pkg/events.WithInputReader.
+func WithInputReader(r io.Reader) InputOption {
+	return events.WithInputReader(r)
+}
+
+// WithRawInput configures the InputSource for "Data-Only" mode.
+// Alias for pkg/events.WithRawInput.
+func WithRawInput(handler func(line string)) InputOption {
+	return events.WithRawInput(handler)
+}
+
 // WithUnknownHandler configures a custom handler for unknown commands.
 // Alias for pkg/events.WithUnknownHandler.
 func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {

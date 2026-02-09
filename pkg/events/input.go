@@ -62,6 +62,18 @@ func WithInputMappings(mappings map[string]Event) InputOption {
 	}
 }
 
+// WithRawInput configures the InputSource for "Data-Only" mode.
+// It clears default mappings and sets the "Unknown Handler" to the provided function,
+// effectively treating every line as a data payload.
+func WithRawInput(handler func(line string)) InputOption {
+	return func(s *InputSource) {
+		s.mappings = make(map[string]Event) // Clear mappings
+		s.unknownHandler = func(cmd string, _ []string) {
+			handler(cmd)
+		}
+	}
+}
+
 // WithUnknownHandler configures a custom handler for unknown commands.
 // The handler receives the unknown command and a sorted list of known commands.
 func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {
