@@ -522,7 +522,7 @@ To reduce boilerplate for CLI applications, `lifecycle` provides a pre-configure
 
 ```go
 // wires up:
-// - OS Signals (Interrupt/Term) -> SmartSignalHandler
+// - OS Signals (Interrupt/Term) -> Escalator (Intercept first, then Quit)
 // - Input (Stdin) -> Router (reads lines as commands)
 // - Commands: "suspend", "resume" -> SuspendHandler
 // - Command: "quit", "q" -> shutdownFunc

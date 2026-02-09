@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/aretw0/lifecycle"
 	"github.com/aretw0/lifecycle/pkg/events"
@@ -41,31 +42,43 @@ func main() {
 	)
 	defer ctx.Stop()
 
-	// 2. Setup Handlers & Router
+	// 2. Setup Handlers (No Magic)
 	clearLineHandler := lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
-		fmt.Print("\n^C (Line Cleared)\n")
+		fmt.Print("\n^C (Line Cleared via Escalator)\n")
 		showPrompt()
-		return nil
+		return nil // Successfully handled!
 	})
 
-	// Use NewInteractiveRouter with a stateless clearLineHandler.
-	// This will not trigger "Suspending..." logs or persistent suspended state.
-	mux := lifecycle.NewInteractiveRouter(clearLineHandler,
-		lifecycle.WithInput(false), // We will add our own source below
-	)
+	// Escalator: Primary = ClearLine, Fallback = Exit (from Context)
+	// We use a stub fallback here because the SignalContext handles the "Force Exit" counting internally.
+	// But to demonstrate the pattern:
+	escalator := events.NewEscalator(clearLineHandler, lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
+		fmt.Println("\nEscalator: Quitting...")
+		return events.ErrNotHandled // Let the SignalContext take over or return error to stop
+	}))
 
-	// Create custom InputSource with our UnknownHandler
+	// 3. Setup Router (Explicit Wiring)
+	mux := events.NewRouter()
+
+	// 3a. Wire Signal -> Escalator
+	// Note: We use the string representation of the event we expect from the source.
+	mux.Handle("Signal(interrupt)", escalator)
+
+	// 3b. Wire Input
+	// Create custom InputSource with manual mappings
 	input := lifecycle.NewInputSource(
+		lifecycle.WithInputMappings(events.CommandMapping(
+			"help", events.InputEvent{Command: "help"},
+			"quit", events.ShutdownEvent{},
+		)),
 		lifecycle.WithUnknownHandler(func(cmd string, known []string) {
-			slog.Debug("Unknown command received",
-				"command", cmd,
-				"available", known,
-			)
-			fmt.Printf(" [!] '%s' is not valid. Try one of: %v\n", cmd, known)
+			slog.Debug("Unknown command received", "cmd", cmd)
+			fmt.Printf(" [!] '%s' is not valid.\n", cmd)
 			showPrompt()
 		}),
 	)
 	mux.AddSource(input)
+	mux.AddSource(events.NewOSSignalSource(os.Interrupt))
 
 	// 3. Define Shell State
 	fmt.Println("🚀 REPL STARTED")
@@ -73,11 +86,15 @@ func main() {
 
 	// 4. Handle Events
 	// We use HandleFunc to register functions
-	mux.HandleFunc(lifecycle.InterceptEvent{}.String(), clearLineHandler)
-
-	mux.HandleFunc(lifecycle.ShutdownEvent{}.String(), func(ctx context.Context, e events.Event) error {
+	mux.HandleFunc(events.ShutdownEvent{}.String(), func(ctx context.Context, e events.Event) error {
 		fmt.Println("👋 Shell exiting gracefully...")
 		ctx.(*lifecycle.Context).Cancel()
+		return nil
+	})
+
+	// Handle Help
+	mux.HandleFunc("command/help", func(ctx context.Context, e events.Event) error {
+		printHelp(lifecycle.GetForceExitThreshold(ctx))
 		return nil
 	})
 

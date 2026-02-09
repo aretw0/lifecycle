@@ -145,19 +145,24 @@ router.Handle("source/tick", control.HandlerFunc(func(_ context.Context, e contr
 
 **Problem**: You want `Ctrl+C` to have context-aware behavior: Suspend on the first press, Quit on the second (or if already suspended).
 
-**Solution**: Use a custom Handler that checks state before deciding the action.
+**Solution**: Use `Events.Escalator` to compose a "Double-Tap" strategy.
 
 ```go
-// In main():
-smartHandler := lifecycle.NewSmartSignalHandler(
-    suspendHandler, 
-    lifecycle.HandlerFunc(func(ctx context.Context, _ control.Event) error {
-        // Quit Logic
-        close(quitCh)
-        return nil
-    }),
-)
+// 1. Define Primary Action (e.g. Suspend)
+// We wrap it with StateCheck so if it's already suspended, it returns ErrNotHandled,
+// causing the Escalator to trigger the fallback (Quit).
+primary := events.WithStateCheck(suspendHandler, suspendHandler)
 
+// 2. Define Fallback Action (Quit)
+quit := events.HandlerFunc(func(ctx context.Context, _ events.Event) error {
+    close(quitCh)
+    return nil
+})
+
+// 3. Compose Escalator
+// First Signal -> Try Primary (Suspend)
+// Second Signal (or if Suspended) -> Fallback (Quit)
+smartHandler := events.NewEscalator(primary, quit)
 
 router.Handle("Signal(interrupt)", smartHandler)
 ```

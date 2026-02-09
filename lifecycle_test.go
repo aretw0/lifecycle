@@ -234,10 +234,6 @@ func TestLifecycle_EventAliases(t *testing.T) {
 	}
 	shutdown := lifecycle.NewShutdownHandler(func() {})
 
-	if lifecycle.NewSmartSignalHandler(suspend, shutdown) == nil {
-		t.Error("NewSmartSignalHandler returned nil")
-	}
-
 	if lifecycle.NewTerminateHandler(suspend, shutdown) == nil {
 		t.Error("NewTerminateHandler returned nil")
 	}

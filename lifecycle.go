@@ -482,30 +482,6 @@ var (
 	ErrNotHandled = events.ErrNotHandled
 )
 
-// SmartSignalOption configures the SmartSignalHandler.
-// Alias for pkg/events.SmartSignalOption.
-type SmartSignalOption = events.SmartSignalOption
-
-// WithActionMessage sets the log message for the first trigger.
-func WithActionMessage(msg string) SmartSignalOption {
-	return events.WithActionMessage(msg)
-}
-
-// WithActionEvent sets the event emitted on the first trigger.
-func WithActionEvent(ev Event) SmartSignalOption {
-	return events.WithActionEvent(ev)
-}
-
-// WithInteractiveSemantics configures the handler to use "Interrupted" language.
-func WithInteractiveSemantics() SmartSignalOption {
-	return events.WithInteractiveSemantics()
-}
-
-// NewSmartSignalHandler creates a handler that arbitrates between Interruption and Quit.
-func NewSmartSignalHandler(intercept Handler, q Handler, opts ...SmartSignalOption) Handler {
-	return events.NewSmartSignalHandlerWithOpts(intercept, q, opts...)
-}
-
 // TerminateEvent is a high-level event that chains Suspend and Shutdown.
 // Alias for pkg/events.TerminateEvent.
 type TerminateEvent = events.TerminateEvent
@@ -568,6 +544,12 @@ func WithInputMapping(key string, event events.Event) InputOption {
 	return events.WithInputMapping(key, event)
 }
 
+// WithInputMappings adds multiple command mappings at once.
+// Alias for pkg/events.WithInputMappings.
+func WithInputMappings(mappings map[string]events.Event) InputOption {
+	return events.WithInputMappings(mappings)
+}
+
 // WithInputBackoff configures the duration to wait before retrying interruptions or errors.
 // Alias for pkg/events.WithInputBackoff.
 func WithInputBackoff(d time.Duration) InputOption {
@@ -581,6 +563,12 @@ type InputEvent = events.InputEvent
 // TickEvent represents a periodic time tick.
 // Alias for pkg/events.TickEvent.
 type TickEvent = events.TickEvent
+
+// CommandMapping creates a map for InputSource.
+// Alias for pkg/events.CommandMapping.
+func CommandMapping(pairs ...any) map[string]events.Event {
+	return events.CommandMapping(pairs...)
+}
 
 // NewTickerSource creates a source that emits periodic events.
 // Alias for pkg/events.NewTickerSource.
@@ -693,9 +681,27 @@ func NewSuspendHandler() *SuspendHandler {
 	return events.NewSuspendHandler()
 }
 
-// SmartSignalHandler implements "Double-Tap" signal logic (Suspend -> Quit).
-// Alias for pkg/events.SmartSignalHandler.
-type SmartSignalHandler = events.SmartSignalHandler
+// Escalator is a generic "Double-Tap" handler that escalates from Primary to Fallback.
+// Alias for pkg/events.Escalator.
+type Escalator = events.Escalator
+
+// NewEscalator creates a new generic Double-Tap handler.
+// Alias for pkg/events.NewEscalator.
+func NewEscalator(primary Handler, fallback Handler) *Escalator {
+	return events.NewEscalator(primary, fallback)
+}
+
+// WithStateCheck wraps a handler and only executes it if the StateChecker allows.
+// Alias for pkg/events.WithStateCheck.
+func WithStateCheck(h Handler, checker StateChecker) Handler {
+	return events.WithStateCheck(h, checker)
+}
+
+// WithFixedEvent wraps a handler and always passes the specified event.
+// Alias for pkg/events.WithFixedEvent.
+func WithFixedEvent(h Handler, ev Event) Handler {
+	return events.WithFixedEvent(h, ev)
+}
 
 // ClearLineEvent is triggered when an interactive input is interrupted.
 // Alias for pkg/events.ClearLineEvent.

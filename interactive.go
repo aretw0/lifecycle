@@ -50,11 +50,11 @@ func WithShutdown(fn func()) InteractiveOption {
 // NewInteractiveRouter creates a router pre-configured for interactive CLI applications.
 //
 // It wires up:
-//   - OS Signals (Interrupt/Term) -> SmartSignalHandler (Intercept first, then Quit)
+//   - OS Signals (Interrupt/Term) -> Escalator (Intercept first, then Quit)
 //   - Input (Stdin) -> Router (reads lines as commands)
 //   - Commands: "suspend", "resume" -> SuspendHandler
 //
-// The 'interceptHandler' is the primary action taken on the first Sigma(interrupt).
+// The 'interceptHandler' is the primary action taken on the first Signal(interrupt).
 // For REPLs, this might be a simple line-clearer. For durable services, it might
 // be a full SuspendHandler.
 //
@@ -90,11 +90,12 @@ func NewInteractiveRouter(interceptHandler events.Handler, opts ...InteractiveOp
 		r.Handle("command/"+name, h)
 	}
 
-	// 3. Smart Signal Handling
-	// The SmartSignalHandler intercepts SIGINT.
-	// If the system is running, it triggers a Suspend via suspendHandler.
-	// If/When it decides to Quit (e.g. system is already suspended), it delegates to the next handler.
-	// We provide a no-op handler here because the actual "Exit" is often handled by the
+	// 3. Smart Signal Handling (via Escalator)
+	// We use an Escalator to implement the "Double-Tap" strategy:
+	// 1st Signal: Intercept (Primary) -> e.g. Clear Line or Suspend
+	// 2nd Signal: Quit (Fallback) -> Force Exit
+
+	// We provide a no-op quit handler here because the actual "Exit" is often handled by the
 	// runtime observing the signal cancellation propagation or by the user hitting Ctrl+C twice (Force Exit).
 	noOpQuit := events.HandlerFunc(func(ctx context.Context, e events.Event) error {
 		return nil
@@ -107,7 +108,7 @@ func NewInteractiveRouter(interceptHandler events.Handler, opts ...InteractiveOp
 		quitHandler = events.NewShutdownFunc(cfg.shutdownFunc)
 	}
 
-	// 4. Resolve Quit Logic
+	// 4. Resolve Quit Logic & Escalation
 	// Precedence:
 	// 1. Explicit WithCommand("quit", ...)
 	// 2. WithShutdown(...) convenience helper
@@ -124,12 +125,29 @@ func NewInteractiveRouter(interceptHandler events.Handler, opts ...InteractiveOp
 		r.Handle("command/quit", quitHandler)
 	}
 
-	smartHandler := events.NewSmartSignalHandler(interceptHandler, quitHandler)
+	// Construct Escalator
+	// We wrap the intercept handler in a StateCheck middleware if it implements StateChecker.
+	// This preserves the legacy behavior where StateChecker implied "Check before Intercept".
+	var primaryHandler events.Handler = interceptHandler
+
+	// Event Selection Logic:
+	// If StateChecker -> SuspendEvent (default)
+	// If !StateChecker -> InterceptEvent (interactive)
+	targetEvent := events.Event(events.SuspendEvent{})
 	if _, ok := interceptHandler.(events.StateChecker); !ok {
-		// Use interactive semantics if not using a stateful interceptor
-		events.WithInteractiveSemantics()(smartHandler)
+		targetEvent = events.InterceptEvent{}
+	} else {
+		// If StateChecker is present, we wrap with StateCheck middleware
+		// to skip Intercept if already Active.
+		primaryHandler = events.WithStateCheck(interceptHandler, interceptHandler.(events.StateChecker))
 	}
-	r.Handle("Signal(interrupt)", smartHandler)
+
+	// Apply Event Transformation (Signal -> Suspend/Intercept)
+	primaryHandler = events.WithFixedEvent(primaryHandler, targetEvent)
+
+	// Use generic Escalator: Primary -> Quit
+	escalator := events.NewEscalator(primaryHandler, quitHandler)
+	r.Handle("Signal(interrupt)", escalator)
 
 	// 5. High-level Facilitators (Composition)
 	terminateHandler := events.NewTerminate(interceptHandler, quitHandler)
