@@ -76,6 +76,3 @@ func TestMermaidTree_Styles(t *testing.T) {
 		})
 	}
 }
-
-
-

@@ -31,6 +31,3 @@ func start(cmd *exec.Cmd) error {
 	p.IncProcessStarted()
 	return nil
 }
-
-
-

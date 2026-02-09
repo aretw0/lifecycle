@@ -83,6 +83,3 @@ func TestMermaid(t *testing.T) {
 		})
 	}
 }
-
-
-

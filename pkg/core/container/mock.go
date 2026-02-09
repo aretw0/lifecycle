@@ -65,6 +65,3 @@ func (m *MockContainer) Status() Status {
 	defer m.mu.Unlock()
 	return m.status
 }
-
-
-

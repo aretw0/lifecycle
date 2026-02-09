@@ -21,6 +21,3 @@ func Upgrade(r io.Reader) (io.Reader, error) {
 	}
 	return r, nil
 }
-
-
-

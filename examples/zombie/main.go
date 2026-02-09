@@ -30,6 +30,3 @@ func main() {
 	// Parent exits immediately.
 	// We expect OS to kill child.
 }
-
-
-

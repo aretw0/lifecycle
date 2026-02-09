@@ -8,7 +8,7 @@ import (
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
 )
 
-// ReloadHandler handles configuration reload 
+// ReloadHandler handles configuration reload
 type ReloadHandler struct {
 	// TODO: Add callback for actual reload logic
 	OnReload func(ctx context.Context) error
@@ -29,5 +29,3 @@ func (r *ReloadHandler) HandleEvent(ctx context.Context, e Event) error {
 func NewReload(onReload func(context.Context) error) Handler {
 	return &ReloadHandler{OnReload: onReload}
 }
-
-

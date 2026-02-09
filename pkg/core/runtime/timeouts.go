@@ -29,6 +29,3 @@ func BlockWithTimeout(done <-chan struct{}, timeout time.Duration) error {
 		return context.DeadlineExceeded
 	}
 }
-
-
-

@@ -109,6 +109,3 @@ func main() {
 		// Actually, standard behavior is usually sticky or time-based. Let's keep it sticky for simplicity.
 	}
 }
-
-
-

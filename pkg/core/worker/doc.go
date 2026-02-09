@@ -14,6 +14,3 @@
 //
 // This package is foundational for the Supervisor pattern (v1.3+).
 package worker
-
-
-

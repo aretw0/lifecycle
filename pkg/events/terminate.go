@@ -66,5 +66,3 @@ func NewTerminate(suspend Handler, shutdown Handler, opts ...TerminateOption) Ha
 
 	return h
 }
-
-

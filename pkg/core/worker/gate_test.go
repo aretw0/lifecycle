@@ -70,6 +70,3 @@ func TestSuspendGate_Suspend(t *testing.T) {
 		t.Error("Suspend didn't unblock in time")
 	}
 }
-
-
-

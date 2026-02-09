@@ -29,6 +29,3 @@ type ComponentEvent interface {
 	Timestamp() time.Time
 	EventType() string
 }
-
-
-

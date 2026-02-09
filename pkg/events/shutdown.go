@@ -2,9 +2,9 @@ package events
 
 import (
 	"context"
-	"time"
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"time"
 )
 
 // ShutdownHandler creates a handler that cancels the given context (triggering shutdown).
@@ -41,9 +41,3 @@ func NewShutdownFunc(fn func()) Handler {
 		return nil
 	}))
 }
-
-
-
-
-
-

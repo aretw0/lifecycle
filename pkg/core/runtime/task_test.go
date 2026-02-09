@@ -145,6 +145,3 @@ func (m *mockMetricsProvider) IncCriticalSectionFinished(success bool) {
 	m.criticalSectionFinished++
 	m.lastSuccess = success
 }
-
-
-

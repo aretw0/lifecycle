@@ -59,6 +59,3 @@ func TestStress_ProcessChurn(t *testing.T) {
 
 	t.Log("Stress test completed successfully.")
 }
-
-
-

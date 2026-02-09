@@ -53,6 +53,15 @@ func WithInputMapping(key string, event Event) InputOption {
 	}
 }
 
+// WithInputMappings adds multiple command mappings at once.
+func WithInputMappings(mappings map[string]Event) InputOption {
+	return func(s *InputSource) {
+		for k, v := range mappings {
+			s.mappings[k] = v
+		}
+	}
+}
+
 // WithUnknownHandler configures a custom handler for unknown commands.
 // The handler receives the unknown command and a sorted list of known commands.
 func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {

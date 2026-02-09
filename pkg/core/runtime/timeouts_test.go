@@ -36,6 +36,3 @@ func TestBlockWithTimeout_Timeout(t *testing.T) {
 		t.Errorf("function returned too early: %v", duration)
 	}
 }
-
-
-

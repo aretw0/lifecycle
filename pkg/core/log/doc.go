@@ -15,6 +15,3 @@
 //	// Standard logging calls
 //	log.Info("process started", "pid", 1234)
 package log
-
-
-

@@ -221,10 +221,3 @@ func TestOnce(t *testing.T) {
 		t.Errorf("Expected handler to be called once, got %d", counter)
 	}
 }
-
-
-
-
-
-
-

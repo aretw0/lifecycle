@@ -32,6 +32,3 @@ func Receive[V any](ctx context.Context, ch <-chan V) iter.Seq[V] {
 		}
 	}
 }
-
-
-

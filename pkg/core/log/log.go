@@ -57,6 +57,3 @@ func Debug(msg string, args ...any) {
 func WithContext(ctx context.Context) *slog.Logger {
 	return GetLogger() // Placeholder if we want to extract from ctx later
 }
-
-
-

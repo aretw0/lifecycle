@@ -40,6 +40,3 @@ func (a *WatcherAdapter[S]) Snapshots(ctx context.Context) <-chan StateSnapshot 
 
 	return ch
 }
-
-
-

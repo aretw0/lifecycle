@@ -7,6 +7,3 @@
 // Consumers can implement their own Provider or use the provided LogProvider
 // for debugging.
 package metrics
-
-
-

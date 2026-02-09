@@ -81,6 +81,3 @@ func TestMermaidTree(t *testing.T) {
 		})
 	}
 }
-
-
-

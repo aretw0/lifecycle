@@ -251,6 +251,3 @@ func (m *Provider) DecEventWaiting(source string) {
 	defer m.Mu.Unlock()
 	m.EventsWaiting[source]--
 }
-
-
-

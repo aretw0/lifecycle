@@ -45,6 +45,3 @@ type Container interface {
 	// Status returns the current lifecycle status.
 	Status() Status
 }
-
-
-

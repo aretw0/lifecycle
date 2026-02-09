@@ -19,6 +19,3 @@ type EventSource interface {
 	// The channel is closed when the provided context is cancelled.
 	Events(ctx context.Context) <-chan ComponentEvent
 }
-
-
-

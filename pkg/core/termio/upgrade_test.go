@@ -46,6 +46,3 @@ func TestUpgrade_FileNonTerminal(t *testing.T) {
 		t.Errorf("Expected original file object for non-terminal file")
 	}
 }
-
-
-

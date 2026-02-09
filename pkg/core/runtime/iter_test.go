@@ -57,6 +57,3 @@ func TestReceive_StopsOnContextCancel(t *testing.T) {
 		t.Errorf("expected 1 item before cancel, got %d", count)
 	}
 }
-
-
-

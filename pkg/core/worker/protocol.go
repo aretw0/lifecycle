@@ -19,6 +19,3 @@ const (
 type EnvInjector interface {
 	SetEnv(key, value string)
 }
-
-
-

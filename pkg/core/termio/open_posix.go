@@ -23,6 +23,3 @@ func IsTerminal(f *os.File) bool {
 	// The boolean logic was in TextHandler.
 	return true
 }
-
-
-

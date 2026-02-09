@@ -61,6 +61,3 @@ func runApp(ctx context.Context) error {
 	fmt.Println("\nTimeout! Exiting normally.")
 	return nil
 }
-
-
-

@@ -207,6 +207,3 @@ func TestManager_MultipleWaiters(t *testing.T) {
 		}
 	}
 }
-
-
-

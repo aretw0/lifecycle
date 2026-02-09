@@ -95,6 +95,3 @@ func IsInterrupted(err error) bool {
 	}
 	return false
 }
-
-
-

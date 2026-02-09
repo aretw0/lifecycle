@@ -21,6 +21,3 @@
 //
 // The child process is now linked to the parent's lifecycle.
 package proc
-
-
-

@@ -302,6 +302,3 @@ func (l *LogProvider) IncEventWaiting(source string) {
 func (l *LogProvider) DecEventWaiting(source string) {
 	log.Debug("metric decremented", "name", "lifecycle_events_waiting_current", "source", source)
 }
-
-
-

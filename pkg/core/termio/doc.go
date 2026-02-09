@@ -19,6 +19,3 @@
 // This method enforces "Error First" logic, discarding potential race-condition input
 // to prioritize safety.
 package termio
-
-
-

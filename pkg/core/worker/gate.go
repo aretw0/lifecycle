@@ -106,6 +106,3 @@ func (g *SuspendGate) IsPaused() bool {
 	defer g.mu.Unlock()
 	return g.paused
 }
-
-
-

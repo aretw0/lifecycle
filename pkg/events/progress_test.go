@@ -70,9 +70,3 @@ func TestTickerSource(t *testing.T) {
 		// Safest is to rely on wg.Wait() above which ensures Start() deferred close() ran.
 	}
 }
-
-
-
-
-
-

@@ -19,6 +19,3 @@ var StrictMode bool
 func Start(cmd *exec.Cmd) error {
 	return start(cmd)
 }
-
-
-

@@ -67,6 +67,3 @@ func (sc *Context) emitStateChange(old, new State) {
 		}
 	}
 }
-
-
-

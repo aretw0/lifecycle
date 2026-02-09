@@ -77,6 +77,3 @@ func TestCaveat_LateRegistration(t *testing.T) {
 		t.Error("FAIL: Late registered hooks should be executed (LIFO)!")
 	}
 }
-
-
-

@@ -33,4 +33,3 @@ func (s *ChannelSource) Start(ctx context.Context) error {
 	<-ctx.Done()
 	return ctx.Err()
 }
-

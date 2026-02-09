@@ -76,6 +76,3 @@ func TestSignalContext_CancelOnInterrupt(t *testing.T) {
 		}
 	})
 }
-
-
-

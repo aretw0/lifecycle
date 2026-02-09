@@ -58,6 +58,3 @@ func main() {
 
 	fmt.Println("Example finished.")
 }
-
-
-

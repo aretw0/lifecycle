@@ -21,7 +21,7 @@ type TickerSource struct {
 	interval time.Duration
 }
 
-// NewTickerSource creates a new source that emits tick 
+// NewTickerSource creates a new source that emits tick
 func NewTickerSource(interval time.Duration) *TickerSource {
 	return &TickerSource{
 		BaseSource: NewBaseSource("ticker", 10),
@@ -47,5 +47,3 @@ func (s *TickerSource) Start(ctx context.Context) error {
 		}
 	}
 }
-
-

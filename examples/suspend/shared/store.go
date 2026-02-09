@@ -82,6 +82,3 @@ func (s *Store) Cleanup() {
 	s.Mu.Unlock()
 	os.Remove(s.Path)
 }
-
-
-

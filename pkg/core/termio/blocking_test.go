@@ -156,6 +156,3 @@ func TestSpike_Interactive_StrictCancel(t *testing.T) {
 		t.Fatal("Test timed out")
 	}
 }
-
-
-

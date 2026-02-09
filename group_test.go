@@ -167,6 +167,3 @@ func TestGroup_BackpressureMetrics(t *testing.T) {
 	<-done
 	g.Wait()
 }
-
-
-
