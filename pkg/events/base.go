@@ -101,7 +101,7 @@ func (b *BaseSource) TryEmit(e Event) bool {
 }
 
 // Close closes the events channel.
-// Call this when the source is done emitting 
+// Call this when the source is done emitting
 func (b *BaseSource) Close() {
 	close(b.events)
 }
@@ -126,10 +126,3 @@ func Once(h Handler) Handler {
 		return err
 	})
 }
-
-
-
-
-
-
-
