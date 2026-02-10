@@ -43,7 +43,10 @@ from the internal `pkg/` structure, grouped by functionality:
 
 For CLI tools, use the Interactive Router preset to wire up signals and input automatically:
 
-	router := lifecycle.NewInteractiveRouter(suspendHandler, lifecycle.WithShutdown(quitFunc))
+	router := lifecycle.NewInteractiveRouter(
+		lifecycle.WithSuspendOnInterrupt(suspendHandler),
+		lifecycle.WithShutdown(quitFunc),
+	)
 	lifecycle.Run(router)
 
 # Configuration

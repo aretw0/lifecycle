@@ -36,4 +36,11 @@
 // The Control Plane is designed to be "plug-and-play". By consolidating all
 // event logic here, applications can easily swap a "Signal-based reload"
 // for a "Webhook-based reload" without changing the core business logic.
+//
+// # Context-Aware Handlers
+//
+// Handlers like NewShutdown and NewShutdownFunc are context-aware; they
+// automatically discover the active signal.Context using signal.FromContext(ctx)
+// and trigger its Shutdown() method. This ensures that even in complex
+// interactive modes, the "Quit" command correctly exits the main Run loop.
 package events

@@ -18,7 +18,15 @@ func RunFactory(sup lifecycle.Supervisor, store *Store, suspendHandler *lifecycl
 		resumedCh := make(chan struct{})
 		quitCh := make(chan struct{})
 
-		router := lifecycle.NewInteractiveRouter(suspendHandler,
+		statsHandler := lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			fmt.Println("\n📊 STATS: processed=???")
+			return nil
+		})
+
+		router := lifecycle.NewInteractiveRouter(
+			lifecycle.WithSuspendOnInterrupt(suspendHandler),
+			lifecycle.WithDefaultMappings(),
+			lifecycle.WithCommand("stats", statsHandler),
 			lifecycle.WithShutdown(func() {
 				lifecycle.Shutdown(ctx)
 				close(quitCh)

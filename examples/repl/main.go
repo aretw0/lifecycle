@@ -64,18 +64,28 @@ func main() {
 	// Note: We use the string representation of the event we expect from the source.
 	mux.Handle("Signal(interrupt)", escalator)
 
-	// 3b. Wire Input
-	// Create custom InputSource with manual mappings
-	input := lifecycle.NewInputSource(
-		lifecycle.WithInputMappings(events.CommandMapping(
-			"help", events.InputEvent{Command: "help"},
-			"quit", events.ShutdownEvent{},
-		)),
-		lifecycle.WithUnknownHandler(func(cmd string, known []string) {
-			slog.Debug("Unknown command received", "cmd", cmd)
-			fmt.Printf(" [!] '%s' is not valid.\n", cmd)
-			showPrompt()
+	// Define Commands and Handlers in one place
+	commands := map[string]events.Handler{
+		"help": lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
+			printHelp(lifecycle.GetForceExitThreshold(ctx))
+			return nil
 		}),
+		"quit": lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
+			fmt.Println("👋 Shell exiting gracefully...")
+			ctx.(*lifecycle.Context).Cancel()
+			return nil
+		}),
+		"exit": lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
+			fmt.Println("👋 Shell exiting gracefully...")
+			ctx.(*lifecycle.Context).Cancel()
+			return nil
+		}),
+	}
+
+	// 3b. Wire Input
+	// Use the shared map to configure valid inputs
+	input := lifecycle.NewInputSource(
+		lifecycle.WithInputHandlers(commands),
 	)
 	mux.AddSource(input)
 	mux.AddSource(events.NewOSSignalSource(os.Interrupt))
@@ -85,16 +95,19 @@ func main() {
 	printHelp(lifecycle.GetForceExitThreshold(ctx))
 
 	// 4. Handle Events
-	// We use HandleFunc to register functions
-	mux.HandleFunc(events.ShutdownEvent{}.String(), func(ctx context.Context, e events.Event) error {
-		fmt.Println("👋 Shell exiting gracefully...")
-		ctx.(*lifecycle.Context).Cancel()
-		return nil
-	})
+	// Register the same handlers to the router
+	// This maps "cmd" -> "command/cmd" route
+	events.WithRouterHandlers(commands)(mux)
 
-	// Handle Help
-	mux.HandleFunc("command/help", func(ctx context.Context, e events.Event) error {
-		printHelp(lifecycle.GetForceExitThreshold(ctx))
+	// Remove explicit shutdown handler since it's now handled by the commands map
+	// Remove Help handler since it's now handled by the commands map
+
+	// Handle Unknown Commands from InputSource
+	mux.HandleFunc(events.UnknownCommandEvent{}.String(), func(ctx context.Context, e events.Event) error {
+		unknown := e.(events.UnknownCommandEvent)
+		slog.Debug("Unknown command received", "cmd", unknown.Command)
+		fmt.Printf(" [!] '%s' is not valid.\n", unknown.Command)
+		showPrompt()
 		return nil
 	})
 

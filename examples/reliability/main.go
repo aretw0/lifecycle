@@ -91,7 +91,16 @@ func main() {
 		// Setup Interactive Router
 		suspendHandler := lifecycle.NewSuspendHandler()
 
-		router := lifecycle.NewInteractiveRouter(suspendHandler,
+		// Define a panic handler for demonstration purposes
+		panicHandler := lifecycle.HandlerFunc(func(ctx context.Context, e lifecycle.Event) error {
+			fmt.Println("\n [!!!] PANIC command received! Crashing application...")
+			panic("simulated panic from interactive command")
+		})
+
+		router := lifecycle.NewInteractiveRouter(
+			lifecycle.WithSuspendOnInterrupt(suspendHandler),
+			lifecycle.WithDefaultMappings(),
+			lifecycle.WithCommand("panic", panicHandler),
 			lifecycle.WithShutdown(func() {
 				fmt.Println("\n [!] Shutdown requested via command.")
 				lifecycle.Shutdown(ctx)

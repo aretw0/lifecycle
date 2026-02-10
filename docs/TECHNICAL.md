@@ -142,7 +142,8 @@ stateDiagram-v2
 **Key Behaviors:**
 
 * **Mode: Industry Standard (Threshold=1)**: The first `SIGINT` (Ctrl+C) or `SIGTERM` cancels the context. The second signal triggers `os.Exit(1)`. This is the default.
-* **Mode: Escalation (Threshold=N)**: `SIGINT` is captured and emitted as an event (`ClearLineEvent`) without cancelling the context. Only the N-th signal triggers `os.Exit(1)`. `SIGTERM` always cancels on the first signal.
+* **Mode: Escalation (Threshold=N)**: `SIGINT` is captured and emitted as an event (`InterruptEvent`) without cancelling the context. Only the N-th signal triggers `os.Exit(1)`. `SIGTERM` always cancels on the first signal.
+* **Interactive Offset**: If `WithCancelOnInterrupt(false)` is set, the runtime implicitly increments the threshold by 2. This preserves the "Distance Invariant" (Kill distance relative to the last software action) and prevents races during interactive shutdowns.
 * **Mode: Unsafe (Threshold=0)**: Automatic forced exit is disabled. The user is responsible for process status.
 * **Async Hooks**: `OnShutdown` hooks run concurrently or sequentially (LIFO) depending on configuration, but always *after* context cancellation.
 * **Reasoning**: `ctx.Reason()` differentiates if closure was manual (`Stop()`), signal-based (`Interrupt`), or time-based (`Timeout`).
@@ -424,6 +425,7 @@ The library provides predefined events for common lifecycle transitions:
 | `ShutdownEvent` | `lifecycle/shutdown`   | Input: `exit`, `quit`    | Cancel `SignalContext`.       |
 | `TerminateEvent`| `lifecycle/terminate`  | Input: `x`, `terminate`  | Suspend (Save) + Shutdown.    |
 | `ClearLineEvent`| `lifecycle/clear-line` | Ctrl+C Escalation Mode   | Clear CLI prompt, re-print `>`.|
+| `UnknownCommandEvent`| `input/unknown`   | Input: `?`, `unknown`    | Print generic help message.   |
 
 #### 11.3. Middleware Chains
 
@@ -522,11 +524,12 @@ To reduce boilerplate for CLI applications, `lifecycle` provides a pre-configure
 
 ```go
 // wires up:
-// - OS Signals (Interrupt/Term) -> Escalator (Intercept first, then Quit)
+// - OS Signals (Interrupt/Term) -> Escalator (Interrupt first, then Quit)
 // - Input (Stdin) -> Router (reads lines as commands)
 // - Commands: "suspend", "resume" -> SuspendHandler
 // - Command: "quit", "q" -> shutdownFunc
-router := lifecycle.NewInteractiveRouter(suspendHandler, 
+router := lifecycle.NewInteractiveRouter(
+    lifecycle.WithSuspendOnInterrupt(suspendHandler),
     lifecycle.WithShutdown(func() { ... }),
 )
 ```

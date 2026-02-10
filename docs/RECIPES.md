@@ -28,14 +28,16 @@ func main() {
     })
 
     // 2. Setup Interactive Router (The Easy Way)
-    router := lifecycle.NewInteractiveRouter(suspendHandler,
+    router := lifecycle.NewInteractiveRouter(
+        lifecycle.WithSuspendOnInterrupt(suspendHandler),
         lifecycle.WithShutdown(func() {
             fmt.Println("Cleaning up before exit...")
         }),
     )
 
     // 3. Run
-    lifecycle.Run(router)
+    // Important: Disable default Ctrl+C cancellation so the Router can handle it (Suspend)
+    lifecycle.Run(router, lifecycle.WithCancelOnInterrupt(false))
 }
 ```
 
@@ -50,10 +52,9 @@ package main
 
 import (
     "context"
+    "fmt"
     "os"
     "github.com/aretw0/lifecycle"
-    "github.com/aretw0/lifecycle/pkg/sources"
-    "github.com/aretw0/lifecycle/pkg/control"
 )
 
 func main() {
@@ -64,14 +65,15 @@ func main() {
     router.AddSource(lifecycle.NewOSSignalSource(os.Interrupt))
     
     // Listen for Interactive Commands (s=Suspend, r=Resume, q=Quit)
-    router.AddSource(sources.NewInputSource())
+    router.AddSource(lifecycle.NewInputSource())
 
     // 2. Setup Handlers
     suspendHandler := lifecycle.NewSuspendHandler()
     router.Handle("lifecycle/suspend", suspendHandler)
     router.Handle("lifecycle/resume", suspendHandler)
-    router.Handle("command/quit", control.HandlerFunc(func(ctx context.Context, _ control.Event) error {
-        // Shutdown logic
+    router.Handle("command/quit", lifecycle.HandlerFunc(func(ctx context.Context, _ lifecycle.Event) error {
+        fmt.Println("Shutting down...")
+        lifecycle.Shutdown(ctx)
         return nil 
     }))
 
@@ -132,8 +134,8 @@ router.Handle("Signal(hangup)", lifecycle.NewReloadHandler(func(ctx context.Cont
 **Solution**: Use `TickerSource` injecting events into the Router.
 
 ```go
-router.AddSource(sources.NewTickerSource(100 * time.Millisecond))
-router.Handle("source/tick", control.HandlerFunc(func(_ context.Context, e control.Event) error {
+router.AddSource(lifecycle.NewTickerSource(100 * time.Millisecond))
+router.Handle("source/tick", lifecycle.HandlerFunc(func(_ context.Context, e lifecycle.Event) error {
     // Update UI
     return nil
 }))
@@ -212,10 +214,11 @@ func main() {
     // Setting ForceExit > 1 has two effects:
     // 1. DISABLES default context cancellation on the 1st Ctrl+C (allowing manual handling).
     // 2. ENABLES runtime Force Exit on the Nth Ctrl+C (Safety Net).
-    lifecycle.Run(job, 
+    lifecycle.Run(router, 
         // If the user mashes Ctrl+C 3 times, we assume our custom logic is broken
         // and we force-kill the process.
         lifecycle.WithForceExit(3),
+        lifecycle.WithCancelOnInterrupt(false),
     )
 }
 ```
