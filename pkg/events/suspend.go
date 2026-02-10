@@ -63,16 +63,13 @@ func (h *SuspendHandler) HandleEvent(ctx context.Context, e Event) error {
 	var logMsg string
 
 	switch e.(type) {
-	case SuspendEvent, InterceptEvent:
+	case SuspendEvent:
 		if h.suspended {
 			h.mu.Unlock()
-			log.Debug("lifecycle: already suspended/intercepted")
+			log.Debug("lifecycle: already suspended")
 			return nil
 		}
 		logMsg = "lifecycle: suspending application"
-		if _, ok := e.(InterceptEvent); ok {
-			logMsg = "lifecycle: intercepting application"
-		}
 		hooks = append([]SuspendHook(nil), h.onSuspend...)
 		nextState = true
 

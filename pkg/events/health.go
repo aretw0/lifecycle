@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+const (
+	// StatusUp indicates the component is healthy.
+	StatusUp = "UP"
+	// StatusDown indicates the component is unhealthy.
+	StatusDown = "DOWN"
+)
+
 // HealthEvent represents a health probe status.
 type HealthEvent struct {
 	Name   string
@@ -14,7 +21,7 @@ type HealthEvent struct {
 }
 
 func (e HealthEvent) String() string {
-	if e.Status == "DOWN" {
+	if e.Status == StatusDown {
 		return fmt.Sprintf("health/%s/down", e.Name)
 	}
 	return fmt.Sprintf("health/%s/up", e.Name)
@@ -90,10 +97,10 @@ func (s *HealthCheckSource) Start(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			err := s.Check(ctx)
-			// TODO: Use constants for status
-			status := "UP"
+
+			status := StatusUp
 			if err != nil {
-				status = "DOWN"
+				status = StatusDown
 			}
 
 			// Determine if we should emit

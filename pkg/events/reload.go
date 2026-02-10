@@ -10,7 +10,6 @@ import (
 
 // ReloadHandler handles configuration reload
 type ReloadHandler struct {
-	// TODO: Add callback for actual reload logic
 	OnReload func(ctx context.Context) error
 }
 

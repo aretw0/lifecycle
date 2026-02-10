@@ -24,7 +24,7 @@ type Escalator struct {
 }
 
 // NewEscalator creates a new Escalator handler.
-// primary: The initial handler to try (e.g., "Intercept", "Suspend", "Clear Line").
+// primary: The initial handler to try (e.g., "Interrupt", "Suspend", "Clear Line").
 // fallback: The handler to use if primary fails to handle or upon escalation (e.g., "Quit", "Force Exit").
 func NewEscalator(primary Handler, fallback Handler) *Escalator {
 	return &Escalator{

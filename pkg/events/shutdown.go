@@ -2,9 +2,11 @@ package events
 
 import (
 	"context"
+	"time"
+
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
-	"time"
+	"github.com/aretw0/lifecycle/pkg/core/signal"
 )
 
 // ShutdownHandler creates a handler that cancels the given context (triggering shutdown).
@@ -19,7 +21,7 @@ func (r *ShutdownHandler) HandleEvent(ctx context.Context, e Event) error {
 		metrics.GetProvider().ObserveHandlerDuration("shutdown", time.Since(start))
 	}(time.Now())
 
-	// TODO: Log reason based on event
+	// Log the event causing shutdown
 	log.Info("shutdown triggered by event", "event", e.String())
 	r.Cancel()
 	return nil
@@ -37,6 +39,10 @@ func NewShutdownFunc(fn func()) Handler {
 	return Once(HandlerFunc(func(ctx context.Context, e Event) error {
 		if fn != nil {
 			fn()
+		}
+		// Automatically trigger shutdown if we are in a signal context
+		if sc, ok := signal.FromContext(ctx); ok {
+			sc.Shutdown()
 		}
 		return nil
 	}))
