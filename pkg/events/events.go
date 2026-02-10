@@ -11,13 +11,13 @@ func (e SuspendEvent) String() string {
 	return "lifecycle/suspend"
 }
 
-// InterceptEvent is triggered when an interactive process should pause/intercept the current task.
-// Unlike SuspendEvent, InterceptEvent can be transient (e.g., clearing a line in a REPL)
-// or lead to a full suspension depending on the handler.
-type InterceptEvent struct{}
+// InterruptEvent is triggered when an interactive process should pause/intercept the current task.
+// This is the default event for the first Interrupt signal (Ctrl+C) if configured via
+// WithInterruptHandler. It can be transient (e.g., clearing a line in a REPL).
+type InterruptEvent struct{}
 
-func (e InterceptEvent) String() string {
-	return "lifecycle/intercept"
+func (e InterruptEvent) String() string {
+	return "lifecycle/interrupt"
 }
 
 // ResumeEvent is triggered when the application should resume processing.

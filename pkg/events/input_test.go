@@ -11,7 +11,10 @@ import (
 func TestInputSource(t *testing.T) {
 	r, w, _ := os.Pipe()
 
-	source := NewInputSource(WithInputReader(r))
+	source := NewInputSource(
+		WithInputReader(r),
+		WithDefaultMappings(),
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -35,19 +38,19 @@ func TestInputSource(t *testing.T) {
 	}
 
 	// Test unknown command
-	unknownCalled := make(chan string, 1)
-	source.unknownHandler = func(cmd string, known []string) {
-		unknownCalled <- cmd
-	}
-
 	_, _ = w.Write([]byte("unknown\n"))
+
 	select {
-	case cmd := <-unknownCalled:
-		if cmd != "unknown" {
-			t.Errorf("Expected unknown command 'unknown', got '%s'", cmd)
+	case ev := <-ch:
+		if unknownEv, ok := ev.(UnknownCommandEvent); ok {
+			if unknownEv.Command != "unknown" {
+				t.Errorf("Expected UnknownCommandEvent with command 'unknown', got '%s'", unknownEv.Command)
+			}
+		} else {
+			t.Errorf("Expected UnknownCommandEvent, got %T (%s)", ev, ev.String())
 		}
 	case <-time.After(1 * time.Second):
-		t.Error("Timed out waiting for unknown handler call")
+		t.Error("Timed out waiting for unknown command event")
 	}
 }
 
@@ -77,12 +80,8 @@ func (m *MockReader) Read(p []byte) (n int, err error) {
 }
 
 func TestInputSource_Options(t *testing.T) {
-	handled := false
-	handler := func(cmd string, known []string) { handled = true }
-
 	src := NewInputSource(
 		WithInputBackoff(10*time.Millisecond),
-		WithUnknownHandler(handler),
 		WithInputMapping("custom", SuspendEvent{}),
 	)
 
@@ -91,12 +90,6 @@ func TestInputSource_Options(t *testing.T) {
 	}
 	if _, ok := src.mappings["custom"]; !ok {
 		t.Error("WithInputMapping failed")
-	}
-
-	// Trigger unknown handler
-	src.processCommand(context.Background(), "unknown")
-	if !handled {
-		t.Error("WithUnknownHandler failed")
 	}
 }
 
@@ -109,7 +102,10 @@ func TestInputSource_PartialReads(t *testing.T) {
 		},
 	}
 
-	src := NewInputSource(WithInputReader(reader))
+	src := NewInputSource(
+		WithInputReader(reader),
+		WithDefaultMappings(),
+	)
 	ch := src.Events()
 
 	go src.readLoop(context.Background())

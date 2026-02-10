@@ -240,7 +240,6 @@ func TestLifecycle_EventAliases(t *testing.T) {
 
 	// Options
 	_ = lifecycle.WithInputBackoff(time.Second)
-	_ = lifecycle.WithUnknownHandler(func(string, []string) {})
 	_ = lifecycle.WithInputMapping("foo", lifecycle.SuspendEvent{})
 	_ = lifecycle.WithHealthInterval(time.Second)
 	// TriggerEdge is from events package
@@ -269,7 +268,7 @@ func TestLifecycle_Interactive(t *testing.T) {
 	})
 
 	ir := lifecycle.NewInteractiveRouter(
-		sh,
+		lifecycle.WithSuspendOnInterrupt(sh),
 		lifecycle.WithShutdown(func() {}),
 		lifecycle.WithInput(true),
 		lifecycle.WithSignal(false),

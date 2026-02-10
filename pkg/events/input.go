@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/termio"
 )
 
@@ -17,11 +17,11 @@ import (
 // It handles the "Detach" pattern to ensure shutdown is not blocked by read operations.
 type InputSource struct {
 	BaseSource
-	r              io.Reader
-	mappings       map[string]Event
-	unknownHandler func(cmd string, known []string)
-	detached       bool
-	backoff        time.Duration
+	r        io.Reader
+	mappings map[string]Event
+	fallback func(cmd string) Event
+	detached bool
+	backoff  time.Duration
 }
 
 // InputOption configures the InputSource.
@@ -62,23 +62,48 @@ func WithInputMappings(mappings map[string]Event) InputOption {
 	}
 }
 
-// WithRawInput configures the InputSource for "Data-Only" mode.
-// It clears default mappings and sets the "Unknown Handler" to the provided function,
-// effectively treating every line as a data payload.
-func WithRawInput(handler func(line string)) InputOption {
+// WithInputCommands is a low-level helper to allowlist simple commands.
+// It maps each string "cmd" to InputEvent{Command: "cmd"}.
+// Use this if you want to define valid inputs without defining handlers here.
+func WithInputCommands(commands ...string) InputOption {
 	return func(s *InputSource) {
-		s.mappings = make(map[string]Event) // Clear mappings
-		s.unknownHandler = func(cmd string, _ []string) {
-			handler(cmd)
+		for _, cmd := range commands {
+			s.mappings[cmd] = InputEvent{Command: cmd}
 		}
 	}
 }
 
-// WithUnknownHandler configures a custom handler for unknown commands.
-// The handler receives the unknown command and a sorted list of known commands.
-func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {
+// WithInputHandlers is a high-level helper to synchronize InputSource with Router.
+// It extracts the keys from the handler map and allowlists them as valid commands.
+// This ensures that any command you have a handler for is also a valid input.
+func WithInputHandlers(handlers map[string]Handler) InputOption {
 	return func(s *InputSource) {
-		s.unknownHandler = fn
+		for cmd := range handlers {
+			s.mappings[cmd] = InputEvent{Command: cmd}
+		}
+	}
+}
+
+// WithRawInput configures the InputSource for "Data-Only" mode.
+// It clears default mappings and sets a Fallback to capture everything.
+func WithRawInput(handler func(line string)) InputOption {
+	return func(s *InputSource) {
+		s.mappings = make(map[string]Event) // Clear mappings
+		s.fallback = func(cmd string) Event {
+			handler(cmd)
+			// Return a no-op event to satisfy the interface, or we could define a HandledEvent.
+			// But since the handler is called directly here (legacy support), we just emit a LineEvent
+			// for consistency, though the user handler has already run.
+			return LineEvent{Line: cmd}
+		}
+	}
+}
+
+// WithFallback configures a factory to generate events for unknown commands.
+// If set, this takes precedence over the default UnknownCommandEvent.
+func WithFallback(factory func(line string) Event) InputOption {
+	return func(s *InputSource) {
+		s.fallback = factory
 	}
 }
 
@@ -87,7 +112,7 @@ func NewInputSource(opts ...InputOption) *InputSource {
 	// Default to a smart terminal reader if possible
 	reader, err := termio.Open()
 	if err != nil {
-		slog.Debug("failed to open terminal", "error", err)
+		log.Debug("failed to open terminal", "error", err)
 		reader = os.Stdin
 	}
 
@@ -95,31 +120,35 @@ func NewInputSource(opts ...InputOption) *InputSource {
 		BaseSource: NewBaseSource("input", 10),
 		r:          reader,
 		backoff:    100 * time.Millisecond,
-		mappings: map[string]Event{
-			"s":         SuspendEvent{},
-			"suspend":   SuspendEvent{},
-			"r":         ResumeEvent{},
-			"resume":    ResumeEvent{},
-			"q":         ShutdownEvent{Reason: "manual"},
-			"quit":      ShutdownEvent{Reason: "manual"},
-			"exit":      ShutdownEvent{Reason: "manual"},
-			"x":         TerminateEvent{},
-			"terminate": TerminateEvent{},
-		},
+		mappings:   make(map[string]Event),
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
 
-	// Default handler if none provided
-	if s.unknownHandler == nil {
-		s.unknownHandler = func(cmd string, known []string) {
-			fmt.Printf("Unknown command: %q. Try: %v\n", cmd, known)
+	return s
+}
+
+// WithDefaultMappings adds the standard lifecycle command mappings:
+// suspend, resume, q, quit, exit, x, terminate.
+func WithDefaultMappings() InputOption {
+	return func(s *InputSource) {
+		defaults := map[string]Event{
+			"suspend":   SuspendEvent{},
+			"s":         SuspendEvent{},
+			"resume":    ResumeEvent{},
+			"r":         ResumeEvent{},
+			"q":         ShutdownEvent{Reason: "manual"},
+			"quit":      ShutdownEvent{Reason: "manual"},
+			"exit":      ShutdownEvent{Reason: "manual"},
+			"x":         TerminateEvent{},
+			"terminate": TerminateEvent{},
+		}
+		for k, v := range defaults {
+			s.mappings[k] = v
 		}
 	}
-
-	return s
 }
 
 // InputEvent is a generic input event for unmapped or custom commands.
@@ -131,8 +160,30 @@ func (e InputEvent) String() string {
 	return fmt.Sprintf("command/%s", e.Command)
 }
 
+// LineEvent represents raw text input that didn't match a command.
+// Topic: "input/line"
+type LineEvent struct {
+	Line string
+}
+
+func (e LineEvent) String() string {
+	return "input/line"
+}
+
+// UnknownCommandEvent is emitted when a command is not found in the mappings
+// and no fallback is configured.
+// Topic: "input/unknown"
+type UnknownCommandEvent struct {
+	Command string
+	Known   []string
+}
+
+func (e UnknownCommandEvent) String() string {
+	return "input/unknown"
+}
+
 func (s *InputSource) Start(ctx context.Context) error {
-	slog.Debug("lifecycle: input source started", "mappings", len(s.mappings))
+	log.Debug("lifecycle: input source started", "mappings", len(s.mappings))
 
 	// Create a Done channel for the detached goroutine to signal exit
 	// We don't wait for it if context dies first, implementing "Leak but Exit" pattern for blocked IO.
@@ -191,7 +242,7 @@ func (s *InputSource) handleReadError(ctx context.Context, err error, eofCount *
 	}
 
 	// Other errors: Log and retry with backoff
-	slog.Debug("input source: read error (retrying)", "error", err)
+	log.Debug("input source: read error (retrying)", "error", err)
 	time.Sleep(s.backoff)
 	return false
 }
@@ -218,11 +269,11 @@ func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
 
 	// threshold exceeded: stop the source
 	if *eofCount > threshold && !unsafe {
-		slog.Debug("input source: persistent EOF received, stopping", "attempts", *eofCount, "limit", threshold)
+		log.Debug("input source: persistent EOF received, stopping", "attempts", *eofCount, "limit", threshold)
 		return true
 	}
 
-	slog.Debug("input source: transient interrupt, retrying...",
+	log.Debug("input source: transient interrupt, retrying...",
 		"attempt", *eofCount,
 		"limit", func() string {
 			if unsafe {
@@ -258,15 +309,23 @@ func (s *InputSource) processChunk(ctx context.Context, chunk []byte, lineBuilde
 func (s *InputSource) processCommand(ctx context.Context, cmd string) bool {
 	event, ok := s.mappings[cmd]
 	if !ok {
-		// Generate sorted known commands
-		known := make([]string, 0, len(s.mappings))
-		for k := range s.mappings {
-			known = append(known, k)
-		}
-		sort.Strings(known)
+		// Fallback for unknown commands (e.g. Passthrough)
+		if s.fallback != nil {
+			event = s.fallback(cmd)
+		} else {
+			// Unknown Handler (Event-based Error Reporting)
+			// Generate sorted known commands
+			known := make([]string, 0, len(s.mappings))
+			for k := range s.mappings {
+				known = append(known, k)
+			}
+			sort.Strings(known)
 
-		s.unknownHandler(cmd, known)
-		return false
+			event = UnknownCommandEvent{
+				Command: cmd,
+				Known:   known,
+			}
+		}
 	}
 
 	select {

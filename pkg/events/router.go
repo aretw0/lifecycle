@@ -65,6 +65,17 @@ func HandleFunc(pattern string, handler func(context.Context, Event) error) {
 	DefaultRouter.HandleFunc(pattern, handler)
 }
 
+// WithRouterHandlers registers multiple command handlers at once.
+// It maps each "cmd" key to the pattern "command/cmd".
+// This is designed to be used with the same map passed to InputSource.WithCommandHandlers.
+func WithRouterHandlers(handlers map[string]Handler) RouterOption {
+	return func(r *Router) {
+		for cmd, handler := range handlers {
+			r.Handle("command/"+cmd, handler)
+		}
+	}
+}
+
 // Handle registers the handler for the given pattern.
 // Patterns supports glob matching via path.Match.
 func (r *Router) Handle(pattern string, handler Handler) {

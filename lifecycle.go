@@ -473,9 +473,9 @@ func HandleFunc(pattern string, handler func(context.Context, Event) error) {
 	events.HandleFunc(pattern, handler)
 }
 
-// InterceptEvent is a CLI-friendly alias for SuspendEvent.
-// Alias for pkg/events.InterceptEvent.
-type InterceptEvent = events.InterceptEvent
+// InterruptEvent is a CLI-friendly alias for SuspendEvent.
+// Alias for pkg/events.InterruptEvent.
+type InterruptEvent = events.InterruptEvent
 
 var (
 	// ErrNotHandled is a sentinel error that handlers can return to indicate they did not process the event.
@@ -544,12 +544,6 @@ func WithRawInput(handler func(line string)) InputOption {
 	return events.WithRawInput(handler)
 }
 
-// WithUnknownHandler configures a custom handler for unknown commands.
-// Alias for pkg/events.WithUnknownHandler.
-func WithUnknownHandler(fn func(cmd string, known []string)) InputOption {
-	return events.WithUnknownHandler(fn)
-}
-
 // WithInputMapping adds a custom command mapping.
 // Alias for pkg/events.WithInputMapping.
 func WithInputMapping(key string, event events.Event) InputOption {
@@ -575,12 +569,6 @@ type InputEvent = events.InputEvent
 // TickEvent represents a periodic time tick.
 // Alias for pkg/events.TickEvent.
 type TickEvent = events.TickEvent
-
-// CommandMapping creates a map for InputSource.
-// Alias for pkg/events.CommandMapping.
-func CommandMapping(pairs ...any) map[string]events.Event {
-	return events.CommandMapping(pairs...)
-}
 
 // NewTickerSource creates a source that emits periodic events.
 // Alias for pkg/events.NewTickerSource.
@@ -809,4 +797,22 @@ func WithShutdownTimeout(d time.Duration) any {
 // Alias for pkg/metrics.LogProvider.
 func NewLogMetricsProvider() metrics.Provider {
 	return &metrics.LogProvider{}
+}
+
+// WithInputCommands is a low-level helper to allowlist simple commands for InputSource.
+// Alias for pkg/events.WithInputCommands.
+func WithInputCommands(commands ...string) events.InputOption {
+	return events.WithInputCommands(commands...)
+}
+
+// WithInputHandlers configures an InputSource from a handler map.
+// Alias for pkg/events.WithInputHandlers.
+func WithInputHandlers(handlers map[string]events.Handler) events.InputOption {
+	return events.WithInputHandlers(handlers)
+}
+
+// WithRouterHandlers configures a Router from a handler map.
+// Alias for pkg/events.WithRouterHandlers.
+func WithRouterHandlers(handlers map[string]events.Handler) events.RouterOption {
+	return events.WithRouterHandlers(handlers)
 }
