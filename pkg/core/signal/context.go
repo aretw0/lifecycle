@@ -296,7 +296,7 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 	}
 
 	// Cancellation Execution
-	// We cancel on the very first compatible signal.
+	// We cancel on the very first compatible signal if cancellation is allowed.
 	if isFirst && sc.shouldCancel(sig) {
 		sc.Cancel()
 		go sc.runHooks()
@@ -310,12 +310,18 @@ func (sc *Context) handleSignal(sig os.Signal, count int) {
 	sc.emitStateChange(oldState, newState)
 
 	// Force Exit Logic (Escalation)
-	if sc.opts.forceExitThreshold > 0 && count >= sc.opts.forceExitThreshold {
-		// Only force exit if:
-		// 1. It's not the first signal (unless threshold is 1).
-		// 2. Or if threshold is explicitly 1.
-		// This preserves the 1st signal for graceful shutdown in standard mode.
-		if count > 1 || sc.opts.forceExitThreshold == 1 {
+	if sc.opts.forceExitThreshold > 0 {
+		threshold := sc.opts.forceExitThreshold
+		// Interactive Offset:
+		// If cancellation on interrupt is disabled, we assume the signals are
+		// delegated to the application (e.g., Suspend -> Quit).
+		// We add a +2 buffer to ensure both the primary and fallback software
+		// handlers get a chance to execute before the hardware kill switch fires.
+		if !sc.opts.cancelOnInterrupt {
+			threshold += 2
+		}
+
+		if count >= threshold {
 			log.Warn("force exit threshold reached, exiting immediately",
 				"signal", sig.String(),
 				"count", count)
