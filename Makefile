@@ -3,7 +3,7 @@
 # Run all tests
 # Note: -race is mandatory for verifying behavioral logic and concurrency safety.
 test:
-	go test -race -timeout 90s -v ./...
+	go test -race -timeout 90s ./...
 
 # Run vet tool in all files
 vet:
@@ -11,7 +11,7 @@ vet:
 
 # Run coverage tests (powershell on Windows needs double quotes for file paths)
 coverage:
-	go test -race -timeout 90s -v -coverprofile="coverage.out" ./...
+	go test -race -timeout 90s -coverprofile="coverage.out" ./...
 	go tool cover -func="coverage.out"
 
 # Run local Go documentation server (pkgsite)
