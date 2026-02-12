@@ -22,6 +22,7 @@ type InputSource struct {
 	fallback func(cmd string) Event
 	detached bool
 	backoff  time.Duration
+	bufSize  int
 }
 
 // InputOption configures the InputSource.
@@ -39,6 +40,29 @@ func WithInputReader(r io.Reader) InputOption {
 func WithInputBackoff(d time.Duration) InputOption {
 	return func(s *InputSource) {
 		s.backoff = d
+	}
+}
+
+// WithInputBufferSize sets the size of the internal read buffer.
+// Default: 1024 bytes.
+func WithInputBufferSize(size int) InputOption {
+	return func(s *InputSource) {
+		if size <= 0 {
+			size = 1024
+		}
+		s.bufSize = size
+	}
+}
+
+// WithInputEventBuffer sets the size of the event channel buffer.
+// Default: 10.
+func WithInputEventBuffer(size int) InputOption {
+	return func(s *InputSource) {
+		if size < 0 {
+			size = 0
+		}
+		// We recreate the BaseSource to apply the new buffer size
+		s.BaseSource = NewBaseSource("input", size)
 	}
 }
 
@@ -121,6 +145,7 @@ func NewInputSource(opts ...InputOption) *InputSource {
 		r:          reader,
 		backoff:    100 * time.Millisecond,
 		mappings:   make(map[string]Event),
+		bufSize:    1024,
 	}
 
 	for _, opt := range opts {
@@ -203,7 +228,7 @@ func (s *InputSource) Start(ctx context.Context) error {
 func (s *InputSource) readLoop(ctx context.Context) {
 	// Use a manual read loop for maximum robustness against random interrupts (Ctrl+C on Windows)
 	// bufio.Scanner is "sticky" on errors/EOF, which is bad if valid input comes after an interrupt.
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, s.bufSize)
 	var lineBuilder strings.Builder
 	eofCount := 0
 

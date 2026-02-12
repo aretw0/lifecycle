@@ -145,9 +145,34 @@ func TestInputSource_EOF(t *testing.T) {
 
 	select {
 	case <-done:
-		// Logic says it retries 3 times then stops.
-		// If it returns, success.
+		// Success
 	case <-time.After(1 * time.Second):
 		t.Error("readLoop should exit after persistent EOF")
+	}
+}
+
+func TestInputSource_BufferOptions(t *testing.T) {
+	// Test Event Buffer
+	src := NewInputSource(
+		WithInputEventBuffer(50),
+	)
+	if cap(src.Events()) != 50 {
+		t.Errorf("WithInputEventBuffer failed: expected capacity 50, got %d", cap(src.Events()))
+	}
+
+	// Test Read Buffer Size
+	src = NewInputSource(
+		WithInputBufferSize(2048),
+	)
+	if src.bufSize != 2048 {
+		t.Errorf("WithInputBufferSize failed: expected 2048, got %d", src.bufSize)
+	}
+
+	// Test invalid size fallback
+	src = NewInputSource(
+		WithInputBufferSize(-1),
+	)
+	if src.bufSize != 1024 {
+		t.Errorf("WithInputBufferSize fallback failed: expected 1024, got %d", src.bufSize)
 	}
 }
