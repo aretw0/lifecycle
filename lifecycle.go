@@ -584,6 +584,14 @@ func WithInputEventBuffer(size int) InteractiveOption {
 // Alias for pkg/events.InputEvent.
 type InputEvent = events.InputEvent
 
+// LineEvent represents raw text input that didn't match a command.
+// Alias for pkg/events.LineEvent.
+type LineEvent = events.LineEvent
+
+// UnknownCommandEvent is emitted when a command is not found in the mappings.
+// Alias for pkg/events.UnknownCommandEvent.
+type UnknownCommandEvent = events.UnknownCommandEvent
+
 // TickEvent represents a periodic time tick.
 // Alias for pkg/events.TickEvent.
 type TickEvent = events.TickEvent
