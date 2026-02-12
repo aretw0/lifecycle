@@ -557,9 +557,27 @@ func WithInputMappings(mappings map[string]events.Event) InputOption {
 }
 
 // WithInputBackoff configures the duration to wait before retrying interruptions or errors.
-// Alias for pkg/events.WithInputBackoff.
-func WithInputBackoff(d time.Duration) InputOption {
-	return events.WithInputBackoff(d)
+// Default: 100ms.
+func WithInputBackoff(d time.Duration) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.inputOpts = append(c.inputOpts, events.WithInputBackoff(d))
+	}
+}
+
+// WithInputBufferSize sets the size of the internal read buffer for InteractiveRouter.
+// Default: 1024 bytes.
+func WithInputBufferSize(size int) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.inputOpts = append(c.inputOpts, events.WithInputBufferSize(size))
+	}
+}
+
+// WithInputEventBuffer sets the size of the event channel buffer for InteractiveRouter.
+// Default: 10.
+func WithInputEventBuffer(size int) InteractiveOption {
+	return func(c *interactiveConfig) {
+		c.inputOpts = append(c.inputOpts, events.WithInputEventBuffer(size))
+	}
 }
 
 // InputEvent represents a generic text command.
