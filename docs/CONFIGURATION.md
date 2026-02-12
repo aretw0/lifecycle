@@ -41,6 +41,9 @@ router := lifecycle.NewInteractiveRouter(suspendHandler,
 | `WithSignal(bool)` | `true` | Enables/Disables OS signal handling (Interrupt/Term). |
 | `WithCommand(name, handler)` | - | Registers a custom command (e.g., `command/status`). |
 | `WithShutdown(func())` | `No-Op` | Convenience to handle `q`/`quit` commands. |
+| `WithInputBackoff(d)` | `100ms` | Duration to wait before retrying after interrupts or errors. |
+| `WithInputBufferSize(size)` | `1024` | Size of the internal I/O read buffer (in bytes). |
+| `WithInputEventBuffer(size)` | `10` | Size of the event channel buffer. |
 
 ## 3. Control Router (`lifecycle.NewRouter`)
 
