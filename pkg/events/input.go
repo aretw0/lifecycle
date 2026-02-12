@@ -313,12 +313,16 @@ func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
 
 func (s *InputSource) processChunk(ctx context.Context, chunk []byte, lineBuilder *strings.Builder) {
 	for _, b := range chunk {
-		if b == '\n' || b == '\r' {
+		if b == '\r' {
+			continue // Ignore Carriage Return (CRLF handling)
+		}
+		if b == '\n' {
 			// Line complete
 			cmd := strings.TrimSpace(lineBuilder.String())
 			lineBuilder.Reset()
 
 			if cmd == "" {
+				_ = s.Emit(ctx, LineEvent{Line: ""})
 				continue
 			}
 

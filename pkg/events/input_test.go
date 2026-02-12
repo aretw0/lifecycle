@@ -120,6 +120,34 @@ func TestInputSource_PartialReads(t *testing.T) {
 	}
 }
 
+func TestInputSource_EmptyLine(t *testing.T) {
+	reader := &MockReader{
+		chunks: [][]byte{
+			[]byte("\n"),
+		},
+	}
+
+	src := NewInputSource(
+		WithInputReader(reader),
+	)
+	ch := src.Events()
+
+	go src.readLoop(context.Background())
+
+	select {
+	case ev := <-ch:
+		if le, ok := ev.(LineEvent); ok {
+			if le.Line != "" {
+				t.Errorf("Expected empty LineEvent, got %q", le.Line)
+			}
+		} else {
+			t.Errorf("Expected LineEvent for empty line, got %T", ev)
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for empty line event")
+	}
+}
+
 func TestInputSource_EOF(t *testing.T) {
 	// Simulate EOF threshold
 	reader := &MockReader{
