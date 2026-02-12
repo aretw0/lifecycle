@@ -70,3 +70,14 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Decision**: `SuspendHandler` (and related control plane actors) must execute hooks **Sequentially** and in **FIFO** order.
 * **Rationale**: This enables a "Final State" reporting pattern. By registering functional components (supervisors, workers) *before* UI reporting hooks, we guarantee that UI messages like "SYSTEM SUSPENDED" only appear *after* the heavy components have successfully blocked and confirmed their state.
 * **Consequences**: Developers must be mindful of registration order for UI accuracy. Functional work comes first; reporting comes last.
+
+## ADR-0010: Internal Decoupling & Primitive Promotion
+
+* **Status**: Accepted (2026-02-12)
+* **Context**: The `lifecycle` library has evolved into a comprehensive control plane, but its core primitives (Signal handling, Process hygiene, Windows-resilient I/O) are valuable beyond the full framework. A monolithic dependency graph forces users of simple signals to pull in unrelated dependencies (like `fsnotify`).
+* **Decision**: Adopt a **Multi-Module Workspace** approach for v2.0 stabilization. Isolate `pkg/core/signal` and a new `pkg/core/goproc` (merging `proc` and `termio`) into independent sub-modules with minimal/zero external dependencies.
+* **Rationale**:
+    1. **Adoption**: Primitives like `proc` and `termio` solve universal Go problems (Zombie processes, Windows Stdin) and should be promoted as standalone solutions.
+    2. **Hygiene**: Reduces the cognitive load and dependency footprint for users who only need bedrock features.
+    3. **Clarity**: Strictly separates "Foundation" (Death Management) from "Platform" (Life Management).
+* **Consequences**: The root `lifecycle` package remains the standard facade for the integrated experience. Initial refactoring will use Go Workspaces to preserve the single-repo workflow while enforcing strict dependency boundaries.

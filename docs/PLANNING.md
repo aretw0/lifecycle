@@ -84,6 +84,25 @@
   - [x] Update all examples to use new structure.
   - [x] Ensure zero breaking changes for `import "github.com/aretw0/lifecycle"` users.
 
+#### 🛰️ Architectural Decoupling (Workspace & Promotion)
+
+> [!IMPORTANT]
+> **Refactoring Objective**:
+> Based on the architectural audit (2026-02-12), we will transition to a **Multi-Module Workspace** to isolate the dependency footprint of high-level components (Events) from core primitives (Signal, Proc).
+> This also initiates the **"Goproc Proclamation"**—elevating our universal process/terminal handlers to first-class status.
+
+- [ ] **Transition to Go Workspaces (Internal Isolation)**:
+  - [ ] Initialize `go.work` at the root.
+  - [ ] Define `pkg/core/signal` as a standalone sub-module (zero dependencies outside github.com/aretw0/lifecycle/pkg/core/metrics).
+  - [ ] Define `pkg/core/proc` and `pkg/core/termio` as a combined sub-module identity (e.g., `pkg/core/goproc`).
+  - [ ] Isolate `pkg/events` dependency tree (e.g., pulling `fsnotify` only when needed).
+  - [ ] Maintain `lifecycle.go` as the aggregator facade.
+
+- [ ] **Promote `proc` & `termio` Ecosystem**:
+  - [ ] Give `proc` and `termio` a prominent, independent identity (likely under a shared namespace).
+  - [ ] Create specialized documentation for these "Hidden Gems" as standalone solutions for "Zombie Processes" and "Windows Stdin" in Go.
+  - [ ] Ensure they are usable with zero configuration without pulling the rest of the library infrastructure.
+
 #### 🧪 Test Coverage Sanity
 
 > See **[TESTING.md](TESTING.md)** for our "Honest Coverage" policy and exclusions.
