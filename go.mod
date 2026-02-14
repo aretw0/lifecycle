@@ -3,7 +3,7 @@ module github.com/aretw0/lifecycle
 go 1.25.4
 
 require (
-	github.com/aretw0/procio v0.0.0
+	github.com/aretw0/procio v0.1.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/uuid v1.6.0
 	golang.org/x/sync v0.19.0
@@ -20,5 +20,3 @@ require (
 )
 
 tool golang.org/x/tools/cmd/godoc
-
-replace github.com/aretw0/procio => ../procio

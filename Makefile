@@ -30,3 +30,22 @@ ifeq ($(OS),Windows_NT)
 else
 	pkill -f lifecycle || true
 endif
+
+# Enable local development mode by creating a go.work file
+# Usage: make work-on [WORK_PATH=../procio]
+work-on:
+	@echo "Enabling local workspace mode..."
+	@if exist go.work ( echo "go.work already exists." ) else ( \
+		echo "Initializing go.work..." & \
+		go work init . & \
+		if "$(WORK_PATH)"=="" ( go work use ../procio ) else ( go work use $(WORK_PATH) ) \
+	)
+
+# Disable local development mode by removing go.work
+work-off:
+	@echo "Disabling local workspace mode..."
+	@if exist go.work ( del go.work )
+
+# Ensure dependencies are clean
+tidy:
+	go mod tidy
