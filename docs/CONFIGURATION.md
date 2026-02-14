@@ -122,4 +122,76 @@ These settings affect the entire library state.
 | Function | Description |
 | :--- | :--- |
 | `lifecycle.SetLogger(l *slog.Logger)` | Overrides the default logger used by all components if not explicitly provided. |
+| `lifecycle.NewNoOpLogger()` | Returns a logger that discards all output (use with `WithLogger`). |
+| `lifecycle.SetObserver(o lifecycle.Observer)` | Routes logs and process events to a custom observer (disables default slog when set). |
 | `lifecycle.SetMetricsProvider(p)` | Connects `lifecycle` internal metrics to your observability backend (Prometheus, OTel). |
+| `lifecycle.SetMetricsLabelPolicy(p *metrics.LabelPolicy)` | Sanitizes metric labels and enforces cardinality rules. |
+
+> [!NOTE]
+> Passing `nil` to `SetLogger` resets to the default logger — it does **not** silence logs.
+> To disable logging entirely, use `NewNoOpLogger()`.
+
+### Disabling Logs
+
+```go
+lifecycle.Run(job, lifecycle.WithLogger(lifecycle.NewNoOpLogger()))
+```
+
+### Observer Bridge (lifecycle + procio)
+
+When using both `lifecycle` workers and `procio` processes, you can unify telemetry with a single adapter that implements both `Observer` interfaces.
+
+> [!NOTE]
+> The observer only affects **log routing** and **process event callbacks**.
+> Metrics are configured independently via `SetMetricsProvider`.
+
+**Type definition:**
+
+```go
+import (
+	"log/slog"
+
+	"github.com/aretw0/lifecycle"
+	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/procio"
+)
+
+// ObserverBridge implements both lifecycle.Observer and procio.Observer,
+// routing logs to slog and process events to the metrics provider.
+type ObserverBridge struct {
+	Logger   *slog.Logger
+	Provider metrics.Provider
+}
+
+// Compile-time interface checks.
+var _ lifecycle.Observer = (*ObserverBridge)(nil)
+var _ procio.Observer    = (*ObserverBridge)(nil)
+
+func (b *ObserverBridge) OnProcessStarted(pid int) {
+	b.Logger.Info("process started", "pid", pid)
+	b.Provider.IncProcessStarted()
+	// Alternative: metrics.GetProvider().IncProcessStarted()
+}
+
+func (b *ObserverBridge) OnProcessFailed(err error) {
+	b.Logger.Error("process failed", "error", err)
+	b.Provider.IncProcessFailed()
+}
+
+func (b *ObserverBridge) LogDebug(msg string, args ...any) { b.Logger.Debug(msg, args...) }
+func (b *ObserverBridge) LogInfo(msg string, args ...any)  { b.Logger.Info(msg, args...) }
+func (b *ObserverBridge) LogWarn(msg string, args ...any)  { b.Logger.Warn(msg, args...) }
+func (b *ObserverBridge) LogError(msg string, args ...any) { b.Logger.Error(msg, args...) }
+```
+
+**Setup:**
+
+```go
+bridge := &ObserverBridge{
+	Logger:   slog.Default(),
+	Provider: myMetricsProvider, // or metrics.GetProvider()
+}
+
+lifecycle.SetObserver(bridge)
+procio.SetObserver(bridge)
+```

@@ -255,3 +255,31 @@ router.AddSource(source)
 
 > [!NOTE]
 > When `WithRawInput` is used, the default "command/quit" and "command/suspend" parsing is **disabled**. You must handle all input logic yourself.
+
+---
+
+## 🔌 8. Observability Bridge (lifecycle + procio)
+
+**Problem**: You use both `lifecycle` workers and `procio` processes and want unified telemetry without duplicating observer setup.
+
+**Solution**: Create a single `ObserverBridge` adapter implementing both `lifecycle.Observer` (6 methods) and `procio.Observer` (5 methods). Since `lifecycle.Observer` is a superset of `procio.Observer` (adds `LogInfo`), a single struct satisfies both.
+
+```go
+import (
+    "log/slog"
+    
+    "github.com/aretw0/lifecycle"
+    "github.com/aretw0/procio"
+)
+
+bridge := &ObserverBridge{
+    Logger:   slog.Default(),
+    Provider: myMetricsProvider,
+}
+
+lifecycle.SetObserver(bridge)
+procio.SetObserver(bridge)
+```
+
+> [!TIP]
+> For the full `ObserverBridge` type definition with compile-time interface checks and metric calls, see **[Global Overrides — Observer Bridge](CONFIGURATION.md#observer-bridge-lifecycle--procio)**.
