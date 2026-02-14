@@ -66,8 +66,10 @@ type Provider interface {
 }
 
 var (
-	providerMu sync.RWMutex
-	provider   Provider = &NoOpProvider{}
+	providerMu   sync.RWMutex
+	baseProvider Provider = &NoOpProvider{}
+	provider     Provider = baseProvider
+	labelPolicy  *LabelPolicy
 )
 
 // SetProvider sets the global metrics provider.
@@ -75,10 +77,12 @@ func SetProvider(p Provider) {
 	providerMu.Lock()
 	defer providerMu.Unlock()
 	if p == nil {
-		provider = &NoOpProvider{}
+		baseProvider = &NoOpProvider{}
+		provider = wrapProvider(baseProvider, labelPolicy)
 		return
 	}
-	provider = p
+	baseProvider = p
+	provider = wrapProvider(baseProvider, labelPolicy)
 }
 
 // GetProvider returns the current global metrics provider.
