@@ -108,7 +108,7 @@ func TestInputSource_PartialReads(t *testing.T) {
 	)
 	ch := src.Events()
 
-	go src.readLoop(context.Background())
+	go src.Start(context.Background())
 
 	select {
 	case ev := <-ch:
@@ -132,7 +132,7 @@ func TestInputSource_EmptyLine(t *testing.T) {
 	)
 	ch := src.Events()
 
-	go src.readLoop(context.Background())
+	go src.Start(context.Background())
 
 	select {
 	case ev := <-ch:
@@ -167,7 +167,7 @@ func TestInputSource_EOF(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		src.readLoop(ctx)
+		src.Start(ctx)
 		close(done)
 	}()
 

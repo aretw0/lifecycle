@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/aretw0/lifecycle/pkg/core/introspection"
-	"github.com/aretw0/lifecycle/pkg/core/termio"
+	"github.com/aretw0/procio/termio"
 )
 
 // BaseWorker provides default implementations for common Worker interface methods.

@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/aretw0/lifecycle/pkg/core/log"
-	"github.com/aretw0/lifecycle/pkg/core/termio"
+	"github.com/aretw0/procio/scan"
+	"github.com/aretw0/procio/termio"
 )
 
 // InputSource reads commands from an io.Reader (like Stdin) and maps them to lifecycle
@@ -211,127 +212,59 @@ func (s *InputSource) Start(ctx context.Context) error {
 	log.Debug("lifecycle: input source started", "mappings", len(s.mappings))
 
 	// Create a Done channel for the detached goroutine to signal exit
-	// We don't wait for it if context dies first, implementing "Leak but Exit" pattern for blocked IO.
 	readerDone := make(chan struct{})
 
 	go func() {
 		defer s.Close()
 		defer close(readerDone)
-		s.readLoop(ctx)
+
+		// Dynamic Configuration based on Context (SignalContext awareness)
+		threshold := 3
+		unsafe := false
+		if sc, ok := ctx.(interface {
+			IsUnsafe() bool
+			ForceExitThreshold() int
+		}); ok {
+			unsafe = sc.IsUnsafe()
+			if !unsafe {
+				threshold = sc.ForceExitThreshold()
+			}
+		}
+
+		// Configure the robust scanner from procio
+		scanner := scan.NewScanner(s.r,
+			scan.WithBufferSize(s.bufSize),
+			scan.WithBackoff(s.backoff),
+			scan.WithThreshold(threshold),
+			scan.WithUnsafeMode(unsafe),
+			scan.WithLineHandler(func(line string) {
+				cmd := strings.TrimSpace(line)
+				if cmd == "" {
+					_ = s.Emit(ctx, LineEvent{Line: ""})
+					return
+				}
+				// processCommand returns true if we should stop (e.g. context done)
+				// But Scanner doesn't support early exit via callback yet,
+				// so we rely on context cancellation which processCommand checks.
+				s.processCommand(ctx, cmd)
+			}),
+			scan.WithClearHandler(func() {
+				_ = s.Emit(ctx, ClearLineEvent{})
+			}),
+			scan.WithErrorHandler(func(err error) {
+				log.Debug("input source: read error (retrying)", "error", err)
+			}),
+		)
+
+		scanner.Start(ctx)
 	}()
 
-	// Wait for context cancellation
-	<-ctx.Done()
-	return nil
-}
-
-func (s *InputSource) readLoop(ctx context.Context) {
-	// Use a manual read loop for maximum robustness against random interrupts (Ctrl+C on Windows)
-	// bufio.Scanner is "sticky" on errors/EOF, which is bad if valid input comes after an interrupt.
-	buffer := make([]byte, s.bufSize)
-	var lineBuilder strings.Builder
-	eofCount := 0
-
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-
-		n, err := s.r.Read(buffer)
-
-		// Handle Context Cancellation (Priority)
-		if ctx.Err() != nil {
-			return
-		}
-
-		if err != nil {
-			if shouldStop := s.handleReadError(ctx, err, &eofCount, &lineBuilder); shouldStop {
-				return
-			}
-			continue
-		}
-
-		// Successful read: Reset EOF counter
-		eofCount = 0
-		s.processChunk(ctx, buffer[:n], &lineBuilder)
-	}
-}
-
-func (s *InputSource) handleReadError(ctx context.Context, err error, eofCount *int, lineBuilder *strings.Builder) bool {
-	if termio.IsInterrupted(err) {
-		// On Windows, Ctrl+C can cause a transient EOF or another interrupted error.
-		// We treat these as Interruptions.
-		lineBuilder.Reset()
-		_ = s.Emit(ctx, ClearLineEvent{})
-		return s.handleEOF(ctx, eofCount)
-	}
-
-	// Other errors: Log and retry with backoff
-	log.Debug("input source: read error (retrying)", "error", err)
-	time.Sleep(s.backoff)
-	return false
-}
-
-func (s *InputSource) handleEOF(ctx context.Context, eofCount *int) bool {
-	// "Fake EOF" Protection:
-	// On Windows, Ctrl+C can cause a transient EOF on the read syscall.
-	// We tie the "Despair Threshold" to the Signal Context's ForceExit limit.
-	threshold := 3 // Default fallback
-	unsafe := false
-
-	// Check Context State via structural interface (avoid circular imports)
-	if sc, ok := ctx.(interface {
-		IsUnsafe() bool
-		ForceExitThreshold() int
-	}); ok {
-		unsafe = sc.IsUnsafe()
-		if !unsafe {
-			threshold = sc.ForceExitThreshold()
-		}
-	}
-
-	*eofCount++
-
-	// threshold exceeded: stop the source
-	if *eofCount > threshold && !unsafe {
-		log.Debug("input source: persistent EOF received, stopping", "attempts", *eofCount, "limit", threshold)
-		return true
-	}
-
-	log.Debug("input source: transient interrupt, retrying...",
-		"attempt", *eofCount,
-		"limit", func() string {
-			if unsafe {
-				return "inf"
-			}
-			return fmt.Sprintf("%d", threshold)
-		}())
-
-	time.Sleep(s.backoff)
-	return false
-}
-
-func (s *InputSource) processChunk(ctx context.Context, chunk []byte, lineBuilder *strings.Builder) {
-	for _, b := range chunk {
-		if b == '\r' {
-			continue // Ignore Carriage Return (CRLF handling)
-		}
-		if b == '\n' {
-			// Line complete
-			cmd := strings.TrimSpace(lineBuilder.String())
-			lineBuilder.Reset()
-
-			if cmd == "" {
-				_ = s.Emit(ctx, LineEvent{Line: ""})
-				continue
-			}
-
-			if stop := s.processCommand(ctx, cmd); stop {
-				return
-			}
-		} else {
-			lineBuilder.WriteByte(b)
-		}
+	// Wait for context cancellation or reader completion
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-readerDone:
+		return nil
 	}
 }
 

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/aretw0/lifecycle"
-	"github.com/aretw0/lifecycle/pkg/core/proc"
 	"github.com/aretw0/lifecycle/pkg/events"
+	"github.com/aretw0/procio/proc"
 )
 
 // Test facade methods in the root package.

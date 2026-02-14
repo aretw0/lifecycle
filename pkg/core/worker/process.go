@@ -10,7 +10,7 @@ import (
 
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
-	"github.com/aretw0/lifecycle/pkg/core/proc"
+	"github.com/aretw0/procio/proc"
 )
 
 // ProcessWorker is a Worker that manages an OS process.

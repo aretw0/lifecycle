@@ -14,3 +14,7 @@ examples/**/config.json
 # Gemini
 .gemini/
 gha-creds-*.json
+
+# Go Workspace
+go.work
+go.work.sum

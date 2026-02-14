@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/core/proc"
+	"github.com/aretw0/procio/proc"
 )
 
 func main() {

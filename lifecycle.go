@@ -13,14 +13,14 @@ import (
 	"github.com/aretw0/lifecycle/pkg/core/container"
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
-	"github.com/aretw0/lifecycle/pkg/core/proc"
 	"github.com/aretw0/lifecycle/pkg/core/runtime"
 	"github.com/aretw0/lifecycle/pkg/core/signal"
 	"github.com/aretw0/lifecycle/pkg/core/supervisor"
-	"github.com/aretw0/lifecycle/pkg/core/termio"
 	"github.com/aretw0/lifecycle/pkg/core/worker"
 	"github.com/aretw0/lifecycle/pkg/core/worker/suspend"
 	"github.com/aretw0/lifecycle/pkg/events"
+	"github.com/aretw0/procio/proc"
+	"github.com/aretw0/procio/termio"
 )
 
 // ======================================================================================
