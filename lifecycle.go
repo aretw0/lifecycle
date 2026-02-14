@@ -4,23 +4,24 @@ import (
 	"context"
 	"io"
 	"iter"
+	"log/slog"
 	"os"
 	"os/exec"
 	"time"
 
-	"log/slog"
+	"github.com/aretw0/procio/proc"
+	"github.com/aretw0/procio/termio"
 
 	"github.com/aretw0/lifecycle/pkg/core/container"
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/observe"
 	"github.com/aretw0/lifecycle/pkg/core/runtime"
 	"github.com/aretw0/lifecycle/pkg/core/signal"
 	"github.com/aretw0/lifecycle/pkg/core/supervisor"
 	"github.com/aretw0/lifecycle/pkg/core/worker"
 	"github.com/aretw0/lifecycle/pkg/core/worker/suspend"
 	"github.com/aretw0/lifecycle/pkg/events"
-	"github.com/aretw0/procio/proc"
-	"github.com/aretw0/procio/termio"
 )
 
 // ======================================================================================
@@ -787,10 +788,36 @@ func UpgradeTerminal(r io.Reader) (io.Reader, error) {
 // 9. Observability & Metrics
 // ======================================================================================
 
+// Observer allows external packages to plug in observability (logs and process events).
+// Alias for pkg/observe.Observer.
+type Observer = observe.Observer
+
+// NoOpObserver disables observer routing when configured.
+// Alias for pkg/observe.NoOpObserver.
+type NoOpObserver = observe.NoOpObserver
+
+// SetObserver configures the global observer.
+// Alias for pkg/observe.SetObserver.
+func SetObserver(o observe.Observer) {
+	observe.SetObserver(o)
+}
+
+// GetObserver returns the current global observer, if any.
+// Alias for pkg/observe.GetObserver.
+func GetObserver() observe.Observer {
+	return observe.GetObserver()
+}
+
 // SetLogger overrides the global logger used by the library.
 // Alias for pkg/log.SetLogger.
 func SetLogger(l *slog.Logger) {
 	log.SetLogger(l)
+}
+
+// NewNoOpLogger returns a logger that discards all output.
+// Alias for pkg/log.NewNoOpLogger.
+func NewNoOpLogger() *slog.Logger {
+	return log.NewNoOpLogger()
 }
 
 // WithLogger returns a RunOption to configure the global logger.
@@ -804,6 +831,12 @@ func WithLogger(l *slog.Logger) any {
 // Alias for pkg/metrics.SetProvider.
 func SetMetricsProvider(p metrics.Provider) {
 	metrics.SetProvider(p)
+}
+
+// SetMetricsLabelPolicy configures label sanitization for metrics.
+// Alias for pkg/metrics.SetLabelPolicy.
+func SetMetricsLabelPolicy(p *metrics.LabelPolicy) {
+	metrics.SetLabelPolicy(p)
 }
 
 // WithMetrics returns a RunOption to configure the global metrics provider.
