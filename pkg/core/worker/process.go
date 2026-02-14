@@ -8,9 +8,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aretw0/procio/proc"
+
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
-	"github.com/aretw0/procio/proc"
+	"github.com/aretw0/lifecycle/pkg/core/observe"
 )
 
 // ProcessWorker is a Worker that manages an OS process.
@@ -51,6 +53,9 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 
 	// Use pkg/proc to start with hygiene guarantees
 	if err := proc.Start(p.cmd); err != nil {
+		if obs := observe.GetObserver(); obs != nil {
+			obs.OnProcessFailed(err)
+		}
 		p.Err = err
 		p.mu.Unlock()
 
@@ -61,6 +66,9 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 
 	p.startedAt = time.Now()
 	p.mu.Unlock()
+	if obs := observe.GetObserver(); obs != nil && p.cmd.Process != nil {
+		obs.OnProcessStarted(p.cmd.Process.Pid)
+	}
 
 	p.SetStatus(StatusRunning)
 	metrics.GetProvider().IncWorkerStarted("process")
