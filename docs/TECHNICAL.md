@@ -15,7 +15,7 @@
     3. [Signal State Machine](#3-signal-state-machine)
     4. [Context-Aware I/O](#4-context-aware-io--safety)
     5. [Managed Concurrency (v2.0)](#5-managed-concurrency-v20)
-    6. [Process Hygiene](#6-process-hygiene)
+    6. [Process Hygiene](#6-process-hygiene-powered-by-procio)
     7. [Reliability Primitives (v1.4)](#7-reliability-primitives-v14)
 
 * [**III. The Supervisor Pattern (The Bridge)**](#iii-the-supervisor-pattern-the-bridge)
@@ -173,7 +173,7 @@ sequenceDiagram
 
 ### 4. Context-Aware I/O & Safety
 
-Traditional I/O is binary: it reads or blocks. `lifecycle` introduces **Context-Aware I/O** to balance Data vs. Safety.
+Traditional I/O is binary: it reads or blocks. `lifecycle` (via **`procio/termio`**) introduces **Context-Aware I/O** to balance Data vs. Safety.
 
 | Strategy | Use Case | Behavior |
 | :--- | :--- | :--- |
@@ -256,13 +256,13 @@ g.Go(func(ctx context.Context) error { ... })
 g.Wait()
 ```
 
-### 6. Process Hygiene
+### 6. Process Hygiene (Powered by `procio`)
 
-Ensures child processes do not outlive the parent.
+Ensures child processes do not outlive the parent. This logic is delegated to the **[procio](https://github.com/aretw0/procio)** library.
 
 * **Linux**: Uses `SysProcAttr.Pdeathsig` to signal the child when the parent thread dies.
 * **Windows**: Uses **Job Objects** (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) to ensure the OS terminates the child tree when the parent handle is closed.
-* **macOS**: Fallback to standard `exec.Cmd`. No OS-level guarantee against zombies on hard crashes.
+* **macOS**: Fallback to standard `exec.Cmd` (OS limitations prevent strict guarantees).
 
 ### 7. Reliability Primitives (v1.4)
 

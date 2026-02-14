@@ -6,8 +6,8 @@ This document logs significant architectural decisions for the `lifecycle` proje
 
 * **Status**: Accepted
 * **Context**: A common problem in Go/Docker environments is "Zombie Processes" &mdash; child processes that outlive their parents because the parent crashed or failed to signal them. This leads to resource leaks and operational headaches.
-* **Decision**: `lifecycle` enforces a "Fail-Closed" philosophy. We use platform-specific mechanisms (Linux PDeathSig, Windows Job Objects) to guarantee that if the parent dies, the children die.
-* **Consequences**: This behavior is enabled by default in `pkg/proc` and `pkg/supervisor`. It is effectively non-negotiable for the library's identity as a robust infrastructure tool.
+* **Decision**: `lifecycle` delegates low-level process guarantees to the **`procio`** library. We use platform-specific mechanisms (Linux PDeathSig, Windows Job Objects) to guarantee that if the parent dies, the children die.
+* **Consequences**: This behavior is enabled by default in `pkg/supervisor` (via `procio/proc`). It is effectively non-negotiable for the library's identity.
 
 ## ADR-0002: Signal Handling Strategy (Implicit vs Explicit)
 
@@ -73,11 +73,10 @@ This document logs significant architectural decisions for the `lifecycle` proje
 
 ## ADR-0010: Internal Decoupling & Primitive Promotion
 
-* **Status**: Accepted (2026-02-12)
-* **Context**: The `lifecycle` library has evolved into a comprehensive control plane, but its core primitives (Signal handling, Process hygiene, Windows-resilient I/O) are valuable beyond the full framework. A monolithic dependency graph forces users of simple signals to pull in unrelated dependencies (like `fsnotify`).
-* **Decision**: Adopt a **Multi-Module Workspace** approach for v2.0 stabilization. Isolate `pkg/core/signal` and a new `pkg/core/goproc` (merging `proc` and `termio`) into independent sub-modules with minimal/zero external dependencies.
+* **Status**: **Completed (2026-02-13)** via `github.com/aretw0/procio`
+* **Context**: The `lifecycle` library evolved into a comprehensive control plane, but its core primitives (Process hygiene, I/O) are valuable optimization layers for any Go program.
+* **Decision**: We extracted `proc`, `termio`, and `scan` into **`procio`** (Process I/O), a standalone library with zero dependencies. `lifecycle` now consumes `procio` to provide its high-level guarantees.
 * **Rationale**:
-    1. **Adoption**: Primitives like `proc` and `termio` solve universal Go problems (Zombie processes, Windows Stdin) and should be promoted as standalone solutions.
-    2. **Hygiene**: Reduces the cognitive load and dependency footprint for users who only need bedrock features.
-    3. **Clarity**: Strictly separates "Foundation" (Death Management) from "Platform" (Life Management).
-* **Consequences**: The root `lifecycle` package remains the standard facade for the integrated experience. Initial refactoring will use Go Workspaces to preserve the single-repo workflow while enforcing strict dependency boundaries.
+    1. **Adoption**: `procio` solves universal Go problems (Zombie processes, Windows Stdin) without the framework weight of `lifecycle`.
+    2. **Separation of Concerns**: `procio` handles "OS Mechanics"; `lifecycle` handles "Application Policies".
+* **Consequences**: `pkg/core/proc` and `pkg/core/termio` logic now lives in `procio`. `lifecycle` acts as the policy engine driving these primitives.

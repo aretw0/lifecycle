@@ -58,23 +58,6 @@ go get github.com/aretw0/lifecycle
   * **`Sleep`**: Context-aware sleep (returns immediately on cancel).
   * **`OnShutdown`**: Type-safe hook registration without casting.
 
-## Development & Contribution
-
-### Local Development (Multi-Module)
-
-If you are developing `lifecycle` and `procio` simultaneously (e.g. adding features to `procio` that `lifecycle` needs), you can use the provided Makefile helpers to toggle a local `go.work` file:
-
-```bash
-# Enable local development (uses ../procio by default)
-make work-on
-
-# Enable local development with custom path
-make work-on WORK_PATH=../../my-fork/procio
-
-# Disable local development (return to published module)
-make work-off
-```
-
 ## Roadmap (Control Plane v2)
 
 * **Event Router**: Generalize `Signals` into `Events` (Webhook, FileWatch, HealthCheck).
@@ -238,4 +221,21 @@ The library implements **Context-Aware I/O** to balance data preservation and re
 
 * [**PRODUCT**](docs/PRODUCT.md): Vision & Mission.
 * [**TECHNICAL**](docs/TECHNICAL.md): Architecture & Design (with Diagrams).
-* [**PLANNING**](docs/PLANNING.md): Roadmap & Backlog.
+* [**PLANNING**](docs/PLANNING.md): Roadmap and long-term plans.
+
+## Development & Contribution
+
+### Local Development (Multi-Module)
+
+If you are developing `lifecycle` and `procio` simultaneously (e.g. adding features to `procio` that `lifecycle` needs), you can use the provided Makefile helpers to toggle a local `go.work` file:
+
+```bash
+# Enable local development (uses ../procio by default)
+make work-on
+
+# Enable local development with custom path
+make work-on WORK_PATH=../../my-fork/procio
+
+# Disable local development (return to published module)
+make work-off
+```
