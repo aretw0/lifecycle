@@ -1,11 +1,11 @@
 # Technical Architecture
 
-> **Note**: This document describes the architecture of `lifecycle`, spanning its **v1.x Foundation** (Death Management) and the **v2.x Control Plane** (Life Management).
+> **Note**: This document describes the architecture of `lifecycle`, spanning its **v1.0-v1.4 Foundation** (Death Management) and the **v1.5+ Control Plane** (Life Management).
 > For a history of architectural choices, see **[DECISIONS.md](DECISIONS.md)**.
 
 ## Table of Contents
 
-* [**I. The Bedrock (v1.x Foundation)**](#i-the-bedrock-v1x-foundation)
+* [**I. The Bedrock (v1.0-v1.4 Foundation)**](#i-the-bedrock-v10-v14-foundation)
 
     1. [Formal Definition](#1-formal-definition-identity)
     2. [Design Principles](#2-design-principles-constraints)
@@ -14,7 +14,7 @@
 
     3. [Signal State Machine](#3-signal-state-machine)
     4. [Context-Aware I/O](#4-context-aware-io--safety)
-    5. [Managed Concurrency (v2.0)](#5-managed-concurrency-v20)
+    5. [Managed Concurrency (v1.5)](#5-managed-concurrency-v15)
     6. [Process Hygiene](#6-process-hygiene-powered-by-procio)
     7. [Reliability Primitives (v1.4)](#7-reliability-primitives-v14)
 
@@ -24,7 +24,7 @@
     9. [Supervision Tree](#9-supervision-tree)
     10. [Handover Protocol](#10-handover-protocol)
 
-* [**IV. The Control Plane (v2.x)**](#iv-the-control-plane-v2x)
+* [**IV. The Control Plane (v1.5+)**](#iv-the-control-plane-v15)
 
     11. [Event Router](#11-event-router-source---handler)
     12. [Managed Concurrency](#12-managed-concurrency-lifecyclego)
@@ -41,7 +41,7 @@
 
 ---
 
-## I. The Bedrock (v1.x Foundation)
+## I. The Bedrock (v1.0-v1.4 Foundation)
 
 This section defines the architectural pillars that govern the library.
 
@@ -211,7 +211,7 @@ sequenceDiagram
     end
 ```
 
-### 5. Managed Concurrency (v2.0)
+### 5. Managed Concurrency (v1.5)
 
 `lifecycle` provides primitives to manage goroutines safely, ensuring they respect shutdown signals and provide visibility.
 
@@ -389,9 +389,9 @@ sequenceDiagram
 
 ---
 
-## IV. The Control Plane (v2.x)
+## IV. The Control Plane (v1.5+)
 
-(Introduced in v2.0)
+(Introduced in v1.5)
 The Control Plane generalized the "Signal" concept into generic "Events".
 
 ### 11. Event Router (Source -> Handler)

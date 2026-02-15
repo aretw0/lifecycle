@@ -28,12 +28,13 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Implementation Note**: Since ADR-0006, this is powered by context value discovery, ensuring it works even when the context is wrapped by telemetry/middle-tier providers.
 * **Consequences**: Zero configuration required for safe concurrency.
 
-## ADR-0004: Event-Driven Control Plane (v2.0)
+## ADR-0004: Event-Driven Control Plane (v1.5)
 
 * **Status**: Accepted
 * **Context**: As the library evolves from "Death Management" to "Lifecycle Management", we need to handle non-terminal events (Reload, Suspend).
 * **Decision**: Adopt an Event-Driven Architecture. Decouple **Sources** (Signals, Webhooks, Tickers) from **Handlers** via a standardized `Router`.
 * **Consequences**: Allows for infinite extensibility without polluting the core `Run` loop.
+* **Note**: Originally planned for a "v2.0" major version, this was released as v1.5 to avoid `go.mod` migration overhead. See [MIGRATION.md](MIGRATION.md) for breaking changes.
 
 ## ADR-0005: Interactive Router Preset
 

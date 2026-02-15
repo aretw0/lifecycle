@@ -11,15 +11,15 @@
 
 To be the **standard Control Plane** for Infrastructure-Aware Applications (Services, Agents, CLIs).
 
-* **Foundation (v1.x)**: Solves "Death Management" (Signals, Blocking I/O, Zombies).
-* **Control Plane (v2.x)**: Solves "Life Management" (Events, Reactions, Hot Reloading).
+* **Foundation (v1.0-v1.4)**: Solves "Death Management" (Signals, Blocking I/O, Zombies).
+* **Control Plane (v1.5+)**: Solves "Life Management" (Events, Reactions, Hot Reloading).
 
 ## Project Status & Versioning
 
 > [!IMPORTANT]
-> **v2.x (Current)**: Provides the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, Input Commands).
+> **v1.5+ (Current)**: Provides the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, Input Commands). **Contains breaking changes from v1.4** - see [MIGRATION.md](docs/MIGRATION.md).
 >
-> **v1.x (Stable - LTS)**: Focuses strictly on **Death Management** (Graceful Shutdown, Signals, Leak Prevention).
+> **v1.0-v1.4 (LTS)**: Focuses strictly on **Death Management** (Graceful Shutdown, Signals, Leak Prevention).
 
 ## Installation
 
@@ -52,7 +52,7 @@ go get github.com/aretw0/lifecycle
   * **Process Hygiene**: Automatic cleanup of child processes if the parent dies (Job Objects/PDeathSig).
   * **Handover Protocol**: Standardized environment variables (`LIFECYCLE_RESUME_ID`, `LIFECYCLE_PREV_EXIT`) to pass context across restarts.
   * **Container Abstraction**: Generic interface to manage containerized workloads without direct SDK dependencies.
-* **DX Helpers** (v1.4 & v2.0):
+* **DX Helpers** (v1.4 & v1.5+):
   * **`Run`**: One-line `main` entry point with options (`WithLogger`, `WithMetrics`).
   * **`NewInteractiveRouter`**: Pre-configured router for CLIs (Signals + Input + Commands).
   * **`Sleep`**: Context-aware sleep (returns immediately on cancel).
@@ -152,7 +152,7 @@ lifecycle.OnShutdown(ctx, func() {
 })
 ```
 
-## Advanced Patterns (Control Plane v2)
+## Advanced Patterns (Control Plane v1.5+)
 
 For complex long-running services/agents that need dynamic behavior (Hot Reload, Supervisors).
 
