@@ -1,4 +1,4 @@
-.PHONY: tidy vet test coverage serve-docs stress clean-zombies work-on-procio work-on-introspection work-off-procio work-off-introspection work-off-all
+.PHONY: tidy vet lint test coverage serve-docs stress clean-zombies work-on-procio work-on-introspection work-off-procio work-off-introspection work-off-all
 
 # --- OS Detection & Command Abstraction ---
 ifeq ($(OS),Windows_NT)
@@ -25,6 +25,10 @@ tidy:
 # Run vet tool in all files
 vet:
 	go vet ./...
+
+# Run ineffassign to detect ineffectual assignments
+lint:
+	go run github.com/gordonklaus/ineffassign@latest ./...
 
 # Run all tests
 # Note: -race is mandatory for verifying behavioral logic and concurrency safety.
