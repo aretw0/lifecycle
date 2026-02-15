@@ -1,20 +1,22 @@
 # Planning: Lifecycle
 
 > [!IMPORTANT]
-> **Strategy Clarification (2026-02-03)**:
+> **Strategy Clarification (2026-02-15)**:
 >
-> - **v1.x is deprecated** — No users to protect. v2.0 launched as "the lifecycle" (no confusing versioning).
-> - **Roadmap is work-driven, not date-driven** — Organized by iterative releases (v2.1, v2.2) instead of fixed timelines.
+> - **v1.5+ introduces breaking changes** — The Control Plane architecture (originally planned as "v2") is now released as v1.5 to avoid `go.mod` migration overhead. See [MIGRATION.md](MIGRATION.md) for upgrade guidance.
+> - **Roadmap is work-driven, not date-driven** — Organized by iterative releases (v1.6, v1.7) instead of fixed timelines.
 > - **Working solo with AI partners** — Planning reflects single-maintainer capacity with agent collaboration.
 
 ---
 
-## v2.0.0 (Released) ✅
+## v1.5.0 (Released) ✅
 
 > [!IMPORTANT]
-> **v2.0 Stabilization Complete**: All architectural split work and baseline test coverage milestones have been achieved. The v2.0 foundation is stable and ready for production use.
+> **v1.5 Stabilization Complete**: All architectural split work and baseline test coverage milestones have been achieved. The v1.5 Control Plane foundation is stable and ready for production use.
+>
+> **Breaking Changes**: v1.5 introduces the Event-Driven Control Plane, which includes breaking API changes from v1.4. See [MIGRATION.md](MIGRATION.md) for details.
 
-### Completed Work (v2.0 Core)
+### Completed Work (v1.5 Control Plane)
 
 - [x] **Event Sources (Inputs)**: Generalized interface for lifecycle changes.
   - [x] `OSSignalSource` (SIGINT, SIGTERM)
@@ -54,19 +56,18 @@
 
 ---
 
-### v2.0 Refinement (Stable Blockers)
+### v1.5 Refinement (Stable Blockers)
 
 #### 🏗️ Architecture Refinement
 
 > [!NOTE]
-> **Architectural Reflection Required**:
-> Before implementing `core/events` split, we need to carefully consider:
+> **Architectural Split Completed (v1.5)**:
+> The `core/events` split has been successfully implemented:
 >
-> - Import cycles between packages
+> - Clean separation between Foundation (`pkg/core`) and Control Plane (`pkg/events`)
 > - Facade API design (`lifecycle.go` as unified entry point)
-> - Migration path for existing examples
-> - Performance implications of modular boundaries
-> - Documentation structure (separate docs for core vs events?)
+> - All examples updated to use new structure
+> - Zero breaking changes for basic `import "github.com/aretw0/lifecycle"` usage
 
 - [x] **Analyze Current Package Structure**:
   - [x] Map dependency graph of `pkg/*` packages
@@ -74,7 +75,7 @@
   - [x] Document current import patterns and potential cycles
   
 - [x] **Design Core/Events Split**:
-  - [x] Architectural analysis performed during v2.0 refinement.
+  - [x] Architectural analysis performed during v1.5 development.
   - [x] Validated with existing examples (successfully refactored).
   
 - [x] **Implement Modular Architecture**:
@@ -82,7 +83,7 @@
   - [x] Create `events/` package structure.
   - [x] Refactor `lifecycle.go` as facade.
   - [x] Update all examples to use new structure.
-  - [x] Ensure zero breaking changes for `import "github.com/aretw0/lifecycle"` users.
+  - [x] Ensure backward compatibility for `import "github.com/aretw0/lifecycle"` users.
 
 #### 🛰️ Architecture: Procio Extraction (Completed)
 
@@ -139,17 +140,17 @@
 
 ## Roadmap: Iterative Releases
 
-### v2.1: Advanced Stability & Ecosystem
+### v1.6: Advanced Stability & Ecosystem
 
 **Focus**: Evolve the control plane functionality and self-healing capabilities.
 
-#### **Declarative Stability (Self-Healing)**: (v2.1+)
+#### **Declarative Stability (Self-Healing)**: (v1.6+)
 
 - [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
 - [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
 - [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
 
-#### **Coordinated Lifecycle & Shared State**: (v2.1+)
+#### **Coordinated Lifecycle & Shared State**: (v1.6+)
 
 - [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
 - [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
@@ -189,7 +190,7 @@
 
 ---
 
-### v2.2: Documentation & Marketing
+### v1.7: Documentation & Marketing
 
 **Focus**: Make lifecycle discoverable, understandable, and compelling.
 
@@ -286,20 +287,20 @@
 
 ---
 
-### v2.3: Public Launch
+### v1.8: Public Launch
 
 **Focus**: Maximize visibility and initial adoption.
 
 #### 🚀 Launch Preparation
 
 - [ ] **Release Notes**:
-  - [ ] Write `CHANGELOG.md` (v1.x → v2.0 → v2.3)
-  - [ ] Highlight breaking changes (if any)
-  - [ ] Migration guide for early adopters (if applicable)
+  - [ ] Write `CHANGELOG.md` (v1.0 → v1.5 → v1.8)
+  - [ ] Highlight breaking changes (v1.5 Control Plane)
+  - [ ] Migration guide for early adopters (MIGRATION.md)
   - [ ] Feature showcase with code examples
   
 - [ ] **Marketing Materials**:
-  - [ ] Blog post: "Lifecycle 2.0: Stop Fighting Signals and Shutdowns in Go"
+  - [ ] Blog post: "Lifecycle 1.5: Stop Fighting Signals and Shutdowns in Go"
     - Subtitle: "Windows Support That Actually Works"
     - Sections: The Problem, The Solution, How It Works, Get Started
   - [ ] Tweet thread (5-7 tweets):
@@ -338,7 +339,7 @@
 
 ---
 
-### v2.4+: Feature Expansion (Future)
+### v1.9+: Feature Expansion (Future)
 
 **Focus**: Evolve based on community feedback and adoption patterns.
 
@@ -395,10 +396,10 @@
 > [!WARNING]
 > **Technical Debt**: Non-blocking, but address before claiming "production-ready".
 
-### Identified Debt (To Be Re-Baselined After v2.0 Release)
+### Identified Debt (To Be Re-Baselined After v1.5 Release)
 
 > [!NOTE]
-> Coverage metrics listed below are from pre-v2.0 architecture and need re-baselining.
+> Coverage metrics listed below are from pre-v1.5 architecture and need re-baselining.
 > The `pkg/termio` package has been extracted to `procio` and is tested there.
 
 - [ ] **Low Test Coverage** (metrics to be updated):
