@@ -44,11 +44,30 @@ func Run(r Runnable, opts ...any) error {
 	return runtime.Run(r, opts...)
 }
 
+// Task represents a handle to a background goroutine.
+// It allows waiting for completion and checking errors.
+// Alias for pkg/runtime.Task.
+type Task = runtime.Task
+
+// GoOption configuration for Go.
+// Alias for pkg/runtime.GoOption.
+type GoOption = runtime.GoOption
+
 // Go starts a tracked goroutine.
 // Alias for pkg/runtime.Go.
-func Go(ctx context.Context, fn func(context.Context) error) {
-	runtime.Go(ctx, fn)
+//
+// The returned Task handle allows waiting for completion and checking errors.
+// By default, errors are discarded unless an ErrorHandler is provided via WithErrorHandler.
+func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) Task {
+	return runtime.Go(ctx, fn, opts...)
 }
+
+// WithErrorHandler creates an option to handle errors in background goroutines.
+// Alias for pkg/runtime.WithErrorHandler.
+func WithErrorHandler(h func(error)) GoOption {
+	return runtime.WithErrorHandler(h)
+}
+
 
 // Receive creates a push iterator that yields values from the channel until
 // the context is cancelled or the channel is closed.
@@ -86,6 +105,9 @@ func Sleep(ctx context.Context, d time.Duration) error {
 // ======================================================================================
 
 // Context represents the signal context.
+// It is the stable contract for signal handling in v2.0.
+// It wraps a standard context.Context and adds signal-specific metadata (Reason, ForceExit).
+// Consumers like Trellis should rely on this type definition.
 type Context = signal.Context
 
 // Option is a functional option for signal configuration.

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/aretw0/lifecycle/pkg/core/log"
+	"github.com/aretw0/lifecycle/pkg/core/metrics"
 )
 
 type taskTrackerKey struct{}
@@ -29,7 +32,15 @@ func WaitForGlobal() {
 // If the context contains a TaskTracker (injected by Run), it adds to that WaitGroup.
 // If not, it falls back to a global TaskTracker (accessible via WaitForGlobal), ensuring "Safe by Default".
 // It also recovers from panics to prevent crashing the entire application.
-func Go(ctx context.Context, fn func(context.Context) error) {
+//
+// The returned Task handle allows waiting for completion and checking errors.
+// By default, errors are discarded unless an ErrorHandler is provided via WithErrorHandler.
+func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) Task {
+	cfg := &goConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	wg, ok := ctx.Value(taskTrackerKey{}).(*sync.WaitGroup)
 	if !ok {
 		// Fallback to global tracker if not managed by Run()
@@ -39,9 +50,16 @@ func Go(ctx context.Context, fn func(context.Context) error) {
 	}
 
 	wg.Add(1)
+	metrics.GetProvider().IncGoroutineStarted()
+
+	handle := &taskHandle{
+		done: make(chan struct{}),
+	}
 
 	go func() {
 		defer wg.Done()
+		defer metrics.GetProvider().IncGoroutineFinished()
+		defer close(handle.done)
 
 		// Top-level recovery for the background task.
 		// logic.Do re-panics to allow bubbling, so we MUST catch it here
@@ -49,12 +67,25 @@ func Go(ctx context.Context, fn func(context.Context) error) {
 		defer func() {
 			if r := recover(); r != nil {
 				// We log specifically for background tasks, as they have no caller to return error to.
-				fmt.Printf("lifecycle: background task panic: %v\n", r)
+				log.Error("background task panic", "recover", r)
+				metrics.GetProvider().IncGoroutinePanicked()
+				// Capture panic as error
+				handle.err = fmt.Errorf("panic: %v", r)
+				if cfg.errorHandler != nil {
+					cfg.errorHandler(handle.err)
+				}
 			}
 		}()
 
 		// Use Do for observability and panic capturing (metrics).
 		// We ignore the error return here as it's an async background task.
-		_ = Do(ctx, fn)
+		err := Do(ctx, fn)
+		handle.err = err
+
+		if err != nil && cfg.errorHandler != nil {
+			cfg.errorHandler(err)
+		}
 	}()
+
+	return handle
 }
