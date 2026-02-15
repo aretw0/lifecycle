@@ -8,7 +8,7 @@ import (
 
 	"github.com/aretw0/lifecycle"
 
-	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/introspection"
 	"github.com/aretw0/lifecycle/pkg/core/signal"
 	"github.com/aretw0/lifecycle/pkg/core/worker"
 )
@@ -75,7 +75,7 @@ func main() {
 	initialOutput.WriteString("\nSNAPSHOT: INITIAL STATE\n")
 	initialOutput.WriteString(strings.Repeat("=", 60))
 	initialOutput.WriteString("\n")
-	initialOutput.WriteString(introspection.SystemDiagram(ctx.State(), sup.State()))
+	initialOutput.WriteString(lifecycle.SystemDiagram(ctx.State(), sup.State()))
 	initialOutput.WriteString("\n")
 	fmt.Print(initialOutput.String())
 
@@ -134,7 +134,7 @@ func main() {
 				var output strings.Builder
 				output.WriteString(strings.Repeat("-", 40))
 				output.WriteString("\nSNAPSHOT: SYSTEM STATE\n")
-				output.WriteString(introspection.SystemDiagram(ctx.State(), sup.State()))
+				output.WriteString(lifecycle.SystemDiagram(ctx.State(), sup.State()))
 				output.WriteString("\n")
 				output.WriteString(strings.Repeat("-", 40))
 				output.WriteString("\n")
@@ -178,7 +178,7 @@ func main() {
 	finalOutput.WriteString("\nSNAPSHOT: FINAL STATE\n")
 	finalOutput.WriteString(strings.Repeat("=", 60))
 	finalOutput.WriteString("\n")
-	finalOutput.WriteString(introspection.SystemDiagram(ctx.State(), sup.State()))
+	finalOutput.WriteString(lifecycle.SystemDiagram(ctx.State(), sup.State()))
 	finalOutput.WriteString("\n")
 	fmt.Print(finalOutput.String())
 
