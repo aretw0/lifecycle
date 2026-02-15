@@ -12,7 +12,7 @@
 Arbour validates the architectural decision to keep `lifecycle` as a foundational, transitive dependency.
 
 - **Zero Config**: Arbour developers don't need to configure `lifecycle`. It "just works" because Trellis handles the `SignalContext`.
-- **Version Propagation**: When Trellis upgrades to `lifecycle` v2.0, Arbour will automatically gain "Suspend/Resume" capabilities for its WhatsApp connections without a single line of code change in Arbour itself.
+- **Version Propagation**: With `lifecycle` v2.0 now available, when Trellis upgrades, Arbour will automatically gain "Suspend/Resume" capabilities for its WhatsApp connections without a single line of code change in Arbour itself.
 
 ## Strategic Value
 

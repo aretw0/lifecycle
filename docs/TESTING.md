@@ -26,7 +26,7 @@ The following packages are explicitly exempted from strict coverage targets:
 | :--- | :--- | :--- |
 | `pkg/core/metrics` | Interface definitions & no-op stubs. | Compile check. |
 | `pkg/core/log` | Wrapper around `slog`. | Compile check. |
-| `pkg/core/termio` | Heavily OS-dependent (syscalls). | Manual verification on Windows. |
+| `procio` (external) | Heavily OS-dependent (syscalls). Extracted to standalone library. | Manual verification on Windows. Tested in `procio` repo. |
 | `pkg/events/filewatch` | FS race conditions are flaky. | Integration tests. |
 
 ## 3. Running Tests

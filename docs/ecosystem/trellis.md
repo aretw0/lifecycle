@@ -8,10 +8,11 @@ Durable execution requires that a process state can be suspended, moved, or rest
 
 ## The Lifecycle Solution
 
-> [!WARNING]
-> **Version Discrepancy**: The patterns described below represent the **Target Architecture** for Trellis v1.0.
-> Currently, `trellis` (v0.7.1) depends on `lifecycle` v0.1.1 (legacy) and uses `lifecycle.NewSignalContext` mostly for basic interruption.
-> The full "Suspend/Resume" integration described here is the roadmap for the next Trellis iteration.
+::: warning
+**Version Discrepancy**: The patterns described below represent the **Target Architecture** for Trellis v1.0.
+Currently, `trellis` (v0.7.1) depends on `lifecycle` v0.1.1 (legacy) and uses `lifecycle.NewSignalContext` mostly for basic interruption.
+The full "Suspend/Resume" integration described here is the roadmap for the next Trellis iteration.
+:::
 
 Trellis integrates with `lifecycle` using three primary pillars: **Managed Suspension**, **Detached Execution**, and **Hierarchical Signaling**.
 
@@ -73,5 +74,6 @@ Trellis workers often run as children of a supervisor. By using `lifecycle.Run`,
 By offloading the "dirty work" of signal management and I/O coordination to `lifecycle`, Trellis can focus on its core value: **reliable state machines**.
 
 ---
-> [!TIP]
-> See `examples/suspend` for a runnable demonstration of the suspension pattern used in Trellis.
+::: tip
+See `examples/suspend` for a runnable demonstration of the suspension pattern used in Trellis.
+:::

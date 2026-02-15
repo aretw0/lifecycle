@@ -1,6 +1,6 @@
 # Ecosystem Analysis: Fiscus (The Clean Slate)
 
-**Fiscus** is currently a stub project (`main.go` only). This presents a unique opportunity to use it as the **Reference Implementation** for `lifecycle` v2.0 best practices from day one.
+**Fiscus** is currently a stub project (`main.go` only). This presents a unique opportunity to use it as the **Reference Implementation** for `lifecycle` best practices from day one.
 
 ## Current State
 
