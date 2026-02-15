@@ -1,3 +1,5 @@
+github.com/aretw0/introspection v0.1.2 h1:5e8MGzZNq1hvjOMVMPVWY8vHqzzsljLHxGBnPRHCISo=
+github.com/aretw0/introspection v0.1.2/go.mod h1:fuUaJL8subAkzhwSOVvb0EQTpzDtwOHrwQuhPEK/3m0=
 github.com/aretw0/procio v0.1.2 h1:2lLAOS/ndbLxcI6c7e//Qa8Y72/JceYuQmPIkDFTq98=
 github.com/aretw0/procio v0.1.2/go.mod h1:8yx5yAy5EzBhOBiyr7z6kmHJln1NrtIGjQTXxsA9PZI=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
