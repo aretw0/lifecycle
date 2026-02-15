@@ -100,6 +100,28 @@
   - [x] Specialized documentation created in `procio` repo.
   - [x] `lifecycle` acts as the "Policy Engine" over `procio` "Mechanics".
 
+#### 🎨 Architecture: Introspection Extraction (Completed)
+
+> [!IMPORTANT]
+> **Refactoring Objective**:
+> We have successfully extracted generic visualization primitives into **[introspection](https://github.com/aretw0/introspection)**. This decouples domain logic from presentation logic and enables broader adoption of `lifecycle`'s introspection patterns.
+
+- [x] **Primitive Promotion**:
+  - [x] Removed `pkg/core/introspection` package (~1500 lines).
+  - [x] Extracted generic diagram builders (`TreeDiagram`, `StateMachineDiagram`, `ComponentDiagram`).
+  - [x] `lifecycle` now depends on `introspection` v0.1.2.
+
+- [x] **Adapter Pattern**:
+  - [x] Created `diagram_config.go` (centralized configuration).
+  - [x] Moved `NodeStyler`/`NodeLabeler` to `pkg/core/worker`.
+  - [x] Moved `PrimaryStyler`/`PrimaryLabeler` to `pkg/core/signal`.
+  - [x] Updated `SystemDiagram` to use `introspection.ComponentDiagram`.
+
+- [x] **Code Cleanup ("Fat Removal")**:
+  - [x] Removed `RenderTreeFragment` from `worker/diagram.go`.
+  - [x] Removed `RenderFragment` from `signal/diagram.go`.
+  - [x] Delegated all Mermaid string generation to external library.
+
 #### 🧪 Test Coverage Sanity
 
 > See **[TESTING.md](TESTING.md)** for our "Honest Coverage" policy and exclusions.

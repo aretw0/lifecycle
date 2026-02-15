@@ -633,17 +633,48 @@ runtime.Run(func(ctx context.Context) error {
 
 ### 13. Introspection & Visualization
 
-We adopt the **Introspection Pattern**: components expose `State()` methods returning immutable DTOs, which are rendered into diagrams.
+`lifecycle` adopts the **Introspection Pattern**: components expose `State()` methods returning immutable DTOs, which are rendered into **Mermaid diagrams** via the **[github.com/aretw0/introspection](https://github.com/aretw0/introspection)** library.
 
-* **Logic/FSM**: Rendered as `stateDiagram-v2`.
-* **Topology**: Rendered as `graph TD`.
+#### Architecture: Separation of Concerns
 
-**Status Palette:**
+Visualization is **delegated** to the external `introspection` library, following the same **Primitive Promotion** strategy used for `procio` (see ADR-0010 and ADR-0011).
 
-* 🟡 **Pending**: Defined, not active.
-* 🔵 **Running**: Active & healthy.
-* 🟢 **Stopped**: Clean exit.
-* 🔴 **Failed**: Crashed/Error.
+* **`lifecycle`** provides **domain-specific styling logic** (`signal.PrimaryStyler`, `worker.NodeLabeler`) and configuration via `LifecycleDiagramConfig()`.
+* **`introspection`** handles **structural rendering** (Mermaid syntax, graph traversal, CSS class application).
+
+This separation ensures that:
+
+1. **Diagram logic is DRY**: Rendering logic is not duplicated across `signal`, `worker`, and `supervisor` packages.
+2. **Visualization is reusable**: Other projects (e.g., `trellis`, `arbour`) can use `introspection` for their own topologies.
+3. **Maintenance is centralized**: Visual improvements or Mermaid syntax changes happen in one place.
+
+#### Diagram Types
+
+* **Logic/FSM**: Rendered via `introspection.StateMachineDiagram` as `stateDiagram-v2`.
+* **Topology**: Rendered via `introspection.TreeDiagram` or `introspection.ComponentDiagram` as `graph TD`.
+
+#### Unified System Diagram
+
+The `lifecycle.SystemDiagram(sig, work)` function synthesizes the **Control Plane** (Signal Context) and **Data Plane** (Worker Tree) into a single Mermaid diagram:
+
+```go
+diagram := lifecycle.SystemDiagram(ctx.State(), supervisor.State())
+```
+
+This delegates to `introspection.ComponentDiagram`, which applies the configuration from `LifecycleDiagramConfig()`.
+
+#### Status Palette (CSS Classes)
+
+The following CSS classes are applied by stylers to represent component states:
+
+* 🟡 **pending**: Defined, not active.
+* 🔵 **active**: Running & healthy.
+* 🟢 **stopped**: Clean exit.
+* 🔴 **failed**: Crashed/Error.
+
+These classes are defined in the domain packages (`pkg/core/signal`, `pkg/core/worker`) and consumed by `introspection` via the `NodeStyler` and `PrimaryStyler` hooks.
+
+For implementation details, see **[docs/ecosystem/introspection.md](ecosystem/introspection.md)**.
 
 ### 14. Observability
 

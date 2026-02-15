@@ -9,6 +9,11 @@ For a detailed breakdown of the problems we solve (Zombie Processes, Blocking I/
 
 It is designed to be the foundational entry point for modern Go Applications (Services, Agents, CLIs).
 
+### Key Dependencies
+
+* **[procio](https://github.com/aretw0/procio)** v0.1.2: Process hygiene (PDeathSig, Job Objects) and interactive I/O (`CONIN$` on Windows).
+* **[introspection](https://github.com/aretw0/introspection)** v0.1.2: Generic visualization primitives (Mermaid diagram generation).
+
 ## Project Structure & Documentation
 
 * **[TECHNICAL.md](docs/TECHNICAL.md)**: Architecture (Foundation & Control Plane).

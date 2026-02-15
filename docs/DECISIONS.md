@@ -80,3 +80,19 @@ This document logs significant architectural decisions for the `lifecycle` proje
     1. **Adoption**: `procio` solves universal Go problems (Zombie processes, Windows Stdin) without the framework weight of `lifecycle`.
     2. **Separation of Concerns**: `procio` handles "OS Mechanics"; `lifecycle` handles "Application Policies".
 * **Consequences**: `pkg/core/proc` and `pkg/core/termio` logic now lives in `procio`. `lifecycle` acts as the policy engine driving these primitives.
+
+## ADR-0011: Visualization Decoupling & Primitive Promotion
+
+* **Status**: **Completed (2026-02-15)** via `github.com/aretw0/introspection`
+* **Context**: The `lifecycle` library provides runtime introspection via `State()` methods and visualizes topology using Mermaid diagrams. Originally, each package (`signal`, `worker`, `supervisor`) contained custom Mermaid string concatenation logic, leading to redundancy, rigidity, and increased testing burden.
+* **Decision**: We extracted generic diagram rendering primitives into **`introspection`**, a standalone library. `lifecycle` now provides **domain-specific styling logic** (`NodeStyler`, `PrimaryStyler`) and delegates **structural rendering** (Mermaid syntax, graph traversal) to `introspection`.
+* **Rationale**:
+    1. **DRY Principle**: Rendering logic is centralized, not duplicated across multiple packages.
+    2. **Reusability**: Other projects (e.g., `trellis`, `arbour`) can use `introspection` for their own topologies.
+    3. **Separation of Concerns**: `introspection` handles generic graph rendering; `lifecycle` handles domain semantics (status colors, labels).
+    4. **Maintainability**: Visual improvements or Mermaid syntax changes happen in one place.
+* **Consequences**:
+  * Removed `pkg/core/introspection` package (~1500 lines).
+  * Introduced `diagram_config.go` (centralized configuration adapter).
+  * Simplified `signal/diagram.go` and `worker/diagram.go` by removing manual fragment rendering functions.
+  * `lifecycle` now depends on `github.com/aretw0/introspection` v0.1.2+.
