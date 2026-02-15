@@ -3,16 +3,16 @@
 > [!IMPORTANT]
 > **Strategy Clarification (2026-02-03)**:
 >
-> - **v1.x is deprecated** — No users to protect. v2.0 will launch as "the lifecycle" (no confusing versioning).
+> - **v1.x is deprecated** — No users to protect. v2.0 launched as "the lifecycle" (no confusing versioning).
 > - **Roadmap is work-driven, not date-driven** — Organized by iterative releases (v2.1, v2.2) instead of fixed timelines.
 > - **Working solo with AI partners** — Planning reflects single-maintainer capacity with agent collaboration.
 
 ---
 
-## Current State: v2.0 Stabilization (BETA) 🛠️
+## v2.0.0 (Released) ✅
 
 > [!IMPORTANT]
-> **v2.0 Stabilization Phase**: Based on the critical analysis (2026-02-05), the architectural split and baseline test coverage are now prioritized as **blockers for the stable v2.0 launch** to ensure a robust foundation and prevent immediate breaking changes in v2.x.
+> **v2.0 Stabilization Complete**: All architectural split work and baseline test coverage milestones have been achieved. The v2.0 foundation is stable and ready for production use.
 
 ### Completed Work (v2.0 Core)
 
@@ -93,7 +93,7 @@
 - [x] **Transition to Multi-Module (Internal Isolation)**:
   - [x] Initialize `go.work` (Dev Mode).
   - [x] Extracted `proc`, `termio`, `scan` to `procio`.
-  - [x] `lifecycle` now depends on `procio` v0.1.0.
+  - [x] `lifecycle` now depends on `procio` v0.1.2.
 
 - [x] **Promote `proc` & `termio` Ecosystem**:
   - [x] **Procio** is now a standalone library.
@@ -395,12 +395,15 @@
 > [!WARNING]
 > **Technical Debt**: Non-blocking, but address before claiming "production-ready".
 
-### Identified Debt (To Be Expanded After v2.1 Audit)
+### Identified Debt (To Be Re-Baselined After v2.0 Release)
 
-- [ ] **Low Test Coverage**:
-  - Root package: 15.2% (target: 80%+)
-  - `pkg/metrics`: 21.0% (target: 70%+)
-  - `pkg/termio`: 51.0% (target: 80%+)
+> [!NOTE]
+> Coverage metrics listed below are from pre-v2.0 architecture and need re-baselining.
+> The `pkg/termio` package has been extracted to `procio` and is tested there.
+
+- [ ] **Low Test Coverage** (metrics to be updated):
+  - Root package: (to be re-baselined, target: 80%+)
+  - `pkg/metrics`: (to be re-baselined, target: 70%+)
   
 - [ ] **Missing Platform Tests**:
   - No CI for Windows-specific behavior (CONIN$, Job Objects)

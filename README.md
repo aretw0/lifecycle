@@ -11,13 +11,13 @@
 
 To be the **standard Control Plane** for Infrastructure-Aware Applications (Services, Agents, CLIs).
 
-* **v1 (Foundation)**: Solves "Death Management" (Signals, Blocking I/O, Zombies).
-* **v2 (Evolution)**: Solves "Life Management" (Events, Reactions, Hot Reloading).
+* **Foundation (v1.x)**: Solves "Death Management" (Signals, Blocking I/O, Zombies).
+* **Control Plane (v2.x)**: Solves "Life Management" (Events, Reactions, Hot Reloading).
 
 ## Project Status & Versioning
 
 > [!IMPORTANT]
-> **v2.x (Current)**: Introduces the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, Input Commands).
+> **v2.x (Current)**: Provides the **Application Control Plane**, generalizing "Signals" into "Events" (Hot Reload, Health Checks, Input Commands).
 >
 > **v1.x (Stable - LTS)**: Focuses strictly on **Death Management** (Graceful Shutdown, Signals, Leak Prevention).
 
@@ -58,13 +58,15 @@ go get github.com/aretw0/lifecycle
   * **`Sleep`**: Context-aware sleep (returns immediately on cancel).
   * **`OnShutdown`**: Type-safe hook registration without casting.
 
-## Roadmap (Control Plane v2)
+## Control Plane Features
 
-* **Event Router**: Generalize `Signals` into `Events` (Webhook, FileWatch, HealthCheck).
+The Control Plane provides event-driven orchestration for modern Go applications:
+
+* **Event Router**: Generalizes `Signals` into `Events` (Webhook, FileWatch, HealthCheck).
 * **Managed Concurrency**: `lifecycle.Go(ctx, fn)` for non-leaking goroutines.
 * **Reactions**: `Reload`, `Suspend`, `Scale` alongside `Shutdown`.
 
-### Managed Concurrency (v2.0 Preview)
+### Managed Concurrency
 
 `lifecycle` now provides primitives to manage goroutines safely, ensuring they respect shutdown signals and provide visibility.
 
@@ -100,17 +102,15 @@ func main() {
         fmt.Println("App started. Press Ctrl+C to exit.")
         
         // 3. Use lifecycle.Go to spawn safe, tracked background tasks
-        lifecycle.Go(ctx, func(ctx context.Context) error {
-            // This goroutine is automatically waited for on shutdown
-            // Panics are caught and logged, preventing crashes
-            select {
-            case <-ctx.Done():
-                return nil
-            case <-time.After(5 * time.Second):
-                fmt.Println("Task complete")
-                return nil
-            }
-        })
+        task := lifecycle.Go(ctx, func(ctx context.Context) error {
+            // This goroutine is automatically tracked and waited for on shutdown
+            return doWork(ctx)
+        }, lifecycle.WithErrorHandler(func(err error) {
+            fmt.Printf("Task failed: %v\n", err)
+        }))
+
+        // Optional: Wait for a specific task manually
+        // err := task.Wait()
 
         // 4. Wait for interrupt
         <-ctx.Done()

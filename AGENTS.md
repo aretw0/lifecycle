@@ -17,14 +17,14 @@ It is designed to be the foundational entry point for modern Go Applications (Se
 ## Project Structure & Documentation
 
 * **[TECHNICAL.md](docs/TECHNICAL.md)**: Architecture (Foundation & Control Plane).
-* **[PLANNING.md](docs/PLANNING.md)**: Roadmap (v2.0 Focus).
+* **[PLANNING.md](docs/PLANNING.md)**: Roadmap & Planning.
 * **[PRODUCT.md](docs/PRODUCT.md)**: Vision and "Why?" (The problem space).
 * **[DECISIONS.md](docs/DECISIONS.md)**: Design Decisions.
 * **[STATE_MACHINE.md](docs/STATE_MACHINE.md)**: Worker State Machine.
 * **[CONFIGURATION.md](docs/CONFIGURATION.md)**: Configuration Philosophy.
 * **[RECIPES.md](docs/RECIPES.md)**: Common Usage Patterns.
 * **[TESTING.md](docs/TESTING.md)**: Testing Philosophy.
-* **[examples/](examples/)**: Runnable recipes (`basic`, `hooks`, `termio`, `supervisor`).
+* **[examples/](examples/)**: Runnable recipes (`basic`, `hooks`, `interactive_dx`, `supervisor`, `suspend`).
 
 ## Key Commands
 
