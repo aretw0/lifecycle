@@ -4,91 +4,85 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/introspection"
 )
 
 // MermaidState returns a Mermaid state diagram string representing the lifecycle configuration.
 func MermaidState(s State) string {
-	var sb strings.Builder
-
-	sb.WriteString("stateDiagram-v2\n")
-	sb.WriteString("    [*] --> Running\n")
-
-	// Transition to Graceful
-	signals := "SIGTERM"
+	initialToGraceful := "SIGTERM"
 	if s.ForceExitThreshold == 1 {
-		signals = "SIGINT/SIGTERM"
-	}
-	sb.WriteString(fmt.Sprintf("    Running --> Graceful: %s\n", signals))
-
-	sb.WriteString("    note right of Graceful\n")
-	sb.WriteString("        Context Cancelled\n")
-	sb.WriteString("        Hooks Running (LIFO)\n")
-	sb.WriteString(fmt.Sprintf("        Timeout: %s\n", s.HookTimeout))
-	sb.WriteString("    end note\n")
-
-	// Force Exit path
-	if s.ForceExitThreshold > 0 {
-		sb.WriteString(fmt.Sprintf("    Graceful --> ForceExit: Signal x%d\n", s.ForceExitThreshold))
-		sb.WriteString("    ForceExit --> [*]: os.Exit(1)\n")
+		initialToGraceful = "SIGINT/SIGTERM"
 	}
 
-	// Natural completion
-	sb.WriteString("    Graceful --> [*]: Hooks Complete\n")
-
-	// State highlighting
-	if s.Stopping {
-		sb.WriteString("    class Graceful active\n")
-	} else if s.Received == nil {
-		sb.WriteString("    class Running active\n")
-	}
-
-	if s.Received != nil {
-		sb.WriteString(fmt.Sprintf("    note left of Graceful: Received %s\n", s.Received))
-	}
-
-	sb.WriteString(introspection.DefaultStyles())
-
-	return sb.String()
+	return introspection.StateMachineDiagram(s, &introspection.StateMachineConfig{
+		InitialState:      "Running",
+		GracefulState:     "Graceful",
+		ForcedState:       "ForceExit",
+		InitialToGraceful: initialToGraceful,
+		GracefulToForced:  "Signal",
+		GracefulToFinal:   "Hooks Complete",
+		NoteGenerator: func(state any) string {
+			s := state.(State)
+			var sb strings.Builder
+			sb.WriteString("        Context Cancelled\n")
+			sb.WriteString("        Hooks Running (LIFO)\n")
+			sb.WriteString(fmt.Sprintf("        Timeout: %v\n", s.HookTimeout))
+			if s.Received != nil {
+				sb.WriteString(fmt.Sprintf("        Received: %v\n", s.Received))
+			}
+			return sb.String()
+		},
+	})
 }
 
-// RenderFragment renders a Mermaid fragment representing the signal context for use in composite diagrams.
-func RenderFragment(sb *strings.Builder, sig State, id, indent string) {
-	statusMode := "Running"
-	statusClass := "active" // Default: Blue/Standard (Listening)
+// PrimaryStyler determines the CSS class for the signal component based on its state.
+func PrimaryStyler(state any) string {
+	s, ok := state.(State)
+	if !ok {
+		return "running"
+	}
 
-	if !sig.Enabled {
-		statusMode = "Stopped"
-		statusClass = "stopped" // Green: Manually stopped (Listener inactive)
-	} else if sig.Stopping {
-		statusMode = "Graceful"
-		// Default Graceful is Warning/Pending (Yellow)
-		statusClass = "pending"
+	if !s.Enabled {
+		return "stopped" // Green: Manually stopped (Listener inactive)
+	}
 
-		switch sig.Reason {
+	if s.Stopping {
+		switch s.Reason {
 		case ReasonTerminate:
-			statusClass = "failed" // Red: System Termination
-		case ReasonInterrupt:
-			statusClass = "pending" // Yellow: User Interrupt
-		case ReasonManualStop, ReasonManualCancel:
-			// If cancelled manually (Cancel called) but monitor is still enabled
-			statusClass = "pending"
+			return "failed" // Red: System Termination
+		case ReasonInterrupt, ReasonManualStop, ReasonManualCancel:
+			return "pending" // Yellow: User Interrupt or manual cancel
+		default:
+			return "pending"
 		}
 	}
 
-	received := "None"
-	if sig.Received != nil {
-		received = sig.Received.String()
+	return "active" // Blue: Listening
+}
+
+// PrimaryLabeler builds the HTML label for the signal component.
+func PrimaryLabeler(state any) string {
+	s, ok := state.(State)
+	if !ok {
+		return "<b>⚡ Signal Listener</b>"
 	}
 
-	reason := sig.Reason
+	statusMode := "Running"
+	if !s.Enabled {
+		statusMode = "Stopped"
+	} else if s.Stopping {
+		statusMode = "Graceful"
+	}
+
+	received := "None"
+	if s.Received != nil {
+		received = s.Received.String()
+	}
+
+	reason := s.Reason
 	if reason == "" {
 		reason = ReasonNone
 	}
 
-	// S["..."]:::signal
-	// class S statusClass
-	label := fmt.Sprintf("<b>⚡ Signal Listener</b><br/>Mode: %s<br/>Received: %s<br/>Reason: %s", statusMode, received, reason)
-	sb.WriteString(fmt.Sprintf("%s%s[\"%s\"]:::signal\n", indent, id, label))
-	sb.WriteString(fmt.Sprintf("%sclass %s %s\n", indent, id, statusClass))
+	return fmt.Sprintf("<b>⚡ Signal Listener</b><br/>Mode: %s<br/>Received: %s<br/>Reason: %s", statusMode, received, reason)
 }
