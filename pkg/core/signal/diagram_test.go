@@ -62,8 +62,8 @@ func TestMermaid(t *testing.T) {
 				},
 			},
 			contains: []string{
-				"class Graceful active",
-				"classDef active",
+				"class Graceful stopping",
+				"classDef stopping",
 			},
 		},
 	}
