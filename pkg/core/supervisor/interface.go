@@ -3,7 +3,7 @@ package supervisor
 import (
 	"context"
 
-	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/introspection"
 	"github.com/aretw0/lifecycle/pkg/core/worker"
 )
 

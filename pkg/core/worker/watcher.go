@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/introspection"
 )
 
 // Watch implements introspection.TypedWatcher[State] interface.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/introspection"
 )
 
 // Event is a stimulus that triggers a reaction.
