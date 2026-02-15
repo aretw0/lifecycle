@@ -8,7 +8,7 @@ These examples demonstrate the core "Death Management" features (v1.x). Ideal fo
 
 * [**basic**](./basic/main.go): The "Hello World" of `lifecycle`. Shows `Run`, `Go`, and `Job`.
 * [**hooks**](./hooks/main.go): How to register and execute synchronous/asynchronous cleanup hooks.
-* [**termio**](./termio/main.go): Safe reading from Stdin (Windows `CONIN$` support) that respects context cancellation.
+* [**interactive_dx**](./interactive_dx/main.go): Safe reading from Stdin (Windows `CONIN$` support) that respects context cancellation.
 
 ## Advanced Patterns (Control Plane v2)
 

@@ -1,6 +1,6 @@
 # Zombie Prevention Example
 
-This example demonstrates how `pkg/proc` ensures child processes are cleaned up when the parent process exits manually or crashes.
+This example demonstrates how `procio` ensures child processes are cleaned up when the parent process exits manually or crashes.
 
 ## How to Run
 

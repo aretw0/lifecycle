@@ -1,6 +1,6 @@
 # Control Plane Example
 
-This example demonstrates the **v2.0 Control Plane** features of `lifecycle`.
+This example demonstrates the **Control Plane** features (v2.0) of `lifecycle`.
 
 ## Features Demonstrated
 
