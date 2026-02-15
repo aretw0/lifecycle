@@ -223,7 +223,7 @@ func (r *Router) Routes() []RouteInfo {
 
 	routes := make([]RouteInfo, 0, len(r.routes))
 	for pattern, h := range r.routes {
-		handlerName := "Handler"
+		var handlerName string
 
 		// Attempt to get function name via reflection
 		// We first check if it's a HandlerFunc to get the underlying function
