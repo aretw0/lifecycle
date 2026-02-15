@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aretw0/lifecycle/pkg/core/introspection"
+	"github.com/aretw0/introspection"
 )
 
 // MermaidState returns a simple Mermaid state diagram (FSM) for a single worker.
@@ -22,7 +22,6 @@ func MermaidState(s State) string {
 	// Active State styling
 	sb.WriteString(fmt.Sprintf("    class %s active\n", s.Status))
 
-	// Terminal states
 	// Terminal states
 	sb.WriteString("    Running --> Stopped: Requested (Exit 0)\n")
 	sb.WriteString("    Running --> Finished: Natural (Exit 0)\n")
@@ -56,106 +55,72 @@ func MermaidState(s State) string {
 // MermaidTree returns a Mermaid diagram string representing the worker structure (Tree).
 // It renders a hierarchical tree (graph TD) showing parent-child relationships.
 func MermaidTree(s State) string {
-	var sb strings.Builder
-
-	// We use "graph TD" for tree visualization
-	sb.WriteString("graph TD\n")
-
-	// Definitions for styles
-	sb.WriteString(introspection.DefaultStyles())
-
-	// Render Root
-	renderNode(&sb, s, "root", "    ")
-
-	return sb.String()
+	return introspection.TreeDiagram(s, &introspection.DiagramConfig{
+		SecondaryID: "root",
+		NodeStyler:  NodeStyler,
+		NodeLabeler: NodeLabeler,
+	})
 }
 
-// RenderTreeFragment appends the Mermaid tree nodes and links to the provided builder.
-// This is useful for building composite diagrams.
-func RenderTreeFragment(sb *strings.Builder, s State, rootID string, indent string) {
-	renderNode(sb, s, rootID, indent)
-}
-
-func renderNode(sb *strings.Builder, s State, id, indent string) {
-	// 1. Determine Identity & Metadata Enrichment
-	icon, shapeStart, shapeEnd, idClass := getNodeStyle(s)
-
-	// 2. Build Label
-	label := buildNodeLabel(s, icon)
-
-	// 3. Determine Color Class
-	statusClass := s.Status.Key()
-
-	// 4. Write Node and Class Assignment
-	// Use ::: shorthand for the structural class (idClass)
-	// Apply the status class separately for easier styling overrides
-	sb.WriteString(fmt.Sprintf("%s%s%s\"%s\"%s:::%s\n", indent, id, shapeStart, label, shapeEnd, idClass))
-	sb.WriteString(fmt.Sprintf("%sclass %s %s\n", indent, id, statusClass))
-
-	// Render Children
-	for i, child := range s.Children {
-		childID := fmt.Sprintf("%s_%d", id, i)
-		renderNode(sb, child, childID, indent)
-		// Link
-		sb.WriteString(fmt.Sprintf("%s%s --> %s\n", indent, id, childID))
-	}
-}
-
-func getNodeStyle(s State) (icon, shapeStart, shapeEnd, idClass string) {
+// NodeStyler provides worker-specific node styling based on metadata type field.
+func NodeStyler(metadata map[string]string) (icon, shapeStart, shapeEnd, cssClass string) {
 	icon = "🧬 " // Default: Goroutine/Generic
 	shapeStart, shapeEnd = "(", ")"
-	idClass = string(TypeGoroutine)
+	cssClass = string(TypeGoroutine)
 
-	if tStr, ok := s.Metadata["type"]; ok {
+	if tStr, ok := metadata["type"]; ok {
 		// Normalize metadata to lowercase to match our canonical types
 		switch Type(strings.ToLower(tStr)) {
 		case TypeContainer:
 			icon = "📦 "
 			shapeStart, shapeEnd = "[[", "]]"
-			idClass = string(TypeContainer)
+			cssClass = string(TypeContainer)
 		case TypeProcess:
 			icon = "⚙️ "
 			shapeStart, shapeEnd = "[", "]"
-			idClass = string(TypeProcess)
+			cssClass = string(TypeProcess)
 		case TypeFunc:
 			icon = "λ "
 			shapeStart, shapeEnd = "(", ")"
-			idClass = string(TypeFunc)
+			cssClass = string(TypeFunc)
 		case TypeSupervisor:
 			icon = "🧠 "
 			shapeStart, shapeEnd = "{{", "}}" // Hexagon shape for supervisor/orchestrator
-			idClass = string(TypeSupervisor)
+			cssClass = string(TypeSupervisor)
 		}
 	}
 	return
 }
 
-func buildNodeLabel(s State, icon string) string {
+// NodeLabeler provides worker-specific node label formatting.
+func NodeLabeler(name, status string, pid int, metadata map[string]string, icon string) string {
 	var labelParts []string
-	labelParts = append(labelParts, fmt.Sprintf("<b>%s%s</b>", icon, s.Name))
-	labelParts = append(labelParts, string(s.Status))
-
-	if s.PID > 0 {
-		labelParts = append(labelParts, fmt.Sprintf("PID: %d", s.PID))
+	labelParts = append(labelParts, fmt.Sprintf("<b>%s%s</b>", icon, name))
+	if status != "" {
+		labelParts = append(labelParts, status)
 	}
 
-	// Add significant metadata
-	if ip, ok := s.Metadata["ip"]; ok {
-		labelParts = append(labelParts, fmt.Sprintf("🌐 %s", ip))
-	}
-	if ports, ok := s.Metadata["ports"]; ok {
-		labelParts = append(labelParts, fmt.Sprintf("🔌 %s", ports))
-	}
-	if image, ok := s.Metadata["image"]; ok {
-		labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", image))
+	if pid > 0 {
+		labelParts = append(labelParts, fmt.Sprintf("PID: %d", pid))
 	}
 
-	// Reliability Metadata
-	if restarts, ok := s.Metadata[MetadataRestarts]; ok && restarts != "0" {
-		labelParts = append(labelParts, fmt.Sprintf("🔄 Restarts: %s", restarts))
-	}
-	if cb, ok := s.Metadata[MetadataCircuitBreaker]; ok && cb == "triggered" {
-		labelParts = append(labelParts, "<b>🚫 CIRCUIT BREAKER</b>")
+	if metadata != nil {
+		// Add significant metadata
+		if ip, ok := metadata["ip"]; ok {
+			labelParts = append(labelParts, fmt.Sprintf("🌐 %s", ip))
+		}
+		if ports, ok := metadata["ports"]; ok {
+			labelParts = append(labelParts, fmt.Sprintf("🔌 %s", ports))
+		}
+		if image, ok := metadata["image"]; ok {
+			labelParts = append(labelParts, fmt.Sprintf("<i>%s</i>", image))
+		}
+		if restarts, ok := metadata["restarts"]; ok && restarts != "0" {
+			labelParts = append(labelParts, fmt.Sprintf("🔄 Restarts: %s", restarts))
+		}
+		if cb, ok := metadata["circuit_breaker"]; ok && cb == "triggered" {
+			labelParts = append(labelParts, "<b>🚫 CIRCUIT BREAKER</b>")
+		}
 	}
 
 	return strings.Join(labelParts, "<br/>")
