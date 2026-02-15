@@ -708,6 +708,11 @@ func (s *supervisor) String() string {
 	return fmt.Sprintf("Supervisor(%s)", s.name)
 }
 
+// Workers returns the state of all children.
+func (s *supervisor) Workers() []worker.State {
+	return s.State().Children
+}
+
 // State returns the snapshot of the supervisor's state.
 func (s *supervisor) State() worker.State {
 	s.mu.Lock()

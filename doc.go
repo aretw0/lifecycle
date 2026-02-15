@@ -16,12 +16,13 @@ The library is built around three pillars:
  2. Supervisor (The Bridge):
     Manages a tree of Workers (Processes, Containers, Goroutines), ensuring they
     adhere to the parent's lifecycle. It supports restart strategies (OneForOne,
-    OneForAll) and persistent identity (Handover).
+    OneForAll), persistent identity (Handover), and state introspection via Workers().
 
     sup := lifecycle.NewSupervisor("root", lifecycle.SupervisorStrategyOneForOne)
     sup.Add(spec)
+    states := sup.Workers()
 
- 3. Control Plane (The Vision):
+ 3. Control Plane (The Orchestrator):
     Decouples "Events" (Triggers) from "Handlers" (Reactions) via a Router.
     This allows the application to react to external stimuli (Input, Webhooks) dynamically.
 
@@ -33,7 +34,7 @@ The library is built around three pillars:
 For convenience, this package exposes the most commonly used types and constructors
 from the internal `pkg/` structure, grouped by functionality:
 
-  - Runtime:     lifecycle.Run (supports WithLogger, WithMetrics), lifecycle.Go, lifecycle.Do
+  - Runtime:     lifecycle.Run (supports WithLogger, WithMetrics), lifecycle.Go (returns Task, supports WithErrorHandler), lifecycle.Do
   - Signals:     lifecycle.NewSignalContext, lifecycle.WithForceExit
   - Supervision: lifecycle.NewSupervisor, lifecycle.NewProcessWorker
   - Control:     lifecycle.NewRouter, lifecycle.Handle

@@ -24,6 +24,9 @@ type Supervisor interface {
 	// Resume resumes all suspendable children.
 	Resume(context.Context) error
 
+	// Workers returns the state of all children.
+	Workers() []worker.State
+
 	// Watch returns a channel that emits state changes.
 	Watch(context.Context) <-chan introspection.StateChange[worker.State]
 }
