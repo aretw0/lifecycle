@@ -53,7 +53,7 @@ func main() {
 
 	// 5. Dynamic Add: A failing worker (Demonstrate Backoff)
 	l.Info("Adding worker-2 (unstable)")
-	err = sup.Add(lifecycle.SupervisorSpec{
+	if err := sup.Add(lifecycle.SupervisorSpec{
 		Name: "worker-2",
 		Backoff: lifecycle.SupervisorBackoff{
 			InitialInterval: 500 * time.Millisecond,
@@ -67,7 +67,9 @@ func main() {
 				return fmt.Errorf("simulated failure")
 			}), nil
 		},
-	})
+	}); err != nil {
+		l.Error("Failed to add worker-2", "error", err)
+	}
 
 	// Let it crash a few times
 	time.Sleep(3 * time.Second)
