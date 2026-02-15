@@ -66,7 +66,7 @@ Trellis workers often run as children of a supervisor. By using `lifecycle.Run`,
 ## Key Patterns for Durable Workers
 
 1. **Fail-Closed by default**: Assume the process can die at any time. Use `lifecycle` to maximize the "Grace Period".
-2. **Idempotent Suspension**: Ensure `OnSuspend` can be called multiple times without side effects (guaranteed by `lifecycle.SuspendHandler` v2.0+).
+2. **Idempotent Suspension**: Ensure `OnSuspend` can be called multiple times without side effects (guaranteed by `lifecycle.SuspendHandler` v1.5+).
 3. **Observability**: Use `router.State()` to expose whether the durable worker is currently `suspended` or `running` to external monitoring tools.
 
 ## Conclusion

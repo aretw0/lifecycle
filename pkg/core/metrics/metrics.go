@@ -41,7 +41,7 @@ type Provider interface {
 	IncContainerFailed(image string)
 	ObserveContainerDuration(image string, duration time.Duration)
 
-	// Goroutine metrics (v2.0)
+	// Goroutine metrics (v1.5+)
 	IncGoroutineStarted()
 	IncGoroutineFinished()
 	IncGoroutinePanicked()
@@ -52,14 +52,14 @@ type Provider interface {
 	IncGoroutineWaiting()
 	DecGoroutineWaiting()
 
-	// Control Plane Metrics (v2.0)
+	// Control Plane Metrics (v1.5+)
 	IncEventEmitted(source string)
 	IncEventRouted(topic string)
 	IncHandlerExecuted(topic string)
 	IncHandlerError(topic string, err error)
 	ObserveHandlerDuration(topic string, duration time.Duration)
 
-	// Event Backpressure Metrics (v2.0)
+	// Event Backpressure Metrics (v1.5+)
 	ObserveEventBlockDuration(source string, duration time.Duration)
 	IncEventWaiting(source string)
 	DecEventWaiting(source string)

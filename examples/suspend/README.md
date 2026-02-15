@@ -29,7 +29,7 @@ This ensures that even if the Suspend logic hangs, you can always force-quit the
 
 * **`shared/`**: Common logic (persistence, shared workers, factory runner).
 * **`cond/`**: Implementation using `sync.Cond`. Best for legacy code or simple wait/signal requirements.
-* **`channels/`**: Implementation using channels and `select`. Idiomatic v2.x style, highly composable and better integration with Go's concurrency model.
+* **`channels/`**: Implementation using channels and `select`. Idiomatic v1.5+ style, highly composable and better integration with Go's concurrency model.
 
 ## 🚀 Running
 
@@ -53,6 +53,6 @@ Each version implements different suspension strategies:
 
 Uses a shared mutex and condition variable. Note that `cond.Wait()` cannot be easily cancelled by context, so it requires a wrapper or manual loop check.
 
-### 2. Channels (v2.x Style)
+### 2. Channels (v1.5+ Style)
 
 Uses `select` to listen for `suspend`/`resume` signals. Fully context-aware and integrates seamlessly with `lifecycle.BaseWorker`.

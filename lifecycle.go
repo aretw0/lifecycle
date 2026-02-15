@@ -105,7 +105,7 @@ func Sleep(ctx context.Context, d time.Duration) error {
 // ======================================================================================
 
 // Context represents the signal context.
-// It is the stable contract for signal handling in v2.0.
+// It is the stable contract for signal handling in v1.5+.
 // It wraps a standard context.Context and adds signal-specific metadata (Reason, ForceExit).
 // Consumers like Trellis should rely on this type definition.
 type Context = signal.Context
@@ -433,7 +433,7 @@ func WorkerStateDiagram(s WorkerState) string {
 }
 
 // ======================================================================================
-// 4. Control Plane (v2)
+// 4. Control Plane (v1.5+)
 // ======================================================================================
 
 // Event is a stimulus that triggers a reaction.

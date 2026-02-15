@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Level 3: Control Plane
-	// This example demonstrates the Event-Driven architecture of lifecycle v2.
+	// This example demonstrates the Event-Driven architecture of lifecycle v1.5+.
 	// - Routing Events (Webhooks)
 	// - Managed Concurrency (lifecycle.Run)
 

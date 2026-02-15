@@ -77,7 +77,7 @@ func main() {
 
 	// 6. Run Everything
 	fmt.Println("================================================================")
-	fmt.Println(" LIFECYCLE V2.0 - RELIABILITY SHOWCASE")
+	fmt.Println(" LIFECYCLE V1.5+ - RELIABILITY SHOWCASE")
 	fmt.Println("================================================================")
 	fmt.Println(" This demo shows:")
 	fmt.Println(" 1. Auto-healing (Supervisor)")
