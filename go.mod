@@ -3,7 +3,7 @@ module github.com/aretw0/lifecycle
 go 1.25.4
 
 require (
-	github.com/aretw0/introspection v0.1.2
+	github.com/aretw0/introspection v0.1.3
 	github.com/aretw0/procio v0.1.2
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/uuid v1.6.0
