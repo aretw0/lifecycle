@@ -178,7 +178,7 @@
 
 #### Extensible Panic Observability (Nível 3): (v1.6+)
 
-**Context**: v1.5.1 introduced conditional stack traces (Nível 1). Now extend this with full customization via the `Observer` pattern.
+**Context**: v1.5.2 introduced conditional stack traces (Nível 1). Now extend this with full customization via the `Observer` pattern.
 
 - [ ] **Observer Interface Extension**:
   - [ ] Add `OnGoroutinePanicked(recovered any, stack []byte)` method to `pkg/core/observe.Observer`.
@@ -200,6 +200,14 @@
 - [ ] **Worker Integration Pattern**:
   - [ ] Document how custom worker implementations (e.g., Loam's `watchWorker`) can leverage the same pattern.
   - [ ] Provide example in `examples/` showing panic recovery + stack capture for custom workers.
+  - [ ] **Protected Resource Cleanup Pattern** (Discovered in Loam's debouncer - Feb 2026):
+    - When async callbacks (e.g., debouncer timers) send on channels, formalize this 3-stage shutdown:
+      1. **STOP**: Flag to reject new work (e.g., `debouncer.closed = true`)
+      2. **WAIT**: Use `sync.WaitGroup` to track in-flight callbacks, wait before proceeding
+      3. **CLOSE**: Safe to close resources (channels, etc.) - no goroutines will try to send
+    - Document in TECHNICAL.md (new section after "Worker Protocol" §8)
+    - Provide `stopAndWait(timeout)` helper pattern / example
+    - Applicable to: Watchers, debouncers, queue processors, any system with **async callbacks + channel closure**
 
 - [ ] **Downstream Adoption**:
   - [ ] Loam `pkg/adapters/fs` can migrate from custom panic handling to `WithStackCapture(true)`.
