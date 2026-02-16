@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"runtime/debug"
 	"sync"
 
 	"github.com/aretw0/lifecycle/pkg/core/log"
@@ -69,6 +71,16 @@ func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) T
 				// We log specifically for background tasks, as they have no caller to return error to.
 				log.Error("background task panic", "recover", r)
 				metrics.GetProvider().IncGoroutinePanicked()
+
+				// Conditional stack trace (only if debug logging is enabled).
+				// This aligns with "Observability by Default" (see TECHNICAL.md §2.4):
+				// In development (debug level), full stack helps diagnose issues.
+				// In production (info level), stack is omitted to reduce log noise.
+				logger := log.GetLogger()
+				if logger.Enabled(context.Background(), slog.LevelDebug) {
+					log.Debug("panic stack trace", "stack", string(debug.Stack()))
+				}
+
 				// Capture panic as error
 				handle.err = fmt.Errorf("panic: %v", r)
 				if cfg.errorHandler != nil {

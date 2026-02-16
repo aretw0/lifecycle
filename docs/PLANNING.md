@@ -138,6 +138,26 @@
 
 ---
 
+## v1.5.1 (lint patch) ✅
+
+- [x] **Lint**: Add lint target and fix all issues (golangci-lint)
+
+## v1.5.2 (Alignment patch) ✅
+
+- [x] **Analysis**: Panic recovery in `lifecycle.Go()` only logs the panic value. To diagnose root causes, stack traces are essential, but not in production (log noise vs. disk I/O cost).
+- [x] **Design**: Implement conditional stack capture—log full `runtime/debug.Stack()` only when debug logging is enabled (`slog.LevelDebug`).
+- [x] **Implementation**:
+  - [x] Modified `pkg/core/runtime/task.go` panic handler to check logger level before capturing stack.
+  - [x] Added `import "runtime/debug"` for stack extraction.
+  - [x] Stack traces appear in development (helpful for debugging), omitted in production (reduces overhead).
+- [x] **Documentation**:
+  - [x] Create `docs/MIGRATION.md` with v1.5 upgrade guide and patterns.
+  - [x] Update documentation and examples to align with v1.5 changes.
+  - [x] Updated code comment explaining the strategy (aligns with TECHNICAL.md §2.4).
+  - [x] Non-breaking change (conditional capture has zero overhead if debug is disabled).
+
+---
+
 ## Roadmap: Iterative Releases
 
 ### v1.6: Advanced Stability & Ecosystem
@@ -155,6 +175,35 @@
 - [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
 - [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
 - [ ] **State Bridge**: Mechanism to hand over "hot" state (e.g., open file descriptors, active sessions) across restarts without serialization.
+
+#### Extensible Panic Observability (Nível 3): (v1.6+)
+
+**Context**: v1.5.1 introduced conditional stack traces (Nível 1). Now extend this with full customization via the `Observer` pattern.
+
+- [ ] **Observer Interface Extension**:
+  - [ ] Add `OnGoroutinePanicked(recovered any, stack []byte)` method to `pkg/core/observe.Observer`.
+  - [ ] Allows consumers to route panics to external systems (Sentry, Datadog, structured logging backends).
+  - [ ] Stack bytes are pre-captured (no performance penalty if observer is unused).
+
+- [ ] **GoOption Configuration** (Explicit Control):
+  - [ ] Add `WithStackCapture(bool)` option to `lifecycle.Go()`.
+  - [ ] Default: Auto-detect (capture if debug level enabled, otherwise skip).
+  - [ ] Allows forced capture in production for critical tasks, or forced skip in debug for performance testing.
+  - [ ] Example:
+
+    ```go
+    lifecycle.Go(ctx, criticalTask, lifecycle.WithStackCapture(true))   // Always capture
+    lifecycle.Go(ctx, debugTask, lifecycle.WithStackCapture(false))     // Never capture
+    lifecycle.Go(ctx, normalTask)                                        // Auto-detect
+    ```
+
+- [ ] **Worker Integration Pattern**:
+  - [ ] Document how custom worker implementations (e.g., Loam's `watchWorker`) can leverage the same pattern.
+  - [ ] Provide example in `examples/` showing panic recovery + stack capture for custom workers.
+
+- [ ] **Downstream Adoption**:
+  - [ ] Loam `pkg/adapters/fs` can migrate from custom panic handling to `WithStackCapture(true)`.
+  - [ ] Trellis task execution can use `OnGoroutinePanicked` hook for operational dashboards.
 
 #### 🐛 Technical Debt Resolution
 
