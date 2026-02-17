@@ -2,11 +2,15 @@ package runtime_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/observe"
 	"github.com/aretw0/lifecycle/pkg/core/runtime"
 )
 
@@ -61,6 +65,80 @@ func TestGo_PanicSafe(t *testing.T) {
 	}
 	if provider.lastSuccess {
 		t.Error("Expected critical section to be marked as failed due to panic")
+	}
+}
+
+func TestGo_OnGoroutinePanicked_StackCaptureEnabled(t *testing.T) {
+	observer := &mockObserver{}
+	observe.SetObserver(observer)
+	defer observe.SetObserver(nil)
+
+	var wg sync.WaitGroup
+	ctx := runtime.WithTaskTracking(context.Background(), &wg)
+	runtime.Go(ctx, func(ctx context.Context) error {
+		panic("boom")
+	}, runtime.WithStackCapture(true))
+
+	wg.Wait()
+
+	panickedCalls, stack := observer.snapshot()
+	if panickedCalls != 1 {
+		t.Fatalf("Expected 1 panic callback, got %d", panickedCalls)
+	}
+	if len(stack) == 0 {
+		t.Error("Expected stack capture when enabled")
+	}
+}
+
+func TestGo_OnGoroutinePanicked_StackCaptureDisabled(t *testing.T) {
+	observer := &mockObserver{}
+	observe.SetObserver(observer)
+	defer observe.SetObserver(nil)
+
+	var wg sync.WaitGroup
+	ctx := runtime.WithTaskTracking(context.Background(), &wg)
+	runtime.Go(ctx, func(ctx context.Context) error {
+		panic("boom")
+	}, runtime.WithStackCapture(false))
+
+	wg.Wait()
+
+	panickedCalls, stack := observer.snapshot()
+	if panickedCalls != 1 {
+		t.Fatalf("Expected 1 panic callback, got %d", panickedCalls)
+	}
+	if len(stack) != 0 {
+		t.Error("Expected no stack capture when disabled")
+	}
+}
+
+func TestGo_OnGoroutinePanicked_AutoDetectDebug(t *testing.T) {
+	observer := &mockObserver{}
+	observe.SetObserver(observer)
+	defer observe.SetObserver(nil)
+
+	logger := log.GetLogger()
+	defer log.SetLogger(logger)
+
+	debugLogger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	log.SetLogger(debugLogger)
+
+	var wg sync.WaitGroup
+	ctx := runtime.WithTaskTracking(context.Background(), &wg)
+	runtime.Go(ctx, func(ctx context.Context) error {
+		panic("boom")
+	})
+
+	wg.Wait()
+
+	panickedCalls, stack := observer.snapshot()
+	if panickedCalls != 1 {
+		t.Fatalf("Expected 1 panic callback, got %d", panickedCalls)
+	}
+	if len(stack) == 0 {
+		t.Error("Expected stack capture when debug logging is enabled")
 	}
 }
 
@@ -144,4 +222,34 @@ type mockMetricsProvider struct {
 func (m *mockMetricsProvider) IncCriticalSectionFinished(success bool) {
 	m.criticalSectionFinished++
 	m.lastSuccess = success
+}
+
+type mockObserver struct {
+	panickedCalls int
+	recovered     any
+	stack         []byte
+	mu            sync.Mutex
+}
+
+func (m *mockObserver) OnProcessStarted(int)  {}
+func (m *mockObserver) OnProcessFailed(error) {}
+func (m *mockObserver) LogDebug(string, ...any) {}
+func (m *mockObserver) LogInfo(string, ...any)  {}
+func (m *mockObserver) LogWarn(string, ...any)  {}
+func (m *mockObserver) LogError(string, ...any) {}
+
+func (m *mockObserver) OnGoroutinePanicked(recovered any, stack []byte) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.panickedCalls++
+	m.recovered = recovered
+	m.stack = stack
+}
+
+func (m *mockObserver) snapshot() (int, []byte) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	stackCopy := make([]byte, len(m.stack))
+	copy(stackCopy, m.stack)
+	return m.panickedCalls, stackCopy
 }

@@ -10,6 +10,7 @@ import "sync"
 type Observer interface {
 	OnProcessStarted(pid int)
 	OnProcessFailed(err error)
+	OnGoroutinePanicked(recovered any, stack []byte)
 	LogDebug(msg string, args ...any)
 	LogInfo(msg string, args ...any)
 	LogWarn(msg string, args ...any)
@@ -42,6 +43,7 @@ type NoOpObserver struct{}
 
 func (NoOpObserver) OnProcessStarted(int)    {}
 func (NoOpObserver) OnProcessFailed(error)   {}
+func (NoOpObserver) OnGoroutinePanicked(any, []byte) {}
 func (NoOpObserver) LogDebug(string, ...any) {}
 func (NoOpObserver) LogInfo(string, ...any)  {}
 func (NoOpObserver) LogWarn(string, ...any)  {}

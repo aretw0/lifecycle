@@ -9,6 +9,7 @@ import (
 
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
+	"github.com/aretw0/lifecycle/pkg/core/observe"
 )
 
 type taskTrackerKey struct{}
@@ -72,13 +73,22 @@ func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) T
 				log.Error("background task panic", "recover", r)
 				metrics.GetProvider().IncGoroutinePanicked()
 
-				// Conditional stack trace (only if debug logging is enabled).
-				// This aligns with "Observability by Default" (see TECHNICAL.md §2.4):
-				// In development (debug level), full stack helps diagnose issues.
-				// In production (info level), stack is omitted to reduce log noise.
 				logger := log.GetLogger()
-				if logger.Enabled(context.Background(), slog.LevelDebug) {
-					log.Debug("panic stack trace", "stack", string(debug.Stack()))
+				debugEnabled := logger.Enabled(context.Background(), slog.LevelDebug)
+				capture := debugEnabled
+				if cfg.stackCapture != nil {
+					capture = *cfg.stackCapture
+				}
+
+				var stack []byte
+				if capture {
+					stack = debug.Stack()
+				}
+				if obs := observe.GetObserver(); obs != nil {
+					obs.OnGoroutinePanicked(r, stack)
+				}
+				if capture && debugEnabled {
+					log.Debug("panic stack trace", "stack", string(stack))
 				}
 
 				// Capture panic as error

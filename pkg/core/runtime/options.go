@@ -34,6 +34,7 @@ type GoOption func(*goConfig)
 
 type goConfig struct {
 	errorHandler ErrorHandler
+	stackCapture *bool
 }
 
 // WithErrorHandler registers a handler for task errors.
@@ -41,5 +42,15 @@ type goConfig struct {
 func WithErrorHandler(h ErrorHandler) GoOption {
 	return func(c *goConfig) {
 		c.errorHandler = h
+	}
+}
+
+// WithStackCapture forces stack capture behavior for background task panics.
+// When enabled, stack traces are captured for observer hooks even if debug logging is off.
+// When disabled, stack traces are skipped even if debug logging is on.
+// If not set, behavior auto-detects based on debug logging level.
+func WithStackCapture(enabled bool) GoOption {
+	return func(c *goConfig) {
+		c.stackCapture = &enabled
 	}
 }
