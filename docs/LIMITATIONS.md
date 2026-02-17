@@ -1,6 +1,6 @@
 # Limitations & Known Issues
 
-> **Last Updated**: February 16, 2026 (v1.6.0)
+> **Last Updated**: February 16, 2026 (v1.6.1)
 > 
 > This document lists known limitations, platform-specific constraints, and unsolved problems. **Transparency is a feature.**
 

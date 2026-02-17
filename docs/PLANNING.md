@@ -228,28 +228,58 @@
     - [x] Trade-offs of each approach
   - [x] Create example for both patterns
 
-#### v1.6.1 (Patch): Technical Debt Resolution (Mapping + Documentation)
+#### v1.6.1 (Patch): Technical Debt Mapping & Documentation
 
 > [!IMPORTANT]
-> **v1.6.1 Completed (2026-02-16)**: All technical debt mapping and documentation has been completed. Code annotations added, limitations documented, and coverage re-baselined.
+> **v1.6.1 Completed (2026-02-16)**: Technical debt has been mapped and documented.
+> This patch focuses on **Transparency & API Clarity**, not on performance measurement or new tests.
+> Benchmarks and comprehensive testing of router limitations are planned for **v1.6.2**.
 
-- [x] **Debt Mapping**:
+- [x] **Debt Mapping & Documentation**:
   - [x] Scan codebase for `TODO`, `FIXME`, `HACK` comments (1 TODO found: router.go:192 "Optimize if many routes")
   - [x] Identify unstable/experimental APIs (all APIs either Stable or marked as such)
-  - [x] Document known limitations clearly:
+  - [x] Document known limitations clearly in new [LIMITATIONS.md](LIMITATIONS.md):
     - [x] macOS: No PDeathSig (best-effort zombie prevention)
     - [x] `path.Match`: Glob only, not full regex
     - [x] Performance: ~5-10μs overhead per `lifecycle.Go` call
+    - [x] Coverage: High (>80%) for core logic; excluded metrics/termio/filewatch
+    - [x] Compatibility matrix: Go 1.20+, Windows, macOS, Linux
   
-- [x] **Update Technical Debt Section** (below) with concrete items:
-  - [x] Created [LIMITATIONS.md](LIMITATIONS.md) with platform-specific constraints, feature limitations, and performance unknowns
-  - [x] Added §15 "Known Limitations" to TECHNICAL.md with cross-links to LIMITATIONS.md
-  - [x] Updated TESTING.md to reference LIMITATIONS.md compatibility matrix
-  - [x] Code annotations added to clarify API stability and behavior:
-    - [x] `pkg/core/observe/observe.go`: Marked Observer as "Stable as of v1.6.0"
-    - [x] `pkg/events/router.go`: Documented glob-only pattern matching with examples
-    - [x] `pkg/core/runtime/task.go`: Clarified three-mode stack capture behavior
-    - [x] `lifecycle.go`: Marked `Context()` and `WithStackCapture()` as Stable v1.6.0
+- [x] **Documentation & Code Annotations**:
+  - [x] Created [LIMITATIONS.md](LIMITATIONS.md) (comprehensive; 200+ lines)
+  - [x] Added §15 "Known Limitations" to TECHNICAL.md with cross-links
+  - [x] Updated TESTING.md to reference compliance matrix
+  - [x] Code annotations in 4 files to clarify API stability:
+    - [x] `pkg/core/observe/observe.go`: Observer marked Stable (v1.6.0)
+    - [x] `pkg/events/router.go`: Glob-only pattern syntax documented
+    - [x] `pkg/core/runtime/task.go`: Three-mode stack capture explained
+    - [x] `lifecycle.go`: APIs Context() and WithStackCapture() stabilized
+
+---
+
+### v1.6.2 (Patch): Performance Benchmarks & Consolidation
+
+**Focus**: Measure actual overhead, consolidate multi-source documentation, provide optimization path.
+
+#### v1.6.2 Planned Work
+
+- [ ] **Benchmarks** (github.com/aretw0/lifecycle/pkg/core/runtime/benchmark_test.go):
+  - [ ] `lifecycle.Go` vs `go func()` + manual WaitGroup
+  - [ ] Router matching: exact match vs glob match (O(1) vs O(n))
+  - [ ] Observer invocation overhead (with OneGoroutinePanicked hook)
+  - [ ] Stack capture overhead (enabled vs disabled vs auto-detect)
+  - [ ] Large supervision tree traversal (100+ workers)
+
+- [ ] **Router Documentation Consolidation**:
+  - [ ] Single source of truth: Which doc owns "glob-only pattern" explanation?
+  - [ ] Remove duplication between router.go comments, LIMITATIONS.md, TECHNICAL.md
+  - [ ] Add benchmarks for "O(n) lookup" caveat
+
+- [ ] **Baseline Unknowns → Known**:
+  - [ ] Measure introspection overhead (State() calls on large trees)
+  - [ ] Measure Router throughput (events/sec with varying route counts)
+  - [ ] Measure memory footprint (1000+ worker supervision trees)
+  - [ ] Update LIMITATIONS.md with measured data
 
 ---
 

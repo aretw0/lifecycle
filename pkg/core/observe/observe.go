@@ -11,7 +11,7 @@ import "sync"
 //
 // OnGoroutinePanicked hook (v1.6.0): Invoked when a background task panics.
 // Stack bytes are optional (depends on WithStackCapture configuration).
-// See [LIMITATIONS.md](../../docs/LIMITATIONS.md#observer-interface-v160) for behavior details.
+// Behavior details: See docs/LIMITATIONS.md (API Stability section) and docs/TECHNICAL.md §14.
 type Observer interface {
 	OnProcessStarted(pid int)
 	OnProcessFailed(err error)

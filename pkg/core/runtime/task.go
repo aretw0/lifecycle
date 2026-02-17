@@ -79,7 +79,7 @@ func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) T
 				//   3. Unset (default):         Auto-detect via slog.LevelDebug; capture only in debug mode
 				// This reduces production overhead (no stack capture in prod unless explicitly needed)
 				// while enabling detailed diagnostics in development.
-				// See LIMITATIONS.md for performance impact (+1-2µs if enabled).
+				// See docs/LIMITATIONS.md for performance impact and behavior details.
 				logger := log.GetLogger()
 				debugEnabled := logger.Enabled(context.Background(), slog.LevelDebug)
 				capture := debugEnabled
