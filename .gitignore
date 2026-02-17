@@ -8,6 +8,12 @@
 *coverage*.txt
 *coverage*.out
 
+# Benchmark Results
+benchmark_results/
+*.prof
+cpu.out
+mem.out
+
 # Examples
 examples/**/config.json
 

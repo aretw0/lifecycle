@@ -1,52 +1,69 @@
-.PHONY: tidy vet lint test coverage serve-docs stress clean-zombies work-on-procio work-on-introspection work-off-procio work-off-introspection work-off-all
+.PHONY: tidy vet lint test coverage \ 
+	serve-docs stress clean-zombies \
+	work-on-procio work-on-introspection work-off-procio work-off-introspection work-off-all
+
+# Go parameters
+GOCMD=go
+GOVET=$(GOCMD) vet
+GORUN=$(GOCMD) run
+GOMOD=$(GOCMD) mod
+GOWORK=$(GOCMD) work
+GOTEST=$(GOCMD) test
+GOTOOL=$(GOCMD) tool
 
 # --- OS Detection & Command Abstraction ---
 ifeq ($(OS),Windows_NT)
-BINARY := trellis.exe
 RM := del /F /Q
-CURL := curl.exe
 # Windows needs backslashes for 'go work edit -dropuse' to match go.work content
-DROP_WORK = if exist go.work ( go work edit -dropuse $(subst /,\,$(1)) )
-INIT_WORK = if not exist go.work ( echo "Initializing go.work..." & go work init . )
+DROP_WORK = if exist go.work ( $(GOWORK) edit -dropuse $(subst /,\,$(1)) )
+INIT_WORK = if not exist go.work ( echo "Initializing go.work..." & $(GOWORK) init . )
 else
-BINARY := trellis
 RM := rm -f
-CURL := curl
 # Linux/macOS uses forward slashes
-DROP_WORK = [ -f go.work ] && go work edit -dropuse $(1)
-INIT_WORK = [ -f go.work ] || ( echo "Initializing go.work..." && go work init . )
+DROP_WORK = [ -f go.work ] && $(GOWORK) edit -dropuse $(1)
+INIT_WORK = [ -f go.work ] || ( echo "Initializing go.work..." && $(GOWORK) init . )
 endif
 
 
 # Ensure dependencies are clean
 tidy:
-	go mod tidy
+	@echo "Tidying Go modules..."
+	$(GOMOD) tidy
 
 # Run vet tool in all files
 vet:
-	go vet ./...
+	@echo "Running go vet..."
+	$(GOVET) ./...
 
 # Run ineffassign to detect ineffectual assignments
 lint:
-	go run github.com/gordonklaus/ineffassign@latest ./...
+	$(GORUN) github.com/gordonklaus/ineffassign@latest ./...
 
 # Run all tests
 # Note: -race is mandatory for verifying behavioral logic and concurrency safety.
 test:
-	go test -race -timeout 90s ./...
+	$(GOTEST) -race -timeout 90s ./...
 
 # Run coverage tests (powershell on Windows needs double quotes for file paths)
 coverage:
-	go test -race -timeout 90s -coverprofile="coverage.out" ./...
-	go tool cover -func="coverage.out"
+	$(GOTEST) -race -timeout 90s -coverprofile="coverage.out" ./...
+	$(GOTOOL) cover -func="coverage.out"
+
+# Run benchmarks (performance measurements)
+# Note: Some benchmarks intentionally trigger panics (stack capture tests) and generate error logs.
+# This is expected behavior and does not affect benchmark accuracy.
+benchmark:
+	@echo "==> Running lifecycle benchmarks..."
+	$(GOTEST) -bench=. -benchmem -benchtime=5s ./pkg/core/runtime/
+	$(GOTEST) -bench=. -benchmem -benchtime=5s ./pkg/events/
 
 # Run local Go documentation server (pkgsite)
 serve-docs:
-	go tool godoc -http=:6060
+	$(GOTOOL) godoc -http=:6060
 
 # Run stress tests
 stress:
-	go test -race -v -tags=stress -count=1 -timeout 2m ./pkg/worker/...
+	$(GOTEST) -race -v -tags=stress -count=1 -timeout 2m ./pkg/worker/...
 
 # Cleanup leaked processes during development (OS specific)
 # Note: On Windows, we use powershell to find and kill processes with 'lifecycle' in the name.
@@ -67,14 +84,14 @@ GET_PATH = $(if $(WORK_PATH),$(WORK_PATH),$(1))
 work-on-procio:
 	@echo "Enabling local procio..."
 	@$(INIT_WORK)
-	go work use $(call GET_PATH,../procio)
+	$(GOWORK) use $(call GET_PATH,../procio)
 
 # Enable local development mode for introspection
 # Usage: make work-on-introspection [WORK_PATH=../introspection]
 work-on-introspection:
 	@echo "Enabling local introspection..."
 	@$(INIT_WORK)
-	go work use $(call GET_PATH,../introspection)
+	$(GOWORK) use $(call GET_PATH,../introspection)
 
 # Disable local procio
 # Usage: make work-off-procio [WORK_PATH=../procio]
