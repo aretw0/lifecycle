@@ -435,10 +435,10 @@ The `Router` is the central nervous system of the Control Plane, inspired by `ne
 
 #### 11.1. Mux-Style Pattern Matching
 
-Routes are defined using string patterns. We support:
+Routes are defined using string patterns:
 
-* **Exact Match**: `"webhook/reload"`
-* **Glob Match**: `"signal.*"` (using `path.Match`)
+* **Exact Match**: `"webhook/reload"` (O(1) map lookup)
+* **Glob Match**: `"signal.*"` (O(n) linear search using `path.Match`)
 
 ```go
 router.HandleFunc("signal.*", func(ctx context.Context, e Event) error {
@@ -446,6 +446,8 @@ router.HandleFunc("signal.*", func(ctx context.Context, e Event) error {
     return nil
 })
 ```
+
+> **Pattern Syntax & Performance**: For detailed pattern syntax, performance benchmarks (scaling with route count), and examples, see [LIMITATIONS.md - Router Pattern Matching](LIMITATIONS.md#router-pattern-matching) and `pkg/events/router_benchmark_test.go`.
 
 #### 11.2. Standard Events (Control Plane)
 

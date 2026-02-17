@@ -184,22 +184,17 @@ func (r *Router) Dispatch(ctx context.Context, e Event) {
 	// Metrics
 	metrics.GetProvider().IncEventRouted(topic)
 
-	// 1. Exact match
+	// 1. Exact match (O(1) map lookup)
 	if h, ok := r.routes[topic]; ok {
 		matchedHandler = h
 	} else {
-		// 2. Glob match (path.Match: *, ?, [...] only; not full regex)
-		// Note: Pattern matching is glob-only, not regex. Examples:
-		//   ✅ signal/*/handler
-		//   ✅ signal/[it]* (matches 'signal/interrupt' and 'signal/terminate')
-		//   ❌ signal/(int|term) (not supported; use multiple routes instead)
-		// For full feature details and performance implications, see LIMITATIONS.md.
-		//
-		// TODO: Optimize if many routes (O(n) linear search; consider indexing for 100+)
+		// 2. Glob match (O(n) linear search using path.Match)
+		// Pattern syntax: glob-only (*, ?, [...]), not full regex.
+		// Performance implications: See docs/LIMITATIONS.md and router_benchmark_test.go.
 		for pattern, h := range r.routes {
 			if matched, _ := path.Match(pattern, topic); matched {
 				matchedHandler = h
-				break // First match wins? Or aggregation? Sticking to first match for Mux style.
+				break // First match wins (mux-style)
 			}
 		}
 	}
