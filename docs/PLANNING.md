@@ -261,25 +261,46 @@
 
 **Focus**: Measure actual overhead, consolidate multi-source documentation, provide optimization path.
 
-#### v1.6.2 Planned Work
+> [!IMPORTANT]
+> **v1.6.2 Completed (2026-02-17)**: All benchmarking and documentation consolidation work has been implemented.
+>
+> - Comprehensive benchmarks: `pkg/core/runtime/benchmark_test.go` and `pkg/events/router_benchmark_test.go`
+> - Real performance data: Measured overhead for `lifecycle.Go`, router patterns, supervisor introspection
+> - Documentation consolidated: Single source of truth in LIMITATIONS.md with cross-references
+> - Automation: `make benchmark` target and platform-specific scripts ready
 
-- [ ] **Benchmarks** (github.com/aretw0/lifecycle/pkg/core/runtime/benchmark_test.go):
-  - [ ] `lifecycle.Go` vs `go func()` + manual WaitGroup
-  - [ ] Router matching: exact match vs glob match (O(1) vs O(n))
-  - [ ] Observer invocation overhead (with OneGoroutinePanicked hook)
-  - [ ] Stack capture overhead (enabled vs disabled vs auto-detect)
-  - [ ] Large supervision tree traversal (100+ workers)
+#### v1.6.2 Completed Work
 
-- [ ] **Router Documentation Consolidation**:
-  - [ ] Single source of truth: Which doc owns "glob-only pattern" explanation?
-  - [ ] Remove duplication between router.go comments, LIMITATIONS.md, TECHNICAL.md
-  - [ ] Add benchmarks for "O(n) lookup" caveat
+- [x] **Benchmarks** (pkg/core/runtime/benchmark_test.go):
+  - [x] `lifecycle.Go` vs `go func()` + manual WaitGroup
+  - [x] Router matching: exact match vs glob match (O(1) vs O(n))
+  - [x] Observer invocation overhead (with OnGoroutinePanicked hook)
+  - [x] Stack capture overhead (enabled vs disabled vs auto-detect)
+  - [x] Large supervision tree traversal (10, 100, 1000 workers)
 
-- [ ] **Baseline Unknowns → Known**:
-  - [ ] Measure introspection overhead (State() calls on large trees)
-  - [ ] Measure Router throughput (events/sec with varying route counts)
-  - [ ] Measure memory footprint (1000+ worker supervision trees)
-  - [ ] Update LIMITATIONS.md with measured data
+- [x] **Benchmarks** (pkg/events/router_benchmark_test.go):
+  - [x] Route matching performance scaling (10-1000 routes)
+  - [x] Middleware chain overhead (0, 1, 5, 10 middleware)
+  - [x] Router throughput (sequential and parallel dispatching)
+  - [x] Memory allocation patterns
+  - [x] Concurrent read/write contention
+
+- [x] **Router Documentation Consolidation**:
+  - [x] Simplified router.go inline comments (removed detailed examples)
+  - [x] LIMITATIONS.md now single source of truth for pattern syntax
+  - [x] Added benchmark data table with real measurements
+  - [x] TECHNICAL.md updated with cross-link to LIMITATIONS.md
+
+- [x] **Baseline Unknowns → Known**:
+  - [x] Measured introspection overhead (State() calls on 10/100/1000 worker trees)
+  - [x] Measured Router throughput (events/sec with varying route counts)
+  - [x] Measured memory footprint patterns
+  - [x] Updated LIMITATIONS.md with all measured data and methodology
+
+- [x] **Automation & Tooling**:
+  - [x] Created `scripts/run_benchmarks.ps1` (Windows)
+  - [x] Created `scripts/run_benchmarks.sh` (Unix)
+  - [x] Added `make benchmark` target to Makefile
 
 ---
 

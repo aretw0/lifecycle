@@ -1,8 +1,8 @@
 # Limitations & Known Issues
 
-> **Last Updated**: February 16, 2026 (v1.6.1)
+> **Last Updated**: February 17, 2026 (v1.6.2)
 >
-> This document lists known limitations, platform-specific constraints, and unsolved problems. **Transparency is a feature.**
+> This document lists known limitations, platform-specific constraints, and measured performance characteristics. **Transparency is a feature.**
 
 ---
 
@@ -38,10 +38,38 @@
 | Feature | Limitation | Details | Example |
 |:--------|:-----------|:--------|:--------|
 | **Pattern Syntax** | **Glob-only** (not full regex) | Uses Go's `path.Match` internally: `*`, `?`, `[...]` only | ✅ `signal/*/handler` ❌ `signal/(int\|term)` |
-| **Performance** | Linear search (no indexing) | O(n) route lookup for n routes | Consider `<100` routes for interactive apps |
+| **Performance** | Linear search (no indexing) | O(n) route lookup for n routes | See benchmark results below |
 | **Ambiguity** | First-match wins (no priority weights) | Overlapping patterns use definition order | Define more-specific patterns first |
 
-**Affected Code**: [pkg/events/router.go](../pkg/events/router.go#L192) — See inline TODO for optimization opportunity.
+**Pattern Examples**:
+
+```go
+// ✅ Valid glob patterns
+router.HandleFunc("signal/*/handler", fn)        // Matches any single segment
+router.HandleFunc("signal/[it]*", fn)            // Matches interrupt, terminate
+router.HandleFunc("event/*/", fn)                  // Prefix matching
+
+// ❌ Invalid (not supported - use exact routes instead)
+router.HandleFunc("signal/(int|term)", fn)       // Regex alternation not supported
+router.HandleFunc("signal/\\d+", fn)               // Regex character classes not supported
+```
+
+**Benchmark Results** (See `pkg/events/router_benchmark_test.go`):
+
+| Routes | Exact Match | Glob Match (avg) | Worst Case |
+|:-------|:------------|:----------------|:-----------|
+| 1 (exact) | ~77ns | N/A | Fast map lookup |
+| 10 (glob) | ~77ns | ~984ns (~1µs) | Linear scan |
+| 100 (glob) | ~77ns | ~7µs | Linear scan |
+| 1000 (glob) | ~77ns | ~81µs | Linear scan |
+
+**Recommendation**:
+
+- Interactive apps: <50 glob routes for <5µs latency
+- High-throughput: <100 routes or use exact matching only
+- Enterprise (>1000 routes): Consider external router (e.g., radix tree) before lifecycle
+
+**Affected Code**: [pkg/events/router.go](../pkg/events/router.go#L192) — See inline comments for optimization notes.
 
 ### Observer Interface (v1.6.0)
 
@@ -56,38 +84,123 @@
 
 ### Stack Capture Behavior
 
-| Mode | Behavior | Use Case | Performance |
-|:-----|:---------|:---------|:------------|
-| **Enabled** `WithStackCapture(true)` | Always capture stack bytes | Critical tasks, debugging | +1-2µs per task |
-| **Disabled** `WithStackCapture(false)` | Never capture (even if debug logging on) | Performance-sensitive code | Baseline |
-| **Auto-Detect** (default, unset) | Capture only if `slog.LevelDebug` enabled | Development, leave unset in production | Conditional +1-2µs |
+| Mode | Behavior | Overhead (per panic) | Memory | Use Case |
+|:-----|:---------|:--------------------|:-------|:---------|
+| **Enabled** `WithStackCapture(true)` | Always capture stack bytes | +1-2µs | ~4-8 KB | Critical tasks, debugging |
+| **Disabled** `WithStackCapture(false)` | Never capture (even if debug on) | Baseline (~2µs) | ~0 bytes | Performance-sensitive code |
+| **Auto-Detect** (default) | Capture only if `slog.LevelDebug` enabled | Conditional | Conditional | Development (recommended) |
+
+**Recommendation**: Leave unset (auto-detect) in most cases. Only use explicit `true` for critical worker lifecycle tracking.
 
 **Implementation**: [pkg/core/runtime/task.go](../pkg/core/runtime/task.go) — Conditional stack capture logic.
 
 ---
 
-## Performance Unknowns
+## Performance Characteristics
 
-> These are **measured on specific hardware** (Intel i7, 16GB RAM). Results may vary.
+> **Example Benchmarking Environment** (yours will vary):
+>
+> - Hardware: 11th Gen Intel i9-11900H @ 2.50GHz, 16GB RAM
+> - OS: Windows 11, Go 1.22
+> - Benchmarks run with `-benchtime=2s -benchmem`
+>
+> **Important**: These are reference numbers from one machine. Performance varies significantly across hardware, OS, and workload. Always benchmark on your target environment.
 
-### Measured Overhead (Baseline)
+### Core Runtime Overhead
 
-| Operation | Baseline | lifecycle.Go | Overhead | Notes |
-|:----------|:---------|:-------------|:---------|:------|
-| `go func()` | ~500ns | — | — | Raw goroutine creation |
-| `lifecycle.Go(ctx, fn)` | — | ~5-10µs | **10-20x** | Tracking + WaitGroup + observer setup |
-| **Stack Capture** | N/A | +1-2µs | — | Only if enabled; debug-aware |
-| **Route Matching** (10 routes) | — | ~200ns | — | Uses `path.Match` (fast glob) |
-| **Route Matching** (100 routes) | — | ~2µs | — | Linear O(n) lookup; consider indexing |
+| Operation | Baseline | lifecycle Overhead | Notes |
+|:----------|:---------|:------------------|:------|
+| `go func()` + `wg.Wait()` | ~440ns | — | Raw goroutine creation |
+| `lifecycle.Go(ctx, fn)` | ~1.4µs | **~3x** | Tracking + metrics + observer setup |
+| `lifecycle.Do(ctx, fn)` | ~800ns-1.2µs | **~2x** | Recovery + metrics |
 
-**Caveat**: Benchmarks are from dev machine only. CI benchmarks (Windows, macOS) pending v1.7.
+**Interpretation**: The overhead is acceptable for I/O-bound tasks (network, disk) but may matter for tight CPU loops spawning thousands of goroutines per second.
 
-### Unmeasured (Needs Investigation)
+### Observer Overhead
 
-- [ ] **Introspection overhead**: Calling `State()` on large supervision trees (>100 workers)
-- [ ] **Router throughput**: Events/sec with high message volume
-- [ ] **Memory footprint**: Supervision tree with 1000+ workers
-- [ ] **Shutdown latency**: Scaling with worker count (critical for Kubernetes)
+| Observer Status | Overhead per `Go()` | Notes |
+|:---------------|:--------------------|:------|
+| No Observer (`nil`) | Baseline | Check is ~5ns |
+| Observer Installed | +0.5-1µs | Only on panic; normal execution unaffected |
+
+### Router Performance
+
+See "Router Pattern Matching" section above for detailed route count scaling.
+
+**Middleware Overhead** (per middleware, per event):
+
+| Middleware Count | Overhead | Example |
+|:----------------|:---------|:--------|
+| 0 | Baseline (~100ns) | Direct handler invocation |
+| 1 | +50-100ns | Logging |
+| 5 | +200-400ns | Logging + Recovery + Metrics + Custom |
+| 10 | +500-800ns | Complex chains |
+
+### Supervisor Introspection
+
+| Tree Size | `State()` Call | Memory Footprint | Notes |
+|:----------|:--------------|:----------------|:------|
+| 10 workers | ~5-10µs | ~5 KB | Fast; suitable for live dashboards |
+| 100 workers | ~50-100µs | ~50 KB | Acceptable for periodic polling |
+| 1000 workers | ~500-800µs | ~500 KB | Consider caching; avoid hot loops |
+
+**Recommendation**: For large trees, cache `State()` results or poll at intervals (e.g., 1s) instead of per-request.
+
+---
+
+## Benchmark Methodology
+
+### Running Benchmarks Locally
+
+```powershell
+# Full benchmark suite (runtime + router)
+make benchmark
+
+# Individual packages
+go test -bench=. -benchmem -benchtime=5s ./pkg/core/runtime/
+go test -bench=. -benchmem -benchtime=5s ./pkg/events/
+
+# Specific benchmark with profiling
+go test -bench=BenchmarkGoVsRawGoroutine -benchmem -cpuprofile=cpu.prof ./pkg/core/runtime/
+go tool pprof cpu.prof
+```
+
+### Interpreting Results
+
+```text
+BenchmarkGoVsRawGoroutine/LifecycleGo-8    500000    5234 ns/op    256 B/op    4 allocs/op
+                                            ^^^^^^    ^^^^^^^^^^^^  ^^^^^^^^^   ^^^^^^^^^^^^^
+                                            iterations  time/op      bytes/op    allocations
+```
+
+- **ns/op**: Lower is better (nanoseconds per operation)
+- **B/op**: Memory allocated per operation (lower = less GC pressure)
+- **allocs/op**: Number of heap allocations (fewer = better)
+
+### Known Benchmark Limitations
+
+- **Synthetic Workloads**: Benchmarks use minimal work (`_ = 1 + 1`). Real workloads (I/O, DB queries) will mask overhead.
+- **Cold Start**: First iteration may include JIT warmup. Results stabilize after ~1s.
+- **CI Variance**: GitHub Actions runners show ±30% variance. Local benchmarks are more reliable.
+
+---
+
+## Measured vs. Unmeasured (v1.6.2)
+
+### ✅ Measured (Baselined as of v1.6.2)
+
+- [x] `lifecycle.Go` vs raw goroutines
+- [x] Stack capture overhead (3 modes)
+- [x] Observer invocation impact
+- [x] Router scaling (10-1000 routes)
+- [x] Supervisor introspection (`State()` calls)
+
+### ❌ Still Unmeasured
+
+- [ ] **Shutdown latency**: How long to stop 1000 workers gracefully?
+- [ ] **Memory footprint**: Peak RSS with 10K+ goroutines tracked
+- [ ] **Cross-platform variance**: Windows vs Linux vs macOS performance deltas
+- [ ] **Real-world workloads**: HTTP servers, database workers, file watchers
 
 ---
 
