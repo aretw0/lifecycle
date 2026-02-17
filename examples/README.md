@@ -7,6 +7,7 @@ This folder contains runnable examples demonstrating various features of the `li
 These examples demonstrate the core "Death Management" features (v1.0-v1.4). Ideal for CLIs, Scripts, and simple Tools.
 
 * [**basic**](./basic/main.go): The "Hello World" of `lifecycle`. Shows `Run`, `Go`, and `Job`.
+* [**context**](./context/main.go): Manual setup via `lifecycle.Context()` for gradual migration.
 * [**hooks**](./hooks/main.go): How to register and execute synchronous/asynchronous cleanup hooks.
 * [**interactive_dx**](./interactive_dx/main.go): Safe reading from Stdin (Windows `CONIN$` support) that respects context cancellation.
 

@@ -72,12 +72,12 @@ func main() {
 		}),
 		"quit": lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
 			fmt.Println("👋 Shell exiting gracefully...")
-			ctx.(*lifecycle.Context).Cancel()
+			ctx.(*lifecycle.SignalContext).Cancel()
 			return nil
 		}),
 		"exit": lifecycle.HandlerFunc(func(ctx context.Context, e events.Event) error {
 			fmt.Println("👋 Shell exiting gracefully...")
-			ctx.(*lifecycle.Context).Cancel()
+			ctx.(*lifecycle.SignalContext).Cancel()
 			return nil
 		}),
 	}
