@@ -76,11 +76,11 @@ func WithErrorHandler(h func(error)) GoOption {
 //   - WithStackCapture(true):  Always capture stack bytes (useful in production for critical tasks)
 //   - WithStackCapture(false): Never capture stack bytes (performance testing)
 //   - Unset (default):         Auto-detect based on debug logging (no overhead in production)
+//
 // See docs/LIMITATIONS.md (Performance section) for stack capture overhead details.
 func WithStackCapture(enabled bool) GoOption {
 	return runtime.WithStackCapture(enabled)
 }
-
 
 // Receive creates a push iterator that yields values from the channel until
 // the context is cancelled or the channel is closed.
@@ -298,13 +298,13 @@ const (
 
 // NewProcessWorker creates a new Process worker for the given command.
 // Alias for pkg/worker.NewProcessWorker.
-func NewProcessWorker(name string, nameCmd string, args ...string) Worker {
+func NewProcessWorker(name string, nameCmd string, args ...string) *worker.ProcessWorker {
 	return worker.NewProcessWorker(name, nameCmd, args...)
 }
 
 // NewWorkerFromFunc creates a Worker from a function.
 // Alias for pkg/worker.FromFunc.
-func NewWorkerFromFunc(name string, fn func(context.Context) error) Worker {
+func NewWorkerFromFunc(name string, fn func(context.Context) error) worker.Worker {
 	return worker.FromFunc(name, fn)
 }
 
