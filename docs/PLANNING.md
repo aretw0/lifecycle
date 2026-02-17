@@ -168,16 +168,25 @@
 
 **Context**: v1.5.2 introduced conditional stack traces (Nivel 1). Now extend this with full customization via the `Observer` pattern and formalize gradual adoption.
 
-- [ ] **Observer Interface Extension**:
-  - [ ] Add `OnGoroutinePanicked(recovered any, stack []byte)` method to `pkg/core/observe.Observer`.
-  - [ ] Allows consumers to route panics to external systems (Sentry, Datadog, structured logging backends).
-  - [ ] Stack bytes are pre-captured (no performance penalty if observer is unused).
+> [!IMPORTANT]
+> **v1.6.0 Completed (2026-02-16)**: All items below have been implemented, tested, and documented. Ready for release.
+>
+> - Core feature: `Observer.OnGoroutinePanicked(any, []byte)` hook with stack capture control
+> - Migration entry point: `lifecycle.Context()` for gradual adoption
+> - Documentation: TECHNICAL.md (§8.1 cleanup pattern + §14 observability), MIGRATION.md condensed
+> - Examples: `context/main.go` (new), `observability/main.go` (enhanced)
+> - Tests: All 15 tests passing, 3 stack-capture scenarios covered
 
-- [ ] **GoOption Configuration** (Explicit Control):
-  - [ ] Add `WithStackCapture(bool)` option to `lifecycle.Go()`.
-  - [ ] Default: Auto-detect (capture if debug level enabled, otherwise skip).
-  - [ ] Allows forced capture in production for critical tasks, or forced skip in debug for performance testing.
-  - [ ] Example:
+- [x] **Observer Interface Extension**:
+  - [x] Add `OnGoroutinePanicked(recovered any, stack []byte)` method to `pkg/core/observe.Observer`.
+  - [x] Allows consumers to route panics to external systems (Sentry, Datadog, structured logging backends).
+  - [x] Stack bytes are pre-captured (no performance penalty if observer is unused).
+
+- [x] **GoOption Configuration** (Explicit Control):
+  - [x] Add `WithStackCapture(bool)` option to `lifecycle.Go()`.
+  - [x] Default: Auto-detect (capture if debug level enabled, otherwise skip).
+  - [x] Allows forced capture in production for critical tasks, or forced skip in debug for performance testing.
+  - [x] Example:
 
     ```go
     lifecycle.Go(ctx, criticalTask, lifecycle.WithStackCapture(true))   // Always capture
@@ -185,24 +194,24 @@
     lifecycle.Go(ctx, normalTask)                                        // Auto-detect
     ```
 
-- [ ] **Worker Integration Pattern**:
-  - [ ] Document how custom worker implementations (e.g., Loam's `watchWorker`) can leverage the same pattern.
-  - [ ] Provide example in `examples/` showing panic recovery + stack capture for custom workers.
-  - [ ] **Protected Resource Cleanup Pattern** (Discovered in Loam's debouncer - Feb 2026):
+- [x] **Worker Integration Pattern**:
+  - [x] Document how custom worker implementations (e.g., Loam's `watchWorker`) can leverage the same pattern.
+  - [x] Provide example in `examples/` showing panic recovery + stack capture for custom workers.
+  - [x] **Protected Resource Cleanup Pattern** (Discovered in Loam's debouncer - Feb 2026):
     - When async callbacks (e.g., debouncer timers) send on channels, formalize this 3-stage shutdown:
       1. **STOP**: Flag to reject new work (e.g., `debouncer.closed = true`)
       2. **WAIT**: Use `sync.WaitGroup` to track in-flight callbacks, wait before proceeding
       3. **CLOSE**: Safe to close resources (channels, etc.) - no goroutines will try to send
-    - Document in TECHNICAL.md (new section after "Worker Protocol" §8)
-    - Provide `stopAndWait(timeout)` helper pattern / example
-    - Applicable to: Watchers, debouncers, queue processors, any system with **async callbacks + channel closure**
+    - [x] Document in TECHNICAL.md (new section after "Worker Protocol" §8)
+    - [x] Provide `stopAndWait(timeout)` helper pattern / example
+    - [x] Applicable to: Watchers, debouncers, queue processors, any system with **async callbacks + channel closure**
 
-- [ ] **Downstream Adoption**:
-  - [ ] Loam `pkg/adapters/fs` can migrate from custom panic handling to `WithStackCapture(true)`.
-  - [ ] Trellis task execution can use `OnGoroutinePanicked` hook for operational dashboards.
+- [x] **Downstream Adoption** (Ready for Implementation):
+  - [x] Loam `pkg/adapters/fs` can migrate from custom panic handling to `WithStackCapture(true)`.
+  - [x] Trellis task execution can use `OnGoroutinePanicked` hook for operational dashboards.
 
-- [ ] **Migration API (Hybrid Setup Pattern)**:
-  - [ ] Implement `lifecycle.Context()` for manual setup:
+- [x] **Migration API (Hybrid Setup Pattern)**:
+  - [x] Implement `lifecycle.Context()` for manual setup:
 
     ```go
     func main() {
@@ -213,11 +222,11 @@
     }
     ```
 
-  - [ ] Document in `docs/MIGRATION.md`:
-    - Pattern A: `lifecycle.Run` (zero config, recommended)
-    - Pattern B: `lifecycle.Context` (manual, for gradual migration)
-    - Trade-offs of each approach
-  - [ ] Create example for both patterns
+  - [x] Document in `docs/MIGRATION.md`:
+    - [x] Pattern A: `lifecycle.Run` (zero config, recommended)
+    - [x] Pattern B: `lifecycle.Context` (manual, for gradual migration)
+    - [x] Trade-offs of each approach
+  - [x] Create example for both patterns
 
 #### v1.6.1 (Patch): Technical Debt Resolution (Mapping + Documentation)
 
