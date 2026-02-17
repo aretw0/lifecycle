@@ -326,6 +326,38 @@ sequenceDiagram
     deactivate Worker
 ```
 
+#### 8.1. Protected Resource Cleanup Pattern (STOP / WAIT / CLOSE)
+
+Asynchronous callbacks that send on channels can race with shutdown. To avoid panics and
+leaked goroutines, adopt a three-stage cleanup protocol:
+
+1. **STOP**: Reject new work (e.g., set `closed = true`).
+2. **WAIT**: Track in-flight callbacks via `sync.WaitGroup` and wait for completion.
+3. **CLOSE**: Close channels or release resources only after callbacks are drained.
+
+Use `BlockWithTimeout` to avoid indefinite waits during shutdown.
+
+```go
+type debouncer struct {
+    closed  bool
+    wg      sync.WaitGroup
+    out     chan Event
+}
+
+func (d *debouncer) stopAndWait(timeout time.Duration) {
+    d.closed = true
+
+    done := make(chan struct{})
+    go func() {
+        d.wg.Wait()
+        close(done)
+    }()
+
+    _ = lifecycle.BlockWithTimeout(done, timeout)
+    close(d.out)
+}
+```
+
 ### 9. Supervision Tree
 
 * **OneForOne**: Restart only the failed child.
@@ -678,12 +710,26 @@ For implementation details, see **[docs/ecosystem/introspection.md](ecosystem/in
 
 ### 14. Observability
 
-The library is instrumented via `pkg/metrics` and `pkg/log`.
+The library is instrumented via `pkg/metrics`, `pkg/log`, and the optional `Observer` hook.
 
 * **Signals**: `IncSignalReceived`
 * **Processes**: `IncProcessStarted`, `IncProcessFailed`
 * **Hooks**: `ObserveHookDuration`
 * **Data Safety**: `IncTerminalUpgrade` (Windows `CONIN$` usage)
+
+#### Panic Reporting (Observer Hook)
+
+When a background task panics (`lifecycle.Go`), the runtime invokes:
+
+* `Observer.OnGoroutinePanicked(recovered, stack)`
+
+Stack capture is controlled by `WithStackCapture(bool)`:
+
+* **true**: always capture stack bytes (useful in production for critical tasks)
+* **false**: never capture stack bytes (performance testing)
+* **unset**: auto-detect based on debug logging
+
+Configuration and `ObserverBridge` examples live in [docs/CONFIGURATION.md](CONFIGURATION.md#observer-bridge-lifecycle--procio).
 
 ## VI. Quality & Reliability
 

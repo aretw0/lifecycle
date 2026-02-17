@@ -123,7 +123,7 @@ These settings affect the entire library state.
 | :--- | :--- |
 | `lifecycle.SetLogger(l *slog.Logger)` | Overrides the default logger used by all components if not explicitly provided. |
 | `lifecycle.NewNoOpLogger()` | Returns a logger that discards all output (use with `WithLogger`). |
-| `lifecycle.SetObserver(o lifecycle.Observer)` | Routes logs and process events to a custom observer (disables default slog when set). |
+| `lifecycle.SetObserver(o lifecycle.Observer)` | Routes logs, process events, and panic callbacks to a custom observer (disables default slog when set). |
 | `lifecycle.SetMetricsProvider(p)` | Connects `lifecycle` internal metrics to your observability backend (Prometheus, OTel). |
 | `lifecycle.SetMetricsLabelPolicy(p *metrics.LabelPolicy)` | Sanitizes metric labels and enforces cardinality rules. |
 
@@ -142,8 +142,9 @@ lifecycle.Run(job, lifecycle.WithLogger(lifecycle.NewNoOpLogger()))
 When using both `lifecycle` workers and `procio` processes, you can unify telemetry with a single adapter that implements both `Observer` interfaces.
 
 > [!NOTE]
-> The observer only affects **log routing** and **process event callbacks**.
+> The observer affects **log routing**, **process events**, and **panic callbacks**.
 > Metrics are configured independently via `SetMetricsProvider`.
+> For behavior and stack capture semantics, see [docs/TECHNICAL.md](TECHNICAL.md#14-observability).
 
 **Type definition:**
 
@@ -176,6 +177,15 @@ func (b *ObserverBridge) OnProcessStarted(pid int) {
 func (b *ObserverBridge) OnProcessFailed(err error) {
 	b.Logger.Error("process failed", "error", err)
 	b.Provider.IncProcessFailed()
+}
+
+func (b *ObserverBridge) OnGoroutinePanicked(recovered any, stack []byte) {
+    if len(stack) == 0 {
+        b.Logger.Error("goroutine panicked", "recover", recovered)
+        return
+    }
+    // Only log stack when provided by the runtime.
+    b.Logger.Error("goroutine panicked", "recover", recovered, "stack", string(stack))
 }
 
 func (b *ObserverBridge) LogDebug(msg string, args ...any) { b.Logger.Debug(msg, args...) }

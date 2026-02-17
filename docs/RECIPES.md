@@ -262,7 +262,7 @@ router.AddSource(source)
 
 **Problem**: You use both `lifecycle` workers and `procio` processes and want unified telemetry without duplicating observer setup.
 
-**Solution**: Create a single `ObserverBridge` adapter implementing both `lifecycle.Observer` (6 methods) and `procio.Observer` (5 methods). Since `lifecycle.Observer` is a superset of `procio.Observer` (adds `LogInfo`), a single struct satisfies both.
+**Solution**: Create a single `ObserverBridge` adapter implementing both `lifecycle.Observer` (7 methods) and `procio.Observer` (5 methods). Since `lifecycle.Observer` is a superset of `procio.Observer` (adds `LogInfo` and `OnGoroutinePanicked`), a single struct satisfies both.
 
 ```go
 import (
@@ -283,3 +283,19 @@ procio.SetObserver(bridge)
 
 > [!TIP]
 > For the full `ObserverBridge` type definition with compile-time interface checks and metric calls, see **[Global Overrides — Observer Bridge](CONFIGURATION.md#observer-bridge-lifecycle--procio)**.
+
+---
+
+## 🧯 9. Panic Observability (Observer + Stack Capture)
+
+**Problem**: You want to route goroutine panics to your telemetry backend with optional stack traces.
+
+**Solution**: Install a custom `Observer` and use `WithStackCapture` to control stack collection.
+See [docs/TECHNICAL.md](TECHNICAL.md#14-observability) for behavior details and
+[docs/CONFIGURATION.md](CONFIGURATION.md#observer-bridge-lifecycle--procio) for adapter examples.
+
+---
+
+## 🧩 10. Hybrid Migration (Manual Context)
+
+For a short, maintained summary of the migration entry points, see [docs/MIGRATION.md](MIGRATION.md).
