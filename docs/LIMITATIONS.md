@@ -1,7 +1,7 @@
 # Limitations & Known Issues
 
 > **Last Updated**: February 16, 2026 (v1.6.1)
-> 
+>
 > This document lists known limitations, platform-specific constraints, and unsolved problems. **Transparency is a feature.**
 
 ---
@@ -122,7 +122,7 @@
 
 ### High Coverage (>80%)
 
-```
+```log
 github.com/aretw0/lifecycle          85%
 github.com/aretw0/lifecycle/pkg/core/signal   92%
 github.com/aretw0/lifecycle/pkg/core/supervisor  88%
