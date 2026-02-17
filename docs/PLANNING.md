@@ -160,25 +160,13 @@
 
 ## Roadmap: Iterative Releases
 
-### v1.6: Advanced Stability & Ecosystem
+### v1.6: Core Stability & Observability (Major Milestone + Patches)
 
-**Focus**: Evolve the control plane functionality and self-healing capabilities.
+**Focus**: Extensible panic observability and a clean migration entry point.
 
-#### **Declarative Stability (Self-Healing)**: (v1.6+)
+#### v1.6.0 (Major Milestone): Extensible Panic Observability + Migration Entry Points
 
-- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
-- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
-- [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
-
-#### **Coordinated Lifecycle & Shared State**: (v1.6+)
-
-- [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
-- [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
-- [ ] **State Bridge**: Mechanism to hand over "hot" state (e.g., open file descriptors, active sessions) across restarts without serialization.
-
-#### Extensible Panic Observability (Nível 3): (v1.6+)
-
-**Context**: v1.5.2 introduced conditional stack traces (Nível 1). Now extend this with full customization via the `Observer` pattern.
+**Context**: v1.5.2 introduced conditional stack traces (Nivel 1). Now extend this with full customization via the `Observer` pattern and formalize gradual adoption.
 
 - [ ] **Observer Interface Extension**:
   - [ ] Add `OnGoroutinePanicked(recovered any, stack []byte)` method to `pkg/core/observe.Observer`.
@@ -213,21 +201,7 @@
   - [ ] Loam `pkg/adapters/fs` can migrate from custom panic handling to `WithStackCapture(true)`.
   - [ ] Trellis task execution can use `OnGoroutinePanicked` hook for operational dashboards.
 
-#### 🐛 Technical Debt Resolution
-
-- [ ] **Debt Mapping**:
-  - [ ] Scan codebase for `TODO`, `FIXME`, `HACK` comments
-  - [ ] Identify unstable/experimental APIs (mark with `// Experimental:`)
-  - [ ] Document known limitations clearly:
-    - macOS: No PDeathSig (best-effort zombie prevention)
-    - `path.Match`: Glob only, not full regex
-    - Performance: ~5-10μs overhead per `lifecycle.Go` call
-  
-- [ ] **Update Technical Debt Section** (below) with concrete items
-
-#### 📚 Migration API
-
-- [ ] **Hybrid Setup Pattern**:
+- [ ] **Migration API (Hybrid Setup Pattern)**:
   - [ ] Implement `lifecycle.Context()` for manual setup:
 
     ```go
@@ -245,9 +219,39 @@
     - Trade-offs of each approach
   - [ ] Create example for both patterns
 
+#### v1.6.1 (Patch): Technical Debt Resolution (Mapping + Documentation)
+
+- [ ] **Debt Mapping**:
+  - [ ] Scan codebase for `TODO`, `FIXME`, `HACK` comments
+  - [ ] Identify unstable/experimental APIs (mark with `// Experimental:`)
+  - [ ] Document known limitations clearly:
+    - macOS: No PDeathSig (best-effort zombie prevention)
+    - `path.Match`: Glob only, not full regex
+    - Performance: ~5-10μs overhead per `lifecycle.Go` call
+  
+- [ ] **Update Technical Debt Section** (below) with concrete items
+
 ---
 
-### v1.7: Documentation & Marketing
+### v1.7: Advanced Stability & Shared State (Major)
+
+**Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
+
+#### **Declarative Stability (Self-Healing)**: (v1.7+)
+
+- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
+- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
+- [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
+
+#### **Coordinated Lifecycle & Shared State**: (v1.7+)
+
+- [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
+- [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
+- [ ] **State Bridge**: Mechanism to hand over "hot" state (e.g., open file descriptors, active sessions) across restarts without serialization.
+
+---
+
+### v1.8: Documentation & Marketing
 
 **Focus**: Make lifecycle discoverable, understandable, and compelling.
 
@@ -344,7 +348,7 @@
 
 ---
 
-### v1.8: Public Launch
+### v1.9: Public Launch
 
 **Focus**: Maximize visibility and initial adoption.
 
@@ -396,7 +400,7 @@
 
 ---
 
-### v1.9+: Feature Expansion (Future)
+### v1.10+: Feature Expansion (Future)
 
 **Focus**: Evolve based on community feedback and adoption patterns.
 
