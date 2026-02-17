@@ -193,6 +193,18 @@ func TestLifecycle_SignalAliases(t *testing.T) {
 	// Should return
 }
 
+func TestLifecycle_Context(t *testing.T) {
+	ctx := lifecycle.Context()
+	if ctx == nil {
+		t.Fatal("Context returned nil")
+	}
+	defer ctx.Stop()
+
+	if _, ok := lifecycle.GetSignalState(ctx); !ok {
+		t.Error("Context did not return a signal state")
+	}
+}
+
 func TestLifecycle_EventAliases(t *testing.T) {
 	// Source Aliases
 	if lifecycle.NewInputSource() == nil {

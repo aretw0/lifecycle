@@ -68,6 +68,12 @@ func WithErrorHandler(h func(error)) GoOption {
 	return runtime.WithErrorHandler(h)
 }
 
+// WithStackCapture creates an option to control stack capture for background task panics.
+// Alias for pkg/runtime.WithStackCapture.
+func WithStackCapture(enabled bool) GoOption {
+	return runtime.WithStackCapture(enabled)
+}
+
 
 // Receive creates a push iterator that yields values from the channel until
 // the context is cancelled or the channel is closed.
@@ -104,11 +110,11 @@ func Sleep(ctx context.Context, d time.Duration) error {
 // 2. Signal Context
 // ======================================================================================
 
-// Context represents the signal context.
+// SignalContext represents the signal context.
 // It is the stable contract for signal handling in v1.5+.
 // It wraps a standard context.Context and adds signal-specific metadata (Reason, ForceExit).
 // Consumers like Trellis should rely on this type definition.
-type Context = signal.Context
+type SignalContext = signal.Context
 
 // Option is a functional option for signal configuration.
 // Alias for pkg/signal.Option.
@@ -124,6 +130,12 @@ type SignalState = signal.State
 // Alias for pkg/signal.NewContext.
 func NewSignalContext(parent context.Context, opts ...signal.Option) *signal.Context {
 	return signal.NewContext(parent, opts...)
+}
+
+// Context returns a signal-aware context using default settings.
+// This is the manual setup path for gradual migrations.
+func Context() *signal.Context {
+	return signal.NewContext(context.Background())
 }
 
 // WithForceExit configures the threshold of signals required to trigger an immediate os.Exit(1).
