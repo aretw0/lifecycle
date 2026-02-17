@@ -70,6 +70,13 @@ func WithErrorHandler(h func(error)) GoOption {
 
 // WithStackCapture creates an option to control stack capture for background task panics.
 // Alias for pkg/runtime.WithStackCapture.
+//
+// Stable as of v1.6.0.
+// Behavior:
+//   - WithStackCapture(true):  Always capture stack bytes (useful in production for critical tasks)
+//   - WithStackCapture(false): Never capture stack bytes (performance testing)
+//   - Unset (default):         Auto-detect based on debug logging (no overhead in production)
+// See LIMITATIONS.md for stack capture performance impact.
 func WithStackCapture(enabled bool) GoOption {
 	return runtime.WithStackCapture(enabled)
 }
@@ -134,6 +141,12 @@ func NewSignalContext(parent context.Context, opts ...signal.Option) *signal.Con
 
 // Context returns a signal-aware context using default settings.
 // This is the manual setup path for gradual migrations.
+//
+// Stable as of v1.6.0.
+// Usage for gradual adoption: Replace context.Background() with lifecycle.Context()
+// in existing applications without restructuring the entire codebase.
+// Set up signal handling via the returned context instead of wiring through Run().
+// Example: https://github.com/aretw0/lifecycle/blob/main/examples/context/main.go
 func Context() *signal.Context {
 	return signal.NewContext(context.Background())
 }

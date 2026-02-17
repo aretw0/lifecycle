@@ -73,6 +73,13 @@ func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) T
 				log.Error("background task panic", "recover", r)
 				metrics.GetProvider().IncGoroutinePanicked()
 
+				// Stack capture: Three-mode behavior (Stable as of v1.6.0)
+				//   1. WithStackCapture(true):  Always capture stack bytes
+				//   2. WithStackCapture(false): Never capture stack bytes
+				//   3. Unset (default):         Auto-detect via slog.LevelDebug; capture only in debug mode
+				// This reduces production overhead (no stack capture in prod unless explicitly needed)
+				// while enabling detailed diagnostics in development.
+				// See LIMITATIONS.md for performance impact (+1-2µs if enabled).
 				logger := log.GetLogger()
 				debugEnabled := logger.Enabled(context.Background(), slog.LevelDebug)
 				capture := debugEnabled

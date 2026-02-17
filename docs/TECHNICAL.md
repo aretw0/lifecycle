@@ -36,8 +36,9 @@
 
 * [**VI. Quality & Reliability**](#vi-quality--reliability)
 
-15. [Honest Coverage Philosophy](#15-honest-coverage-philosophy)
-16. [Coverage Rigidity vs. Reality](#16-coverage-rigidity-vs-reality)
+15. [Known Limitations](#15-known-limitations)
+16. [Honest Coverage Philosophy](#16-honest-coverage-philosophy)
+17. [Coverage Rigidity vs. Reality](#17-coverage-rigidity-vs-reality)
 
 ---
 
@@ -731,9 +732,21 @@ Stack capture is controlled by `WithStackCapture(bool)`:
 
 Configuration and `ObserverBridge` examples live in [docs/CONFIGURATION.md](CONFIGURATION.md#observer-bridge-lifecycle--procio).
 
+### 15. Known Limitations
+
+For a comprehensive list of platform-specific constraints, API stability status, performance unknowns, and compatibility matrices, see **[LIMITATIONS.md](LIMITATIONS.md)**.
+
+**Key Highlights**:
+
+* **Windows**: Requires Go 1.20+ for Job Objects (zombie prevention); CONIN$ needs explicit opt-in
+* **macOS**: No PDeathSig support; hard crashes may leave orphans
+* **Router**: Pattern matching is **glob-only** (no regex); O(n) route lookup
+* **Performance**: ~5-10µs overhead per `lifecycle.Go()` call; stack capture adds +1-2µs if enabled
+* **Coverage**: Intentional exclusions for `metrics`, `termio` (external), and flaky FS code; see [TESTING.md](TESTING.md)
+
 ## VI. Quality & Reliability
 
-### 15. Honest Coverage Philosophy
+### 16. Honest Coverage Philosophy
 
 `lifecycle` adopts an **"Honest Coverage"** baseline. Instead of pursuing an arbitrary 100% or even 80% statement coverage across every line of code, we prioritize the verification of **Behavioral Logic** and **Critical Path Resilience**.
 
@@ -742,7 +755,7 @@ We distinguish between two types of code:
 * **Primary Behavioral Logic**: The state machines, concurrent primitives, and event routing logic. These must have near-total coverage (effectively 100% of meaningful states).
 * **Secondary Plumbing & Syscall Wrappers**: Code that interfaces with OS primitives (e.g., job objects, pdeathsig) or provides boilerplate (NoOp/Mock providers).
 
-### 16. Coverage Rigidity vs. Reality
+### 17. Coverage Rigidity vs. Reality
 
 In certain packages, "100% coverage" often indicates **Test Theater**—tests that exercise no-op paths or force unreachable error states (like mock syscall failures) just to satisfy a metric.
 

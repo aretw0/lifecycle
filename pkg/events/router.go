@@ -188,8 +188,14 @@ func (r *Router) Dispatch(ctx context.Context, e Event) {
 	if h, ok := r.routes[topic]; ok {
 		matchedHandler = h
 	} else {
-		// 2. Glob match
-		// TODO: Optimize if many routes
+		// 2. Glob match (path.Match: *, ?, [...] only; not full regex)
+		// Note: Pattern matching is glob-only, not regex. Examples:
+		//   ✅ signal/*/handler
+		//   ✅ signal/[it]* (matches 'signal/interrupt' and 'signal/terminate')
+		//   ❌ signal/(int|term) (not supported; use multiple routes instead)
+		// For full feature details and performance implications, see LIMITATIONS.md.
+		//
+		// TODO: Optimize if many routes (O(n) linear search; consider indexing for 100+)
 		for pattern, h := range r.routes {
 			if matched, _ := path.Match(pattern, topic); matched {
 				matchedHandler = h

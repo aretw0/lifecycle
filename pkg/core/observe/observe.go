@@ -5,8 +5,13 @@ import "sync"
 // Observer allows external packages to plug in observability (logs and process events)
 // without coupling to specific implementations.
 //
+// Stable as of v1.6.0.
 // Implementations should avoid calling the lifecycle log package directly to prevent
 // recursive logging loops.
+//
+// OnGoroutinePanicked hook (v1.6.0): Invoked when a background task panics.
+// Stack bytes are optional (depends on WithStackCapture configuration).
+// See [LIMITATIONS.md](../../docs/LIMITATIONS.md#observer-interface-v160) for behavior details.
 type Observer interface {
 	OnProcessStarted(pid int)
 	OnProcessFailed(err error)

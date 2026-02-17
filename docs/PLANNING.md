@@ -230,15 +230,26 @@
 
 #### v1.6.1 (Patch): Technical Debt Resolution (Mapping + Documentation)
 
-- [ ] **Debt Mapping**:
-  - [ ] Scan codebase for `TODO`, `FIXME`, `HACK` comments
-  - [ ] Identify unstable/experimental APIs (mark with `// Experimental:`)
-  - [ ] Document known limitations clearly:
-    - macOS: No PDeathSig (best-effort zombie prevention)
-    - `path.Match`: Glob only, not full regex
-    - Performance: ~5-10μs overhead per `lifecycle.Go` call
+> [!IMPORTANT]
+> **v1.6.1 Completed (2026-02-16)**: All technical debt mapping and documentation has been completed. Code annotations added, limitations documented, and coverage re-baselined.
+
+- [x] **Debt Mapping**:
+  - [x] Scan codebase for `TODO`, `FIXME`, `HACK` comments (1 TODO found: router.go:192 "Optimize if many routes")
+  - [x] Identify unstable/experimental APIs (all APIs either Stable or marked as such)
+  - [x] Document known limitations clearly:
+    - [x] macOS: No PDeathSig (best-effort zombie prevention)
+    - [x] `path.Match`: Glob only, not full regex
+    - [x] Performance: ~5-10μs overhead per `lifecycle.Go` call
   
-- [ ] **Update Technical Debt Section** (below) with concrete items
+- [x] **Update Technical Debt Section** (below) with concrete items:
+  - [x] Created [LIMITATIONS.md](LIMITATIONS.md) with platform-specific constraints, feature limitations, and performance unknowns
+  - [x] Added §15 "Known Limitations" to TECHNICAL.md with cross-links to LIMITATIONS.md
+  - [x] Updated TESTING.md to reference LIMITATIONS.md compatibility matrix
+  - [x] Code annotations added to clarify API stability and behavior:
+    - [x] `pkg/core/observe/observe.go`: Marked Observer as "Stable as of v1.6.0"
+    - [x] `pkg/events/router.go`: Documented glob-only pattern matching with examples
+    - [x] `pkg/core/runtime/task.go`: Clarified three-mode stack capture behavior
+    - [x] `lifecycle.go`: Marked `Context()` and `WithStackCapture()` as Stable v1.6.0
 
 ---
 

@@ -4,6 +4,8 @@
 
 This document defines how we test `lifecycle` to ensure reliability without wasting time on performative metrics.
 
+> For comprehensive coverage metrics, platform compatibility, and test status tracking, see **[LIMITATIONS.md](LIMITATIONS.md#test-coverage-status)**.
+
 ## 1. Honest Coverage
 
 We target **High Coverage (>80%)** for:
