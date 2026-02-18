@@ -46,34 +46,35 @@ func TestCaveat_LateRegistration(t *testing.T) {
 	ctx := NewContext(context.Background())
 	defer ctx.Stop()
 
-	hook1Run := false
-	hook2Run := false
-
+	// Open channels to track hook execution
+	hook1Done := make(chan struct{})
+	hook2Done := make(chan struct{})
 	done := make(chan struct{})
 
 	ctx.OnShutdown(func() {
-		hook1Run = true
+		close(hook1Done)
 		// Register another hook dynamically
 		ctx.OnShutdown(func() {
-			hook2Run = true
+			close(hook2Done)
+			close(done)
 		})
 	})
 
-	// Add a final hook to close the test channel
-	ctx.OnShutdown(func() {
-		close(done)
-	})
-
+	// Trigger signal
 	ctx.sigCh <- syscall.SIGTERM
 
-	<-done
-	// Wait a bit to ensure async weirdness settles
-	time.Sleep(50 * time.Millisecond)
+	<-done // só libera após hook2 rodar
 
-	if !hook1Run {
+	select {
+	case <-hook1Done:
+		// ok
+	default:
 		t.Error("Hook 1 should have run")
 	}
-	if !hook2Run {
+	select {
+	case <-hook2Done:
+		// ok
+	default:
 		t.Error("FAIL: Late registered hooks should be executed (LIFO)!")
 	}
 }
