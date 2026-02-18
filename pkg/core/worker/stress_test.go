@@ -40,8 +40,18 @@ func TestStress_ProcessChurn(t *testing.T) {
 		err := w.Stop(stopCtx)
 		cancel()
 
-		if err != nil && err != context.DeadlineExceeded {
-			t.Fatalf("Iteration %d: Stop failed: %v", i, err)
+		if err != nil {
+			if err == context.DeadlineExceeded {
+				// No Windows, é esperado que processos não respondam a sinais.
+				// No Linux, isso é considerado falha.
+				if isWindows() {
+					t.Logf("[Windows] Iteration %d: Stop timeout (context.DeadlineExceeded) - comportamento esperado", i)
+				} else {
+					t.Fatalf("[Linux] Iteration %d: Stop failed: %v", i, err)
+				}
+			} else {
+				t.Fatalf("Iteration %d: Stop failed: %v", i, err)
+			}
 		}
 
 		// Ensure Wait closes
@@ -58,4 +68,9 @@ func TestStress_ProcessChurn(t *testing.T) {
 	}
 
 	t.Log("Stress test completed successfully.")
+}
+
+// isWindows retorna true se o teste está rodando no Windows.
+func isWindows() bool {
+	return os.PathSeparator == '\\'
 }

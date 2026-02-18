@@ -315,3 +315,21 @@ Found a limitation not listed here? Please open an issue with:
 4. **Workaround** (if you found one)
 
 See [DECISIONS.md](DECISIONS.md) for architectural trade-offs that explain some limitations.
+
+---
+
+## Worker Locking Pattern: Exceptions and Limitations
+
+> **Context**: As of v1.6.3, all critical workers have migrated to the `withLock`/`withLockResult` pattern to ensure concurrency safety and state consistency. However, some exceptions and limitations are important for ongoing maintenance and project evolution.
+
+### Documented Exceptions
+
+- **BaseWorker**: Does not use `withLock`/`withLockResult` directly, as it is a generic base and does not have a polymorphic lock wrapper. Manual locking (`mu.Lock`/`mu.Unlock`) remains to ensure compatibility and flexibility for custom workers.
+- **Event workers and external components**: Components outside `pkg/core/worker` (e.g., event workers, custom handlers) may use their own locks or different patterns, and are not directly affected by this standardization.
+- **Generic utility functions**: The `withLockAny`/`withLockResultAny` helpers were created to allow safe locking on any struct with a `mu sync.(R)WMutex` field, without requiring specific type dependencies.
+- **Locking API**: The `withLock`/`withLockResult` pattern is recommended for all new workers and future maintenance, but is not mandatory for legacy code or cases where manual locking is more appropriate.
+
+### References
+
+- See [TECHNICAL.md](TECHNICAL.md#15-known-limitations) for technical details and coverage philosophy.
+- See [PLANNING.md](PLANNING.md) for decision history and task tracking.

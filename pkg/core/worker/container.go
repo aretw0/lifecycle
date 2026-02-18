@@ -76,9 +76,7 @@ func (cw *ContainerWorker) Start(ctx context.Context) error {
 }
 
 func (cw *ContainerWorker) Stop(ctx context.Context) error {
-	cw.mu.Lock()
-	cw.StopRequested = true
-	cw.mu.Unlock()
+	withLockAny(&cw.BaseWorker.mu, func() { cw.StopRequested = true })
 
 	log.Info("stopping container worker", "name", cw.String(), "container_id", cw.c.ID())
 	_ = cw.c.Stop(ctx)

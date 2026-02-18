@@ -48,7 +48,14 @@ func TestProcess_StartStop(t *testing.T) {
 	// so setting the variable here is sufficient to pass it to the worker.
 
 	// Inject the helper env using the safe instance method
-	w.SetEnv(HelperProcess, "1")
+	if err := w.SetEnv(HelperProcess, "1"); err != nil {
+		t.Fatalf("SetEnv before Start should not error: %v", err)
+	}
+
+	// Test SetOutput before Start
+	if err := w.SetOutput(os.Stdout, os.Stderr); err != nil {
+		t.Fatalf("SetOutput before Start should not error: %v", err)
+	}
 
 	// Verify initial state
 	initialState := w.State()
@@ -59,6 +66,18 @@ func TestProcess_StartStop(t *testing.T) {
 	ctx := context.Background()
 	if err := w.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Test SetEnv após Start
+	errEnv := w.SetEnv("AFTER_START", "1")
+	if errEnv == nil {
+		t.Errorf("SetEnv após Start deveria retornar erro, mas retornou nil")
+	}
+
+	// Test SetOutput após Start
+	errOut := w.SetOutput(os.Stdout, os.Stderr)
+	if errOut == nil {
+		t.Errorf("SetOutput após Start deveria retornar erro, mas retornou nil")
 	}
 
 	// Verify running state

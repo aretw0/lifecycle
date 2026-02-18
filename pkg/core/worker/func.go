@@ -25,20 +25,22 @@ type funcWorker struct {
 }
 
 func (w *funcWorker) Start(ctx context.Context) error {
-	w.mu.Lock()
-	if ctx.Err() != nil {
-		w.mu.Unlock()
-		return ctx.Err()
+	var fnCtx context.Context
+	var cancel context.CancelFunc
+	err := withLockResultAny(&w.BaseWorker.mu, func() error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if w.status != StatusCreated && w.status != StatusPending {
+			return fmt.Errorf("worker %s already started (status: %s)", w.String(), w.status)
+		}
+		fnCtx, cancel = context.WithCancel(context.Background())
+		w.cancel = cancel
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	if w.status != StatusCreated && w.status != StatusPending {
-		w.mu.Unlock()
-		return fmt.Errorf("worker %s already started (status: %s)", w.String(), w.status)
-	}
-
-	// Create context for the function
-	fnCtx, cancel := context.WithCancel(context.Background())
-	w.cancel = cancel
-	w.mu.Unlock()
 
 	w.SetStatus(StatusRunning)
 
@@ -59,15 +61,15 @@ func (w *funcWorker) Start(ctx context.Context) error {
 }
 
 func (w *funcWorker) Stop(ctx context.Context) error {
-	w.mu.Lock()
-	if w.cancel != nil {
-		w.StopRequested = true
-		w.cancel()
-		log.Debug("signaled func worker to stop", "name", w.String())
-	}
-	w.mu.Unlock()
+	withLockAny(&w.BaseWorker.mu, func() {
+		if w.cancel != nil {
+			w.StopRequested = true
+			w.cancel()
+			log.Debug("signaled func worker to stop", "name", w.String())
+		}
+	})
 
-	// Wait for quiescence using Base implementation
+	// Wait for quiescence usando BaseWorker
 	return w.BaseWorker.Stop(ctx)
 }
 

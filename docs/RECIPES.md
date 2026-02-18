@@ -107,6 +107,11 @@ suspendHandler.OnSuspend(func(ctx context.Context) error {
 })
 ```
 
+> [!NOTE]
+> **Concurrency and Safety:**
+> When implementing custom workers (especially with mutable internal state), always use the locking pattern (`withLock`/`withLockResult` or equivalent helpers) to ensure concurrency safety and avoid race conditions. See [docs/LIMITATIONS.md](LIMITATIONS.md) for exceptions, limitations, and examples of safe usage.
+**Note:** This pattern relies on locking (mutexes) to ensure the consistency of the worker's internal state. For details about exceptions, limitations, and safe concurrency usage recommendations, see [LIMITATIONS.md](LIMITATIONS.md).
+
 ---
 
 ## 🔄 2. Hot Reloading

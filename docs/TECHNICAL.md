@@ -31,14 +31,14 @@
 
 * [**V. Ecosystem & Operations**](#v-ecosystem--operations)
 
-13. [Introspection & Visualization](#13-introspection--visualization)
-14. [Observability](#14-observability)
+    13. [Introspection & Visualization](#13-introspection--visualization)
+    14. [Observability](#14-observability)
 
 * [**VI. Quality & Reliability**](#vi-quality--reliability)
 
-15. [Known Limitations](#15-known-limitations)
-16. [Honest Coverage Philosophy](#16-honest-coverage-philosophy)
-17. [Coverage Rigidity vs. Reality](#17-coverage-rigidity-vs-reality)
+    15. [Known Limitations](#15-known-limitations)
+    16. [Honest Coverage Philosophy](#16-honest-coverage-philosophy)
+    17. [Coverage Rigidity vs. Reality](#17-coverage-rigidity-vs-reality)
 
 ---
 
@@ -256,6 +256,21 @@ g.SetLimit(10)
 g.Go(func(ctx context.Context) error { ... })
 g.Wait()
 ```
+
+#### D. Synchronization with Mutex
+
+To ensure safe access to shared worker state, we use the `withLock` and `withLockResult` helpers:
+
+```go
+value := withLockResult(p, func() int { return p.myField })
+withLock(p, func() { p.myField = 42 })
+```
+
+**Attention:** Do not use these helpers in methods that already perform locking internally (e.g., `ExportState`), to avoid deadlocks.
+
+This pattern reduces boilerplate, prevents improper unlocks, and simplifies maintenance.
+
+See the formal decision in ADR05 in [DECISIONS.md](DECISIONS.md).
 
 ### 6. Process Hygiene (Powered by `procio`)
 

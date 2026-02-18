@@ -304,6 +304,16 @@
 
 ---
 
+### v1.6.3 (Patch): Workers withLock sync and etc
+
+- [x] **Some Workers**: Add `withLock` and `withLockResult` for atomic reads.
+- [x] **SetEnv and SetOutput**: To return error if process is already stopped.
+- [x] **State**: Added timestamps.
+
+> **Note:** The exceptions and limitations of the `withLock/withLockResult` pattern are now documented in [docs/LIMITATIONS.md](LIMITATIONS.md) to centralize technical knowledge and facilitate maintenance. See there for updated details.
+
+---
+
 ### v1.7: Advanced Stability & Shared State (Major)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.

@@ -36,35 +36,44 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Consequences**: Allows for infinite extensibility without polluting the core `Run` loop.
 * **Note**: Originally planned for a "v2.0" major version, this was released as v1.5 to avoid `go.mod` migration overhead. See [MIGRATION.md](MIGRATION.md) for breaking changes.
 
-## ADR-0005: Interactive Router Preset
+## ADR-0005: Padrão de Sincronização com Helpers
+
+* **Status**: Aceito
+* **Contexto**: O uso manual de locks em workers gerava riscos de unlock duplo, deadlocks e código repetitivo.
+* **Decisão**: Padronizar o uso dos helpers `withLock` e `withLockResult` para toda manipulação concorrente de estado em workers.
+* **Exceção**: Métodos que já fazem lock internamente (ex: `ExportState`) não devem ser envolvidos por esses helpers.
+* **Consequências**: Código mais seguro, legível e fácil de manter. Redução de bugs de concorrência.
+* **Referência**: Detalhes e exemplos em [TECHNICAL.md](TECHNICAL.md#d-sincronização-com-mutex).
+
+## ADR-0006: Interactive Router Preset
 
 * **Status**: Accepted
 * **Context**: Setting up a robust interactive CLI (Standard signals + detached Stdin reader + common commands) requires significant boilerplate (~50 lines of wiring).
 * **Decision**: Provide a `NewInteractiveRouter` preset that encapsulates standard source wiring (OS Signals, Input) and standard command routing (q/quit/suspend/resume).
 * **Rationale**: Drastically improves Developer Experience (DX) and ensures consistency across tools in the ecosystem without sacrificing flexibility (configurable via options).
 
-## ADR-0006: Context-Aware Signal Discovery (Pattern)
+## ADR-0007: Context-Aware Signal Discovery (Pattern)
 
 * **Status**: Accepted
 * **Context**: Application contexts are often wrapped by middle-tier providers (e.g., Task Tracking, Tracing). Simple type assertions to `*signal.Context` fail in these scenarios, breaking core library features like `OnShutdown`.
 * **Decision**: Implement a **Value-Based Discovery Path**. Use a private context key to store and retrieve the `signal.Context` pointer. Provide a robust `FromContext(ctx)` helper that handles both direct pointers and wrapped values.
 * **Consequences**: Ensures library resilience when integrated with other heavy-weight frameworks or complex diagnostic wrappers.
 
-## ADR-0007: Standardized Observation Metadata
+## ADR-0008: Standardized Observation Metadata
 
 * **Status**: Accepted
 * **Context**: Introspection (Diagrams, Metrics, Logs) needs consistent keys (e.g., `restarts`, `circuit_breaker`) to provide a unified "Single Pane of Glass" view. Hardcoded strings across packages lead to drift and broken diagrams.
 * **Decision**: Standardize metadata keys as **typed constants in `pkg/worker`**. All components (Supervisor, Diagram Engine, Metrics) must use these constants instead of literal strings.
 * **Consequences**: Centralizes the introspection "schema", making it trivial to update the visual representation across all interfaces.
 
-## ADR-0008: Programmatic Shutdown Facade
+## ADR-0009: Programmatic Shutdown Facade
 
 * **Status**: Accepted
 * **Context**: Handlers and Jobs often need to trigger the same graceful termination sequence as an OS Signal (e.g., a "quit" command in a REPL).
 * **Decision**: Provide an explicit `lifecycle.Shutdown(ctx)` facade.
 * **Rationale**: This abstracts the complex context discovery and cancellation logic, providing a high-level API for internal application control that mirrors external signals.
 
-## ADR-0009: Sequential Control Plane Hooks (FIFO)
+## ADR-0010: Sequential Control Plane Hooks (FIFO)
 
 * **Status**: Accepted
 * **Context**: Complex state transitions (like `Suspend`) often involve multiple actors: workers pausing, state being persisted, and UIs reporting progress.
@@ -72,7 +81,7 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Rationale**: This enables a "Final State" reporting pattern. By registering functional components (supervisors, workers) *before* UI reporting hooks, we guarantee that UI messages like "SYSTEM SUSPENDED" only appear *after* the heavy components have successfully blocked and confirmed their state.
 * **Consequences**: Developers must be mindful of registration order for UI accuracy. Functional work comes first; reporting comes last.
 
-## ADR-0010: Internal Decoupling & Primitive Promotion
+## ADR-0011: Internal Decoupling & Primitive Promotion
 
 * **Status**: **Completed (2026-02-13)** via `github.com/aretw0/procio`
 * **Context**: The `lifecycle` library evolved into a comprehensive control plane, but its core primitives (Process hygiene, I/O) are valuable optimization layers for any Go program.
@@ -82,7 +91,7 @@ This document logs significant architectural decisions for the `lifecycle` proje
     2. **Separation of Concerns**: `procio` handles "OS Mechanics"; `lifecycle` handles "Application Policies".
 * **Consequences**: `pkg/core/proc` and `pkg/core/termio` logic now lives in `procio`. `lifecycle` acts as the policy engine driving these primitives.
 
-## ADR-0011: Visualization Decoupling & Primitive Promotion
+## ADR-0012: Visualization Decoupling & Primitive Promotion
 
 * **Status**: **Completed (2026-02-15)** via `github.com/aretw0/introspection`
 * **Context**: The `lifecycle` library provides runtime introspection via `State()` methods and visualizes topology using Mermaid diagrams. Originally, each package (`signal`, `worker`, `supervisor`) contained custom Mermaid string concatenation logic, leading to redundancy, rigidity, and increased testing burden.
