@@ -114,6 +114,78 @@ suspendHandler.OnSuspend(func(ctx context.Context) error {
 
 ---
 
+## 💡 1.2 Concurrency Safety Recipe: Channels vs Mutexes
+
+When writing concurrent code with `lifecycle`, you must ensure safe access to shared state and deterministic coordination between goroutines. The Go runtime does not protect you from data races or non-deterministic test failures—these are the developer’s responsibility.
+
+This recipe consolidates best practices for using channels and mutexes in Go, with practical examples for robust worker and test design.
+
+### Recommended Patterns
+
+- **Mutexes**: Use `sync.Mutex` (or helpers like `withLock`, `withLockResult`) to protect mutable state inside workers or components. This ensures only one goroutine can access or modify the state at a time.
+- **Channels**: Use channels to signal events, synchronize test assertions, or coordinate between goroutines. Prefer channels over `time.Sleep` for waiting on asynchronous actions in tests or production code.
+
+#### Example: Synchronizing Test Hooks
+
+Bad (race-prone, flaky):
+
+```go
+var ran bool
+go func() {
+    ran = true // data race!
+}()
+time.Sleep(50 * time.Millisecond)
+if !ran { t.Error("Did not run") }
+```
+
+Good (deterministic, race-free):
+
+```go
+ran := make(chan struct{})
+go func() {
+    close(ran)
+}()
+<-ran // blocks until goroutine runs
+```
+
+#### Example: Protecting State with Mutex
+
+```go
+type Worker struct {
+    mu sync.Mutex
+    value int
+}
+
+func (w *Worker) Set(v int) {
+    w.mu.Lock()
+    defer w.mu.Unlock()
+    w.value = v
+}
+
+func (w *Worker) Get() int {
+    w.mu.Lock()
+    defer w.mu.Unlock()
+    return w.value
+}
+```
+
+### When to Use Each
+
+- Use **channels** for signaling, coordination, and test synchronization.
+- Use **mutexes** for protecting shared, mutable state.
+
+### Project Philosophy
+
+`lifecycle` provides helpers, patterns, and recipes to encourage safe concurrency, but cannot abstract away all Go-level pitfalls. Users are expected to understand Go’s concurrency model, but can rely on the project’s examples and documentation to avoid common mistakes.
+
+For more, see:  
+
+- [RECIPES.md](docs/RECIPES.md) (Quiescent Worker, channel patterns)  
+- [TECHNICAL.md](docs/TECHNICAL.md) (withLock, shutdown protocol)  
+- [TESTING.md](docs/TESTING.md) (Avoid Sleep, prefer channels)
+
+---
+
 ## 🔄 2. Hot Reloading
 
 **Problem**: You want to update configuration without restarting the process.
@@ -207,9 +279,9 @@ router.Handle("command/quit", quitHandler)
 
 **Solution**: Use `WithForceExit(N)` as a "Deadman Switch".
 
-* **1st Ctrl+C**: Custom Logic (e.g., Suspend).
-* **2nd Ctrl+C**: Custom Logic (or Ignored).
-* **3rd Ctrl+C**: **FORCE EXIT** (Runtime Kill Switch).
+- **1st Ctrl+C**: Custom Logic (e.g., Suspend).
+- **2nd Ctrl+C**: Custom Logic (or Ignored).
+- **3rd Ctrl+C**: **FORCE EXIT** (Runtime Kill Switch).
 
 ```go
 func main() {
