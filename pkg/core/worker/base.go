@@ -9,38 +9,35 @@ import (
 )
 
 // BaseWorker provides default implementations for common Worker interface methods.
-// It is designed to be embedded in custom worker types to reduce boilerplate.
+// It is designed to be embedded in custom worker types to reduce boilerplate and enforce safe concurrency.
 //
-// Example:
+// **Concurrency Pattern:**
+// All critical state changes use the internal mutex (`mu sync.RWMutex`).
+// For custom state manipulations, always use the exposed `mu` field with generic locking helpers (`withLockAny`, `withLockResultAny`).
+//
+// Example of safe custom state mutation:
 //
 //	type MyWorker struct {
 //	    lifecycle.BaseWorker
-//	    // ... custom fields
+//	    myField int
 //	}
 //
-//	func NewMyWorker() *MyWorker {
-//	    return &MyWorker{
-//	        BaseWorker: lifecycle.NewBaseWorker("MyWorker"),
-//	    }
+//	func (w *MyWorker) SetMyField(val int) {
+//	    withLockAny(&w.mu, func() { w.myField = val })
 //	}
 //
-//	func (w *MyWorker) Start(ctx context.Context) error {
-//	    return w.StartFunc(ctx, w.Run)
-//	}
-//
-//	func (w *MyWorker) Run(ctx context.Context) error {
-//	    // ... business logic
-//	    return nil
+//	func (w *MyWorker) GetMyField() int {
+//	    return withLockResultAny(&w.mu, func() int { return w.myField })
 //	}
 //
 // The embedding pattern provides default implementations for:
-//   - Stop(ctx) — no-op (context cancellation handles cleanup)
+//   - Stop(ctx) — strict wait for quiescence (context cancellation handles cleanup)
 //   - Wait() — returns done channel
 //   - String() — returns worker name
 //   - State() — returns minimal state with name
 //   - Watch(ctx) — returns state change events (StateWatcher)
 //
-// These can be overridden if custom behavior is needed.
+// These can be overridden if custom behavior is needed, but always follow the locking pattern for state safety.
 type BaseWorker struct {
 	name     string
 	done     chan error
