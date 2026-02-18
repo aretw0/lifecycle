@@ -314,6 +314,14 @@
 
 ---
 
+### v1.6.4 (Patch): Signal Busy Loop Fix
+
+- [x] **Fix**: Corrected a busy loop in `signal.Context` where the monitor loop would consume 100% CPU after context cancellation.
+  - The `Done` channel case is now disabled after cancellation while keeping signal monitoring active for "Force Exit" logic.
+- [x] **Verification**: Verified via tests.
+
+---
+
 ### v1.7: Advanced Stability & Shared State (Major)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
