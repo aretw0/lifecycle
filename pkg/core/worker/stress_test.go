@@ -15,6 +15,10 @@ func TestStress_ProcessChurn(t *testing.T) {
 	// This test churns processes rapidly to ensure no leaks or race conditions in start/stop logic.
 	// It uses the same HelperProcess pattern as process_test.go.
 
+	if isWindows() {
+		t.Skip("TestStress_ProcessChurn não é suportado no Windows: gerenciamento de sinais/processos é diferente. Veja comentários no código.")
+	}
+
 	os.Setenv(HelperProcess, "1")
 	defer os.Unsetenv(HelperProcess)
 
@@ -42,13 +46,7 @@ func TestStress_ProcessChurn(t *testing.T) {
 
 		if err != nil {
 			if err == context.DeadlineExceeded {
-				// No Windows, é esperado que processos não respondam a sinais.
-				// No Linux, isso é considerado falha.
-				if isWindows() {
-					t.Logf("[Windows] Iteration %d: Stop timeout (context.DeadlineExceeded) - comportamento esperado", i)
-				} else {
-					t.Fatalf("[Linux] Iteration %d: Stop failed: %v", i, err)
-				}
+				t.Fatalf("[Linux] Iteration %d: Stop failed: %v", i, err)
 			} else {
 				t.Fatalf("Iteration %d: Stop failed: %v", i, err)
 			}
