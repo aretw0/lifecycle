@@ -573,43 +573,41 @@
 
 ## Technical Debt (Concrete Items)
 
-> [!WARNING]
-> **Technical Debt**: Non-blocking, but address before claiming "production-ready".
+> [!TIP]
+> **Reality Check (v1.6.4)**: Much of the early technical debt (coverage, performance unknowns) has been resolved. The focus now shifts to **Hardening** and **CI Reliability**.
 
-### Identified Debt (To Be Re-Baselined After v1.5 Release)
+### Resolved Debt (v1.5 - v1.6.2)
 
-> [!NOTE]
-> Coverage metrics listed below are from pre-v1.5 architecture and need re-baselining.
-> The `pkg/termio` package has been extracted to `procio` and is tested there.
+- [x] **Low Test Coverage**: Re-baselined and achieved >85% in core packages.
+- [x] **Performance Unknowns**: Introspection, Router, and Runtime overhead measured and documented in `LIMITATIONS.md`.
+- [x] **Documentation Gaps**: `MIGRATION.md` and `LIMITATIONS.md` created; `TECHNICAL.md` updated.
 
-- [ ] **Low Test Coverage** (metrics to be updated):
-  - Root package: (to be re-baselined, target: 80%+)
-  - `pkg/metrics`: (to be re-baselined, target: 70%+)
-  
-- [ ] **Missing Platform Tests**:
-  - No CI for Windows-specific behavior (CONIN$, Job Objects)
-  - macOS PDeathSig failure mode untested
-  
-- [ ] **API Stability**:
-  - Some experimental features not marked (need audit)
-  - No deprecation policy documented
-  
-- [ ] **Documentation Gaps**:
-  - No migration guide for existing apps
-  - Windows behavior underdocumented despite being differentiator
-  - No benchmark data published
-  
-- [ ] **Performance Unknowns**:
-  - Introspection overhead unmeasured
-  - Router throughput (events/sec) not benchmarked
-  - Memory footprint of large supervision trees unknown
+### Active Technical Debt
+
+- [ ] **Test Flakiness (High Priority)**:
+  - Several tests (notably `FileWatchSource` and `Supervisor`) still use `time.Sleep` for synchronization.
+  - Risk: Intermittent CI failures.
+  - Solution: Move to deterministic synchronization (channels/Ready hooks).
+- [ ] **Webhook Resilience (Security)**:
+  - `WebhookSource` lacks request body limits (OOM risk).
+  - Solution: Implement `http.MaxBytesReader` (Target: v1.6.5).
+- [ ] **Experimental API Audit**:
+  - APIs like `suspend`, `webhook`, and `health` are functional but need explicit `// Experimental` or `// Stable` tags in code to match `LIMITATIONS.md`.
+- [ ] **Cross-Platform CI**:
+  - Windows/macOS specific features (CONIN$, Job Objects) are tested locally but lack automated runners in GitHub Actions.
+  - Solution: Configure platform-specific CI jobs.
 
 ### Future Debt Prevention
 
-- [ ] Establish coverage gate in CI (80% minimum)
-- [ ] Require ADR for architectural changes
-- [ ] Document experimental APIs with `// Experimental:` comments
-- [ ] Regular quarterly debt audits
+- [ ] **Automated Quality Gates**:
+  - [ ] Implement strict coverage gate in CI (fail PR if <80% on core packages).
+  - [ ] Add performance regression check (run benchmarks in CI and compare with baseline).
+- [ ] **Governance & Documentation**:
+  - [ ] Require **ADR (Architecture Decision Records)** for any change affecting the Control Plane or Worker state machine.
+  - [ ] Maintain the "Transparency First" policy in `LIMITATIONS.md` for every Minor release.
+- [ ] **Release Discipline**:
+  - [ ] Strict adherence to SemVer (especially distinguishing Patch vs Minor for new Watcher features).
+  - [ ] Regular quarterly debt audits to re-baseline "Honest Coverage" exclusions.
 
 ---
 
