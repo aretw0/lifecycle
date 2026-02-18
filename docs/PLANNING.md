@@ -322,6 +322,26 @@
 
 ---
 
+### v1.6.5 (Patch): Hardening & Refinement (Production Ready)
+
+**Focus**: Security, test stability, and advanced watching patterns inspired by `loam`.
+
+- [ ] **Security (WebhookSource)**:
+  - [ ] Implement `io.LimitReader` or `http.MaxBytesReader` in `pkg/events/webhook.go`.
+  - [ ] Prevent OOM (Out Of Memory) attacks by limiting request body size (e.g., 1MB default).
+- [ ] **Test Stability (FileWatchSource)**:
+  - [ ] Replace `time.Sleep` in `pkg/events/filewatch_test.go` with deterministic synchronization.
+  - [ ] Ensure watcher is ready before triggering file events in tests.
+- [ ] **Advanced Watching Patterns (Extraction from Loam)**:
+  - [ ] Implement a generic **Debouncer** utility (pkg/events or pkg/core/runtime).
+  - [ ] Add **Git-Awareness** to `FileWatchSource` (detect `.git/index.lock` to pause/resume).
+  - [ ] Add **Recursive Watching** support to `FileWatchSource`.
+- [ ] **Documentation & Metadata Sync**:
+  - [ ] Update `PLANNING.md` and `TECHNICAL.md` to remove "Skeleton" labels from functional components.
+  - [ ] Re-verify Windows compatibility matrix in `LIMITATIONS.md`.
+
+---
+
 ### v1.7: Advanced Stability & Shared State (Major)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
