@@ -322,9 +322,9 @@
 
 ---
 
-### v1.6.5 (Patch): Hardening & Refinement (Production Ready)
+### v1.6.5 (Patch): Hardening & Security
 
-**Focus**: Security, test stability, and advanced watching patterns inspired by `loam`.
+**Focus**: Critical security fixes and test stability for immediate production reliability.
 
 - [ ] **Security (WebhookSource)**:
   - [ ] Implement `io.LimitReader` or `http.MaxBytesReader` in `pkg/events/webhook.go`.
@@ -332,27 +332,37 @@
 - [ ] **Test Stability (FileWatchSource)**:
   - [ ] Replace `time.Sleep` in `pkg/events/filewatch_test.go` with deterministic synchronization.
   - [ ] Ensure watcher is ready before triggering file events in tests.
-- [ ] **Advanced Watching Patterns (Extraction from Loam)**:
-  - [ ] Implement a generic **Debouncer** utility (pkg/events or pkg/core/runtime).
-  - [ ] Add **Git-Awareness** to `FileWatchSource` (detect `.git/index.lock` to pause/resume).
-  - [ ] Add **Recursive Watching** support to `FileWatchSource`.
-- [ ] **Documentation & Metadata Sync**:
+- [ ] **Documentation Sync**:
   - [ ] Update `PLANNING.md` and `TECHNICAL.md` to remove "Skeleton" labels from functional components.
-  - [ ] Re-verify Windows compatibility matrix in `LIMITATIONS.md`.
 
 ---
 
-### v1.7: Advanced Stability & Shared State (Major)
+### v1.7.0 (Minor): Advanced Watching & Event Throttling
+
+**Focus**: Evolve the Control Plane with robust watching patterns and generic event utilities.
+
+- [ ] **Generic Event Utilities**:
+  - [ ] Implement a generic **Debouncer** utility (pkg/core/runtime or pkg/events).
+  - [ ] Useful for any high-frequency event source.
+- [ ] **FileWatchSource Evolution**:
+  - [ ] Add **Recursive Watching** support (watch entire directory trees).
+  - [ ] Add **Event Filtering/Inhibition** (allow ignoring events based on predicates or temporary "lock" files).
+- [ ] **Refinement**:
+  - [ ] Document "Inhibition Pattern" as a generic way to handle "Git-awareness" without hardcoding Git logic.
+
+---
+
+### v1.8.0: Advanced Stability & Shared State (Minor)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
 
-#### **Declarative Stability (Self-Healing)**: (v1.7+)
+#### **Declarative Stability (Self-Healing)**: (v1.8+)
 
 - [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
 - [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
 - [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
 
-#### **Coordinated Lifecycle & Shared State**: (v1.7+)
+#### **Coordinated Lifecycle & Shared State**: (v1.8+)
 
 - [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
 - [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
@@ -360,7 +370,7 @@
 
 ---
 
-### v1.8: Documentation & Marketing
+### v1.9.0: Documentation & Marketing
 
 **Focus**: Make lifecycle discoverable, understandable, and compelling.
 
@@ -457,7 +467,7 @@
 
 ---
 
-### v1.9: Public Launch
+### v1.10: Public Launch
 
 **Focus**: Maximize visibility and initial adoption.
 
@@ -509,7 +519,7 @@
 
 ---
 
-### v1.10+: Feature Expansion (Future)
+### v1.11+: Feature Expansion (Future)
 
 **Focus**: Evolve based on community feedback and adoption patterns.
 
