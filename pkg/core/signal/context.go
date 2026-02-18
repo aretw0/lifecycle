@@ -243,6 +243,7 @@ func NewContext(parent context.Context, opts ...Option) *Context {
 
 // monitor runs the signal monitoring loop.
 func (sc *Context) monitor() {
+	doneCh := sc.Context.Done()
 	for {
 		select {
 		case sig, ok := <-sc.sigCh:
@@ -256,9 +257,10 @@ func (sc *Context) monitor() {
 
 			sc.handleSignal(sig, count)
 
-		case <-sc.Context.Done():
-			// Keep looping after Done() to support Force Exit during cleanup.
-			// This is essential for the "Double-Tap" escalation logic.
+		case <-doneCh:
+			// Turn off the Done case to prevent busy loop,
+			// but continue monitoring signals for Force Exit logic.
+			doneCh = nil
 		}
 	}
 }
