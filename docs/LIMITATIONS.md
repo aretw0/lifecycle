@@ -80,7 +80,7 @@ router.HandleFunc("signal/\\d+", fn)               // Regex character classes no
 | **Observer Ordering** | Not guaranteed | Multiple observers called serially; exception stops chain (TBD) |
 | **Production Overhead** | ~0.5-1µs per panic | Only if observer is installed; no overhead if nil |
 
-**Documented In**: [TECHNICAL.md §14 - Panic Reporting](TECHNICAL.md#14-panic-reporting)
+**Documented In**: [TECHNICAL.md §14 - Observability](TECHNICAL.md#14-observability)
 
 ### Stack Capture Behavior
 

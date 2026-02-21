@@ -180,9 +180,9 @@ func (w *Worker) Get() int {
 
 For more, see:  
 
-- [RECIPES.md](docs/RECIPES.md) (Quiescent Worker, channel patterns)  
-- [TECHNICAL.md](docs/TECHNICAL.md) (withLock, shutdown protocol)  
-- [TESTING.md](docs/TESTING.md) (Avoid Sleep, prefer channels)
+- [RECIPES.md](RECIPES.md) (Quiescent Worker, channel patterns)  
+- [TECHNICAL.md](TECHNICAL.md) (withLock, shutdown protocol)  
+- [TESTING.md](TESTING.md) (Avoid Sleep, prefer channels)
 
 ---
 

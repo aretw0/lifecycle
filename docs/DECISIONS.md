@@ -36,14 +36,14 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Consequences**: Allows for infinite extensibility without polluting the core `Run` loop.
 * **Note**: Originally planned for a "v2.0" major version, this was released as v1.5 to avoid `go.mod` migration overhead. See [MIGRATION.md](MIGRATION.md) for breaking changes.
 
-## ADR-0005: Padrão de Sincronização com Helpers
+## ADR-0005: Synchronization Pattern with Helpers
 
-* **Status**: Aceito
-* **Contexto**: O uso manual de locks em workers gerava riscos de unlock duplo, deadlocks e código repetitivo.
-* **Decisão**: Padronizar o uso dos helpers `withLock` e `withLockResult` para toda manipulação concorrente de estado em workers.
-* **Exceção**: Métodos que já fazem lock internamente (ex: `ExportState`) não devem ser envolvidos por esses helpers.
-* **Consequências**: Código mais seguro, legível e fácil de manter. Redução de bugs de concorrência.
-* **Referência**: Detalhes e exemplos em [TECHNICAL.md](TECHNICAL.md#d-sincronização-com-mutex).
+* **Status**: Accepted
+* **Context**: Manual use of locks in workers generated risks of double unlocks, deadlocks, and repetitive code.
+* **Decision**: Standardize the use of the `withLock` and `withLockResult` helpers for all concurrent state manipulation in workers.
+* **Exception**: Methods that already perform locking internally (e.g., `ExportState`) should not be wrapped by these helpers.
+* **Consequences**: Safer, more readable, and easier-to-maintain code. Reduction of concurrency bugs.
+* **Reference**: Details and examples in [TECHNICAL.md](TECHNICAL.md#d-synchronization-with-mutex).
 
 ## ADR-0006: Interactive Router Preset
 
