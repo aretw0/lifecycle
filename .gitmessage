@@ -1,33 +1,35 @@
-# <tipo>(<escopo>): <descrição curta>
-# |<---- Usar no máximo 50 caracteres ---->|
+# <type>(<scope>): <short description>
+# |<---- Use max 50 chars ---->|
 
-# Descrição mais detalhada, se necessário:
-# |<---- Tente limitar cada linha em 72 caracteres ---->|
+# Detailed description, if necessary:
+# |<---- Try to limit each line to 72 chars ---->|
 #
-# * Liste as mudanças principais
-# * Uma por linha
-# * Comece com um marcador
+# * List main changes
+# * One per line
+# * Start with a marker
 
-# --- TIPOS DE COMMIT ---
-# feat     ✨ (novo recurso)
-# fix      🐛 (correção de bug)
-# docs     📚 (documentação)
-# style    💎 (formatação, ponto e vírgula, etc.)
-# refactor ♻️  (refatoração de código)
-# test     🧪 (adição ou modificação de testes)
-# chore    🔧 (tarefas de manutenção)
+# --- COMMIT TYPES ---
+# feat     ✨ (new feature)
+# fix      🐛 (bug fix)
+# docs     📚 (documentation)
+# style    💎 (formatting, missing semi colons, etc)
+# refactor ♻️  (refactoring)
+# test     🧪 (adding or updating tests)
+# chore    🔧 (maintenance tasks)
+# perf     ⚡ (performance improvements)
+# ci       👷 (CI configuration)
 
-# --- DICAS ---
-# - Use o imperativo: "adiciona" não "adicionado" ou "adicionando"
-# - Primeira linha é o título, deve ser clara e concisa
-# - Adicione "!" após o tipo/escopo para indicar breaking changes
-# - Referencie issues relacionadas no rodapé: "Fixes #123"
+# --- TIPS ---
+# - Use the imperative mood: "add" not "added" or "adding"
+# - First line is the title, must be clear and concise
+# - Add "!" after type/scope to indicate breaking changes
+# - Reference related issues in the footer: "Fixes #123"
 
-# --- EXEMPLO ---
-# feat(notas): adiciona suporte a tags personalizadas
+# --- EXAMPLE ---
+# feat(notes): add support for custom tags
 #
-# * Implementa sistema de tags customizáveis
-# * Adiciona interface para gerenciamento de tags
-# * Integra com o sistema de busca existente
+# * Implement customizable tag system
+# * Add interface for tag management
+# * Integrate with existing search system
 #
 # Fixes #123
