@@ -106,3 +106,15 @@ This document logs significant architectural decisions for the `lifecycle` proje
   * Introduced `diagram_config.go` (centralized configuration adapter).
   * Simplified `signal/diagram.go` and `worker/diagram.go` by removing manual fragment rendering functions.
   * `lifecycle` now depends on `github.com/aretw0/introspection` v0.1.2+.
+
+## ADR-0013: Delegation over Source Bloating
+
+* **Status**: **Accepted (v1.7.0)**
+* **Context**: Sources like `FileWatchSource` needed to support features like "Debouncing", "Project Awareness" (ignoring `.git`), and "Synchronous Data Extraction" (Pushing to Go channels instead of relying purely on Router callbacks).
+* **Decision**: We keep `Sources` structurally dumb and generic, pushing business logic (filtering, debouncing) into the **Control Plane** via `Options`, `Middleware`, and `Bridges`.
+* **Rationale**:
+    1. **Composability**: A `DebounceHandler` can be used to throttle *any* rapid event (like `WebhookSource` bursts), not just file events. If we baked debouncing into `FileWatchSource`, we'd have to rewrite it for everything else.
+    2. **Idiomatic Go**: Instead of forcing applications to invert their control flow (callbacks only), `events.Notify(ch)` acts as a bridge, allowing consumers to use traditional `select` or `for range` loops over standard `channels` when dealing with the lifecycle router.
+* **Consequences**:
+  * Users are responsible for "snapping together" pieces (e.g., combining `WithFilter` and `DebounceHandler`).
+  * `lifecycle` remains a toolkit of orthogonal primitives rather than a rigid framework.

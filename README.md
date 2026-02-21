@@ -63,6 +63,7 @@ go get github.com/aretw0/lifecycle
 The Control Plane provides event-driven orchestration for modern Go applications:
 
 * **Event Router**: Generalizes `Signals` into `Events` (Webhook, FileWatch, HealthCheck).
+* **Event Conditioning & Pub/Sub (v1.7+)**: Handle bursts gracefully with `DebounceHandler` and route events to idiomatic Go channels via `events.Notify(ch)`.
 * **Managed Concurrency**: `lifecycle.Go(ctx, fn)` for non-leaking goroutines.
 * **Reactions**: `Reload`, `Suspend`, `Scale` alongside `Shutdown`.
 

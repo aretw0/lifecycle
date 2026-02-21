@@ -662,6 +662,25 @@ func (b *BaseSource) Close()                 // Cleanup
 
 **Usage**: FileWatchSource, WebhookSource, TickerSource, InputSource, HealthCheckSource, ChannelSource, OSSignalSource.
 
+#### 11.10. Event Conditioning & Throttling (Debounce)
+
+High-frequency event sources (like recursive filesystem watchers) can overwhelm the system. The Control Plane provides `events.DebounceHandler` to buffer bursts and emit a single, stable event after a quiet window (trailing edge).
+
+* **Anti-Starvation**: Continuous event bursts would normally prevent a trailing-edge from ever firing. The `WithMaxWait` option guarantees a synchronous payload flush after a specified maximum duration.
+* **Custom Aggregation**: Users can provide a `mergeFunc` to combine arriving events (e.g., accumulating changed file paths) rather than blindly dropping them.
+
+#### 11.11. Channel Subscriptions (Pub/Sub)
+
+While the default Router uses a callback-based `Handler` interface, some Go applications prefer idiomatic `select` loops or `range` iterations over channels.
+
+The `events.Notify(ch)` bridge converts a standard Go channel into a `Handler`. It performs **non-blocking sends**, dropping events cleanly (`ErrNotHandled`) if the consumer's channel buffer is full, preventing the Control Plane from deadlocking due to a slow reader.
+
+```go
+// Allows idiomatic integration with other select loops
+ch := make(chan events.Event, 100)
+router.Handle("file/*", events.Notify(ch))
+```
+
 ### 12. Managed Concurrency (`lifecycle.Go`)
 
 To adhere to **Zero Config** but safe concurrency, we use **Context Propagation**.

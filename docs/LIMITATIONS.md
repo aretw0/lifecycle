@@ -1,6 +1,6 @@
 # Limitations & Known Issues
 
-> **Last Updated**: February 20, 2026 (v1.6.5)
+> **Last Updated**: February 20, 2026 (v1.7.0)
 >
 > This document lists known limitations, platform-specific constraints, and measured performance characteristics. **Transparency is a feature.**
 
@@ -93,6 +93,15 @@ router.HandleFunc("signal/\\d+", fn)               // Regex character classes no
 **Recommendation**: Leave unset (auto-detect) in most cases. Only use explicit `true` for critical worker lifecycle tracking.
 
 **Implementation**: [pkg/core/runtime/task.go](../pkg/core/runtime/task.go) — Conditional stack capture logic.
+
+### OS Watcher Limits (FileWatchSource)
+
+| Feature | Limitation | OS | Impact | Workaround |
+|:--------|:-----------|:---|:-------|:-----------|
+| **Recursive Watching** `WithRecursive(true)` | Limited by `inotify` max instances | Linux | `fsnotify` fails to add directories, silent drops, or supervisor failure | Increase `fs.inotify.max_user_watches` or aggressively use `WithFilter` |
+| **Recursive Discovery** | New directories are discovered and attached dynamically | All | Small race window between dir creation and watch attachment | Ignore micro-races outside of your control |
+
+**Recommendation**: Never use `WithRecursive(true)` on root repository directories (like mono-repos) without also providing a `WithFilter` that ignores massive dependencies like `node_modules/`, `vendor/`, or `.git/`.
 
 ---
 
@@ -226,6 +235,12 @@ BenchmarkGoVsRawGoroutine/LifecycleGo-8    500000    5234 ns/op    256 B/op    4
 - ✅ `pkg/events/filewatch.FileWatchSource` — Event-based file watching
 - ✅ `pkg/events/webhook.WebhookSource` — HTTP trigger source (1MB default payload limit to prevent OOM)
 - ✅ `pkg/events/health.HealthCheckSource` — Health status source
+
+### Stable as of v1.7.0
+
+- ✅ `pkg/events.Notify(chan<- Event)` — Pub/Sub channel bridging
+- ✅ `pkg/events.DebounceHandler` — High-frequency event dampening
+- ✅ `pkg/events.WithRecursive` & `WithFilter` — Advanced FileWatchSource capabilities
 
 ### Not Yet Marked (Audit Pending)
 
