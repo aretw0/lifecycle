@@ -374,6 +374,14 @@ func (d *debouncer) stopAndWait(timeout time.Duration) {
 }
 ```
 
+#### 8.2. Synchronous Worker Shutdown (StopAndWait)
+
+By default, an OS-level worker's `Stop` method sends a signal and waits using the BaseWorker timeout logic. A `FuncWorker` stops and returns immediately upon context cancellation. However, `Stop()` calls may return *before* the child process's stdout and stderr buffers have completely flushed, or a background goroutine has fully exited.
+
+To address race conditions in heavily coordinated systems (like executing tools strictly sequentially), the library provides a universal utility: `lifecycle.StopAndWait(ctx, worker)`.
+
+It internally calls `worker.Stop(ctx)` but firmly blocks return until `<-worker.Wait()` completely resolves, ensuring all background I/O or detached routines are cleanly closed before yielding control back to the caller.
+
 ### 9. Supervision Tree
 
 * **OneForOne**: Restart only the failed child.

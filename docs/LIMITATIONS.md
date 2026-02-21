@@ -220,11 +220,14 @@ BenchmarkGoVsRawGoroutine/LifecycleGo-8    500000    5234 ns/op    256 B/op    4
 - ✅ `lifecycle.WithStackCapture(bool)` — Stack capture control
 - ✅ `Observer.OnGoroutinePanicked(recovered any, stack []byte)` — Panic hook
 
+### Stable as of v1.6.5
+
+- ✅ `pkg/events/filewatch.FileWatchSource` — Event-based file watching
+- ✅ `pkg/events/webhook.WebhookSource` — HTTP trigger source (1MB payload limit)
+- ✅ `pkg/events/health.HealthCheckSource` — Health status source
+
 ### Not Yet Marked (Audit Pending)
 
-- ⚠️ `pkg/events/filewatch.FileWatchSource` — Flaky FS race conditions; integration tests only
-- ⚠️ `pkg/events/webhook.WebhookSource` — Skeleton; minimal testing
-- ⚠️ `pkg/events/health.HealthCheckSource` — Skeleton; minimal testing
 - ⚠️ `pkg/core/worker/suspend.Suspend` — Experimental; covered but not marked
 
 **Deprecation Policy**: None documented yet (planned for v1.7+).

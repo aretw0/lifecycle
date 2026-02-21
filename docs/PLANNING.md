@@ -20,9 +20,9 @@
 
 - [x] **Event Sources (Inputs)**: Generalized interface for lifecycle changes.
   - [x] `OSSignalSource` (SIGINT, SIGTERM)
-  - [x] `WebhookSource` (Admin HTTP endpoints - Skeleton)
-  - [x] `HealthCheckSource` (Promoted from Backlog - Skeleton)
-  - [x] `FileWatchSource` (Integration with Loam? - Skeleton)
+  - [x] `WebhookSource` (Admin HTTP endpoints)
+  - [x] `HealthCheckSource` (Promoted from Backlog)
+  - [x] `FileWatchSource` (Integration with Loam?)
   - [x] **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders
   
 - [x] **Lifecycle Handlers (Outputs)**: Dynamic responses to events.
