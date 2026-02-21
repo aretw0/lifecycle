@@ -326,17 +326,19 @@
 
 **Focus**: Critical security fixes and test stability for immediate production reliability.
 
-- [ ] **Security (WebhookSource)**:
-  - [ ] Implement `io.LimitReader` or `http.MaxBytesReader` in `pkg/events/webhook.go`.
-  - [ ] Prevent OOM (Out Of Memory) attacks by limiting request body size (e.g., 1MB default).
-- [ ] **Test Stability (FileWatchSource)**:
-  - [ ] Replace `time.Sleep` in `pkg/events/filewatch_test.go` with deterministic synchronization.
-  - [ ] Ensure watcher is ready before triggering file events in tests.
-- [ ] **Documentation Sync**:
-  - [ ] Update `PLANNING.md` and `TECHNICAL.md` to remove "Skeleton" labels from functional components.
-- [ ] **Process Worker Hardening (Race Condition)**:
-  - [ ] Implement `StopAndWait(ctx)` in `ProcessWorker` to atomically stop and wait for IO flush.
-  - [ ] Address race condition where `Stop` returns before `stdout/stderr` buffers are closed (discovered in Trellis usage).
+- [x] **Security (WebhookSource)**:
+  - [x] Implement `http.MaxBytesReader` in `pkg/events/webhook.go`.
+  - [x] Prevent OOM (Out Of Memory) attacks by limiting request body size (e.g., 1MB default). Added `WithMaxPayloadBytes` option.
+- [x] **Test Stability (FileWatchSource)**:
+  - [x] Replace `time.Sleep` in `pkg/events/filewatch_test.go` with deterministic synchronization.
+  - [x] Ensure watcher is ready before triggering file events in tests.
+- [x] **Documentation Sync**:
+  - [x] Update `PLANNING.md` and `TECHNICAL.md` to remove "Skeleton" labels from functional components.
+- [x] **Generic Worker Hardening (Race Condition)**:
+  - [x] Implement utility `lifecycle.StopAndWait(ctx, worker)` to atomically stop and wait for worker termination.
+  - [x] Address race condition where `Stop` returns before `stdout/stderr` buffers are closed or background routines finish (discovered in Trellis usage).
+- [x] **Sober Edit (API Consistency)**:
+  - [x] Enforce Facade Pattern in `lifecycle.go` to never leak internal types (e.g., `signal.Context`, `worker.BaseWorker`).
 
 ---
 
