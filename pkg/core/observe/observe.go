@@ -46,10 +46,10 @@ func GetObserver() Observer {
 // NoOpObserver provides a drop-in observer that does nothing.
 type NoOpObserver struct{}
 
-func (NoOpObserver) OnProcessStarted(int)    {}
-func (NoOpObserver) OnProcessFailed(error)   {}
+func (NoOpObserver) OnProcessStarted(int)            {}
+func (NoOpObserver) OnProcessFailed(error)           {}
 func (NoOpObserver) OnGoroutinePanicked(any, []byte) {}
-func (NoOpObserver) LogDebug(string, ...any) {}
-func (NoOpObserver) LogInfo(string, ...any)  {}
-func (NoOpObserver) LogWarn(string, ...any)  {}
-func (NoOpObserver) LogError(string, ...any) {}
+func (NoOpObserver) LogDebug(string, ...any)         {}
+func (NoOpObserver) LogInfo(string, ...any)          {}
+func (NoOpObserver) LogWarn(string, ...any)          {}
+func (NoOpObserver) LogError(string, ...any)         {}

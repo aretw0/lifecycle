@@ -231,8 +231,8 @@ type mockObserver struct {
 	mu            sync.Mutex
 }
 
-func (m *mockObserver) OnProcessStarted(int)  {}
-func (m *mockObserver) OnProcessFailed(error) {}
+func (m *mockObserver) OnProcessStarted(int)    {}
+func (m *mockObserver) OnProcessFailed(error)   {}
 func (m *mockObserver) LogDebug(string, ...any) {}
 func (m *mockObserver) LogInfo(string, ...any)  {}
 func (m *mockObserver) LogWarn(string, ...any)  {}

@@ -257,8 +257,8 @@ func (o *benchmarkObserver) OnGoroutinePanicked(recovered any, stack []byte) {
 	_ = stack
 }
 
-func (o *benchmarkObserver) OnProcessStarted(pid int)  {}
-func (o *benchmarkObserver) OnProcessFailed(err error) {}
+func (o *benchmarkObserver) OnProcessStarted(pid int)         {}
+func (o *benchmarkObserver) OnProcessFailed(err error)        {}
 func (o *benchmarkObserver) LogDebug(msg string, args ...any) {}
 func (o *benchmarkObserver) LogInfo(msg string, args ...any)  {}
 func (o *benchmarkObserver) LogWarn(msg string, args ...any)  {}
