@@ -135,7 +135,7 @@ type SignalState = signal.State
 // On the first signal, context is cancelled. On the second, it force exits.
 // Behavior can be customized via functional options.
 // Alias for pkg/signal.NewContext.
-func NewSignalContext(parent context.Context, opts ...signal.Option) *signal.Context {
+func NewSignalContext(parent context.Context, opts ...SignalOption) *SignalContext {
 	return signal.NewContext(parent, opts...)
 }
 
@@ -147,7 +147,7 @@ func NewSignalContext(parent context.Context, opts ...signal.Option) *signal.Con
 // in existing applications without restructuring the entire codebase.
 // Set up signal handling via the returned context instead of wiring through Run().
 // Example: See examples/context/main.go in the repository.
-func Context() *signal.Context {
+func Context() *SignalContext {
 	return signal.NewContext(context.Background())
 }
 
@@ -296,9 +296,20 @@ const (
 	WorkerStatusFailed  = worker.StatusFailed
 )
 
+// StopAndWait requests a worker to stop and blocks until it fully terminates.
+// This utility resolves race conditions where Stop() returns but the worker's I/O or background routines are still active.
+// Alias for pkg/worker.StopAndWait.
+func StopAndWait(ctx context.Context, w Worker) error {
+	return worker.StopAndWait(ctx, w)
+}
+
+// ProcessWorker represents a worker that executes an OS process.
+// Alias for pkg/worker.ProcessWorker.
+type ProcessWorker = worker.ProcessWorker
+
 // NewProcessWorker creates a new Process worker for the given command.
 // Alias for pkg/worker.NewProcessWorker.
-func NewProcessWorker(name string, nameCmd string, args ...string) *worker.ProcessWorker {
+func NewProcessWorker(name string, nameCmd string, args ...string) *ProcessWorker {
 	return worker.NewProcessWorker(name, nameCmd, args...)
 }
 
@@ -693,10 +704,24 @@ func NewFileWatchSource(path string) *FileWatchSource {
 	return events.NewFileWatchSource(path)
 }
 
+// WebhookSource listens for HTTP requests and converts them into lifecycle events.
+// Alias for pkg/events.WebhookSource.
+type WebhookSource = events.WebhookSource
+
+// WebhookOption configures a WebhookSource.
+// Alias for pkg/events.WebhookOption.
+type WebhookOption = events.WebhookOption
+
+// WithMaxPayloadBytes configures the maximum request body size for webhooks.
+// Alias for pkg/events.WithMaxPayloadBytes.
+func WithMaxPayloadBytes(n int64) WebhookOption {
+	return events.WithMaxPayloadBytes(n)
+}
+
 // NewWebhookSource creates a source that listens for Webhooks.
 // Alias for pkg/events.NewWebhookSource.
-func NewWebhookSource(addr string) *events.WebhookSource {
-	return events.NewWebhookSource(addr)
+func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
+	return events.NewWebhookSource(addr, opts...)
 }
 
 // ChannelSource adapts a generic Go channel to the Source interface.
