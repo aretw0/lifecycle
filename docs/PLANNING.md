@@ -334,19 +334,26 @@
   - [ ] Ensure watcher is ready before triggering file events in tests.
 - [ ] **Documentation Sync**:
   - [ ] Update `PLANNING.md` and `TECHNICAL.md` to remove "Skeleton" labels from functional components.
+- [ ] **Process Worker Hardening (Race Condition)**:
+  - [ ] Implement `StopAndWait(ctx)` in `ProcessWorker` to atomically stop and wait for IO flush.
+  - [ ] Address race condition where `Stop` returns before `stdout/stderr` buffers are closed (discovered in Trellis usage).
 
 ---
 
-### v1.7.0 (Minor): Advanced Watching & Event Throttling
+### v1.7.0 (Minor): Advanced Watching, Throttling & Event Broker Delegation
 
-**Focus**: Evolve the Control Plane with robust watching patterns and generic event utilities.
+**Focus**: Evolve the Control Plane with robust watching patterns, generic event utilities, and event broker responsibilities to offload downstream projects (like Loam).
 
-- [ ] **Generic Event Utilities**:
-  - [ ] Implement a generic **Debouncer** utility (pkg/core/runtime or pkg/events).
-  - [ ] Useful for any high-frequency event source.
-- [ ] **FileWatchSource Evolution**:
-  - [ ] Add **Recursive Watching** support (watch entire directory trees).
-  - [ ] Add **Event Filtering/Inhibition** (allow ignoring events based on predicates or temporary "lock" files).
+- [ ] **Channel Subscriptions (Pub/Sub nativo no Router)**:
+  - [ ] Implement `control.NewChannelHandler(buffer int)` or `NewSubscription()`.
+  - [ ] Allow Router to return native Go channels (`<-chan Event`) instead of only pushing via callbacks, enabling synchronous iteration for clients.
+- [ ] **Generic Event Utilities (Debounce)**:
+  - [ ] Implement a generic **Debouncer** utility (`control.DebounceHandler(handler, window time.Duration, mergeFunc)`).
+  - [ ] Provide out-of-the-box noise dampening for high-frequency events (e.g., rapid FileSystem writes).
+- [ ] **DirectoryWatchSource (Recursive FS)**:
+  - [ ] Extract and evolve `FileWatchSource` into a robust `DirectoryWatchSource`.
+  - [ ] Add `WithRecursive(true)` and `WithFilter(func(path string) bool)` support.
+  - [ ] *Use Case*: Loam delegates directory watching and `index.lock` git-pause filtering natively without maintaining deep `fsnotify` boilerplate.
 - [ ] **Refinement**:
   - [ ] Document "Inhibition Pattern" as a generic way to handle "Git-awareness" without hardcoding Git logic.
 
