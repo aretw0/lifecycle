@@ -24,20 +24,30 @@ func (e WebhookEvent) String() string {
 // WebhookSource listens for HTTP requests and converts them into lifecycle events.
 type WebhookSource struct {
 	BaseSource
-	addr   string
-	mu     sync.Mutex
-	ln     net.Listener
-	server *http.Server
+	addr            string
+	maxPayloadBytes int64
+	mu              sync.Mutex
+	ln              net.Listener
+	server          *http.Server
 }
 
 // WebhookOption configures a WebhookSource.
 type WebhookOption func(*WebhookSource)
 
+// WithMaxPayloadBytes configures the maximum request body size in bytes.
+// Default is 1MB to prevent OOM attacks.
+func WithMaxPayloadBytes(n int64) WebhookOption {
+	return func(s *WebhookSource) {
+		s.maxPayloadBytes = n
+	}
+}
+
 // NewWebhookSource creates a new source listening on the given address (e.g., ":8080").
 func NewWebhookSource(addr string, opts ...WebhookOption) *WebhookSource {
 	s := &WebhookSource{
-		BaseSource: NewBaseSource("webhook", 10),
-		addr:       addr,
+		BaseSource:      NewBaseSource("webhook", 10),
+		addr:            addr,
+		maxPayloadBytes: 1024 * 1024, // 1MB default limit
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -61,7 +71,12 @@ func (s *WebhookSource) Start(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
+		r.Body = http.MaxBytesReader(w, r.Body, s.maxPayloadBytes)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "payload too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		event := WebhookEvent{
 			Method:  r.Method,
 			Path:    r.URL.Path,
