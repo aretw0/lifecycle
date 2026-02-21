@@ -241,12 +241,9 @@ BenchmarkGoVsRawGoroutine/LifecycleGo-8    500000    5234 ns/op    256 B/op    4
 - ✅ `pkg/events.Notify(chan<- Event)` — Pub/Sub channel bridging
 - ✅ `pkg/events.DebounceHandler` — High-frequency event dampening
 - ✅ `pkg/events.WithRecursive` & `WithFilter` — Advanced FileWatchSource capabilities
+- ✅ `pkg/core/worker/suspend.Suspend` — Context-aware worker pausing mechanism
 
-### Not Yet Marked (Audit Pending)
-
-- ⚠️ `pkg/core/worker/suspend.Suspend` — Experimental; covered but not marked
-
-**Deprecation Policy**: None documented yet (planned for v1.7+).
+**Deprecation Policy**: See [DEPRECATION.md](DEPRECATION.md) for the active 3-phase lifecycle.
 
 ---
 
