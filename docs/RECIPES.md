@@ -376,3 +376,41 @@ See [docs/TECHNICAL.md](TECHNICAL.md#14-observability) for behavior details and
 ## 🧩 10. Hybrid Migration (Manual Context)
 
 For a short, maintained summary of the migration entry points, see [docs/MIGRATION.md](MIGRATION.md).
+
+---
+
+## 🚫 11. The Inhibition Pattern (Debounce + Filter)
+
+**Problem**: You are watching a directory for changes (like a Git repository) and you want to trigger a build or sync. However, you don't want to react to noisy internal files (like `.git/index.lock` or temporary editor files), and you don't want to trigger 50 builds when a user saves 50 files at once.
+
+**Solution**: Combine `events.WithFilter` on your Source with an `events.DebounceHandler` on your Router. This pattern offloads "project awareness" and "throttling" from your business logic directly into the Control Plane.
+
+```go
+// 1. Create a recursive FileWatchSource that inhibits (filters) noisy files
+filter := func(path string) bool {
+    // Inhibit git metadata and lock files
+    if strings.Contains(path, ".git") || strings.HasSuffix(path, ".lock") {
+        return false 
+    }
+    return true
+}
+source := events.NewFileWatchSource("./my-project", 
+    events.WithRecursive(true), 
+    events.WithFilter(filter),
+)
+
+// 2. Define your business logic handler (e.g., triggering a build)
+buildHandler := events.HandlerFunc(func(ctx context.Context, e events.Event) error {
+    slog.Info("Changes settled, triggering build...")
+    return runBuild()
+})
+
+// 3. Wrap it in a DebounceHandler
+// We use a 500ms window. Nil mergeFunc means we only care that *something* 
+// changed, dropping the intermediate spam.
+debouncedBuild := events.DebounceHandler(buildHandler, 500*time.Millisecond, nil)
+
+// 4. Register and Run
+router.AddSource(source)
+router.Handle("file/*", debouncedBuild)
+```

@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
@@ -22,8 +23,28 @@ import (
 //	Handle("file/*", lifecycle.NewReloadHandler(loadConfig))
 type FileWatchSource struct {
 	BaseSource
-	path  string
-	ready chan struct{} // For deterministic test synchronization
+	path      string
+	recursive bool
+	filter    func(path string) bool
+	ready     chan struct{} // For deterministic test synchronization
+}
+
+// FileWatchOption configures the FileWatchSource
+type FileWatchOption func(*FileWatchSource)
+
+// WithRecursive enables recursive watching of all subdirectories.
+func WithRecursive(enabled bool) FileWatchOption {
+	return func(opts *FileWatchSource) {
+		opts.recursive = enabled
+	}
+}
+
+// WithFilter sets a function to ignore certain paths. If the filter returns false,
+// the path is ignored. This is useful for omitting .git folders or locks.
+func WithFilter(filter func(path string) bool) FileWatchOption {
+	return func(opts *FileWatchSource) {
+		opts.filter = filter
+	}
 }
 
 // NewFileWatchSource creates a new file watcher for the specified path.
@@ -31,12 +52,16 @@ type FileWatchSource struct {
 //
 // Unlike the legacy polling-based approach, this uses fsnotify for
 // immediate event notification when files change.
-func NewFileWatchSource(path string) *FileWatchSource {
-	return &FileWatchSource{
+func NewFileWatchSource(path string, opts ...FileWatchOption) *FileWatchSource {
+	f := &FileWatchSource{
 		BaseSource: NewBaseSource("filewatch", 1),
 		path:       filepath.Clean(path),
 		ready:      make(chan struct{}),
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 // Start begins watching the file for changes.
@@ -48,8 +73,36 @@ func (f *FileWatchSource) Start(ctx context.Context) error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(f.path); err != nil {
-		return err
+	if f.recursive {
+		err = filepath.WalkDir(f.path, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if f.filter != nil && !f.filter(path) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if d.IsDir() {
+				if err := watcher.Add(path); err != nil {
+					slog.Warn("FileWatchSource: failed to add dir", "path", path, "error", err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		// Only check filter for base path if specific filter provided
+		if f.filter == nil || f.filter(f.path) {
+			if err := watcher.Add(f.path); err != nil {
+				return err
+			}
+		} else {
+			slog.Warn("FileWatchSource: base path ignored by filter", "path", f.path)
+		}
 	}
 
 	// Signal readiness
@@ -59,7 +112,7 @@ func (f *FileWatchSource) Start(ctx context.Context) error {
 		close(f.ready)
 	}
 
-	slog.Info("FileWatchSource: watching", "path", f.path)
+	slog.Info("FileWatchSource: watching", "path", f.path, "recursive", f.recursive)
 
 	for {
 		select {
@@ -71,15 +124,32 @@ func (f *FileWatchSource) Start(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			// Emit event on Write, Create, or Rename (for atomic saves)
-			// Modern editors (VS Code, vim, etc) use atomic saves:
-			// 1. Write to temp file
-			// 2. Rename temp file to target (this is what we detect)
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
-				slog.Info("FileWatchSource: detected change", "path", f.path, "op", event.Op)
+				// 1. Check if the event path passes the filter
+				if f.filter != nil && !f.filter(event.Name) {
+					continue
+				}
 
-				// If file was renamed away, re-watch the new file
-				if event.Has(fsnotify.Rename) || event.Has(fsnotify.Remove) {
+				slog.Info("FileWatchSource: detected change", "path", event.Name, "op", event.Op)
+
+				// 2. Dynamic recursion support: If a new directory is created, watch it automatically
+				if f.recursive && (event.Has(fsnotify.Create) || event.Has(fsnotify.Rename)) {
+					// fsnotify events don't tell us if it's a directory easily without stat
+					// but Add on a file vs dir behaves okay, or we can quickly check:
+					// Just try to add it, if it's a directory it will add it to the watcher.
+					// If it's a file, we don't strictly *need* to add it manually since
+					// we watched its parent dir, but fsnotify typically wants parent dirs for new files anyway.
+					// We'll trust watcher.Add (which is generally safe to call on files or dirs).
+					// NOTE: fsnotify watching a dir auto-watches children files under it
+					// for Linux/Windows, but discovering *new subdirectories* requires manual Add.
+
+					// Let's only Add if it matches path filter (already checked)
+					// Avoid doing costly stats here unless necessary. Adding blindly is usually cheap.
+					_ = watcher.Add(event.Name)
+				}
+
+				// If file was renamed away, re-watch the new file (legacy specific behavior for single file watches)
+				if !f.recursive && (event.Has(fsnotify.Rename) || event.Has(fsnotify.Remove)) {
 					// Re-add watch in case editor replaced file
 					watcher.Remove(f.path)
 					if err := watcher.Add(f.path); err != nil {
@@ -88,8 +158,8 @@ func (f *FileWatchSource) Start(ctx context.Context) error {
 				}
 
 				// Emit event using BaseSource helper
-				if err := f.Emit(ctx, fileChangeEvent{path: f.path, op: mapFsnotifyOp(event.Op)}); err != nil {
-					slog.Error("FileWatchSource: failed to emit event", "path", f.path, "error", err)
+				if err := f.Emit(ctx, fileChangeEvent{path: event.Name, op: mapFsnotifyOp(event.Op)}); err != nil {
+					slog.Error("FileWatchSource: failed to emit event", "path", event.Name, "error", err)
 					return err
 				}
 				metrics.GetProvider().IncEventEmitted("filewatch")
