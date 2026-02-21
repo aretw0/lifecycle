@@ -30,7 +30,11 @@ func TestFileWatchSource(t *testing.T) {
 	}()
 
 	// Wait for watcher to initialize
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-source.ready: // deterministic synchronization
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for watcher to start")
+	}
 
 	// Trigger change: WRITE
 	_ = os.WriteFile(testFile, []byte("changed"), 0644)

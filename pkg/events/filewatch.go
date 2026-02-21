@@ -22,7 +22,8 @@ import (
 //	Handle("file/*", lifecycle.NewReloadHandler(loadConfig))
 type FileWatchSource struct {
 	BaseSource
-	path string
+	path  string
+	ready chan struct{} // For deterministic test synchronization
 }
 
 // NewFileWatchSource creates a new file watcher for the specified path.
@@ -34,6 +35,7 @@ func NewFileWatchSource(path string) *FileWatchSource {
 	return &FileWatchSource{
 		BaseSource: NewBaseSource("filewatch", 1),
 		path:       filepath.Clean(path),
+		ready:      make(chan struct{}),
 	}
 }
 
@@ -48,6 +50,13 @@ func (f *FileWatchSource) Start(ctx context.Context) error {
 
 	if err := watcher.Add(f.path); err != nil {
 		return err
+	}
+
+	// Signal readiness
+	select {
+	case <-f.ready:
+	default:
+		close(f.ready)
 	}
 
 	slog.Info("FileWatchSource: watching", "path", f.path)
