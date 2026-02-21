@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -156,4 +157,23 @@ type State struct {
 	ResumeToken string
 	Metadata    map[string]string
 	Children    []State
+}
+
+// StopAndWait is a utility that requests a worker to stop and blocks until
+// it fully terminates (resolving race conditions on shutdown), returning any combined errors.
+func StopAndWait(ctx context.Context, w Worker) error {
+	err := w.Stop(ctx)
+
+	select {
+	case waitErr := <-w.Wait():
+		if err != nil {
+			return errors.Join(err, waitErr)
+		}
+		return waitErr
+	case <-ctx.Done():
+		if err != nil {
+			return errors.Join(err, ctx.Err())
+		}
+		return ctx.Err()
+	}
 }

@@ -24,27 +24,25 @@ import (
 	"github.com/aretw0/lifecycle/pkg/core/log"
 	"github.com/aretw0/lifecycle/pkg/core/metrics"
 	"github.com/aretw0/lifecycle/pkg/core/observe"
-
 )
-
 
 // withLockAny executa uma função sob o mutex de qualquer struct que tenha mu sync.Locker.
 type locker interface {
-       Lock()
-       Unlock()
+	Lock()
+	Unlock()
 }
 
 func withLockAny(l locker, fn func()) {
-       l.Lock()
-       defer l.Unlock()
-       fn()
+	l.Lock()
+	defer l.Unlock()
+	fn()
 }
 
 // withLockResultAny executa uma função sob o mutex e retorna um valor, para qualquer struct com mu sync.Locker.
 func withLockResultAny[T any](l locker, fn func() T) T {
-       l.Lock()
-       defer l.Unlock()
-       return fn()
+	l.Lock()
+	defer l.Unlock()
+	return fn()
 }
 
 // withLock executa uma função sob o mutex do worker.
