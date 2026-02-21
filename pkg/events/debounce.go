@@ -19,8 +19,21 @@ import (
 // with the new arrival (b).
 //
 // Note: This spawns a background goroutine per unique event series to manage the timer
-// until the debounce window expires.
-func DebounceHandler(next Handler, window time.Duration, mergeFunc func(a, b Event) Event) Handler {
+// until the debounce window expires. Use WithMaxWait to prevent starvation.
+
+// DebounceOption configures the DebounceHandler.
+type DebounceOption func(*debounce)
+
+// WithMaxWait sets a maximum duration that events can be delayed before
+// a flush is forced. This prevents "starvation" when events arrive continuously
+// at an interval shorter than the debounce window.
+func WithMaxWait(maxWait time.Duration) DebounceOption {
+	return func(d *debounce) {
+		d.maxWait = maxWait
+	}
+}
+
+func DebounceHandler(next Handler, window time.Duration, mergeFunc func(a, b Event) Event, opts ...DebounceOption) Handler {
 	if next == nil {
 		panic("events: DebounceHandler missing next handler")
 	}
@@ -28,26 +41,31 @@ func DebounceHandler(next Handler, window time.Duration, mergeFunc func(a, b Eve
 		return next // No debouncing if window is zero or negative
 	}
 
-	return &debounce{
+	d := &debounce{
 		next:   next,
 		window: window,
 		merge:  mergeFunc,
 	}
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d
 }
 
 type debounce struct {
-	next   Handler
-	window time.Duration
-	merge  func(a, b Event) Event
+	next    Handler
+	window  time.Duration
+	merge   func(a, b Event) Event
+	maxWait time.Duration
 
 	mu       sync.Mutex
 	timer    *time.Timer
 	buffered Event
+	firstHit time.Time
 }
 
 func (d *debounce) HandleEvent(ctx context.Context, e Event) error {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 
 	// 1. Merge or Replace the buffered event
 	if d.buffered == nil || d.merge == nil {
@@ -57,19 +75,32 @@ func (d *debounce) HandleEvent(ctx context.Context, e Event) error {
 	}
 
 	// 2. Manage the timer
+	var toFlush Event
 	if d.timer != nil {
-		// Event arrived before window closed; reset the timer
-		d.timer.Stop()
-		d.timer.Reset(d.window)
+		// Event arrived before window closed
+		if d.maxWait > 0 && time.Since(d.firstHit) >= d.maxWait {
+			// Starvation prevention: MaxWait exceeded, force a synchronous flush
+			d.timer.Stop()
+			toFlush = d.buffered
+			d.buffered = nil
+			d.timer = nil
+		} else {
+			// Reset the timer for trailing edge
+			d.timer.Stop()
+			d.timer.Reset(d.window)
+		}
 	} else {
-		// First event of a new burst; start the timer
-		// We spawn a lightweight goroutine managed via core/runtime package helpers
-		// or directly via time.AfterFunc to ensure it doesn't block the caller.
-
-		// time.AfterFunc executes the callback in its own goroutine
+		// First event of a new burst
+		d.firstHit = time.Now()
 		d.timer = time.AfterFunc(d.window, func() {
 			d.flush(ctx)
 		})
+	}
+	d.mu.Unlock()
+
+	// 3. Flush synchronously outside the lock if MaxWait triggers
+	if toFlush != nil && ctx.Err() == nil {
+		_ = d.next.HandleEvent(ctx, toFlush)
 	}
 
 	return nil

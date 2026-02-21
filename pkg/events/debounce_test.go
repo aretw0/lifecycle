@@ -117,3 +117,34 @@ func TestDebounceHandler_Cancellation(t *testing.T) {
 		t.Fatalf("expected 0 events to be emitted because context was cancelled, got %d", len(capture.received))
 	}
 }
+
+func TestDebounceHandler_MaxWait(t *testing.T) {
+	capture := &captureHandler{}
+	window := 50 * time.Millisecond
+	maxWait := 100 * time.Millisecond
+
+	handler := events.DebounceHandler(capture, window, nil, events.WithMaxWait(maxWait))
+	ctx := context.Background()
+
+	// Fire events every 30ms for 150ms total.
+	// Window is 50ms, so normally trailing edge never fires until burst stops.
+	for i := 0; i < 6; i++ {
+		handler.HandleEvent(ctx, customEvent{payload: "spam"})
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	// Wait for the final trailing edge
+	time.Sleep(window + 10*time.Millisecond)
+
+	capture.mu.Lock()
+	defer capture.mu.Unlock()
+
+	// Expected:
+	// t=0, t=30, t=60, t=90 (within 100ms maxWait)
+	// t=120 forces flush (because 120ms >= 100ms) -> First event emitted
+	// t=150 starts new burst
+	// Trail edge handles t=150 -> Second event emitted
+	if len(capture.received) != 2 {
+		t.Fatalf("expected 2 events due to MaxWait forcing a flush mid-burst, got %d", len(capture.received))
+	}
+}

@@ -33,6 +33,10 @@ type FileWatchSource struct {
 type FileWatchOption func(*FileWatchSource)
 
 // WithRecursive enables recursive watching of all subdirectories.
+// WARNING: Operating systems have limits on the number of open file watches
+// (e.g., fs.inotify.max_user_watches on Linux). Using WithRecursive on massive
+// directories like node_modules or vendor without a proper WithFilter may
+// exhaust OS resources and cause silent failures or system instability.
 func WithRecursive(enabled bool) FileWatchOption {
 	return func(opts *FileWatchSource) {
 		opts.recursive = enabled

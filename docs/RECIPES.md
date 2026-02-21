@@ -383,6 +383,10 @@ For a short, maintained summary of the migration entry points, see [docs/MIGRATI
 
 **Problem**: You are watching a directory for changes (like a Git repository) and you want to trigger a build or sync. However, you don't want to react to noisy internal files (like `.git/index.lock` or temporary editor files), and you don't want to trigger 50 builds when a user saves 50 files at once.
 
+> [!WARNING]
+> OS Watcher Limits (Inotify)
+> Operating systems limit how many file watchers you can have open simultaneously (e.g., `fs.inotify.max_user_watches` on Linux). Watching massive nested directories like `node_modules` or `vendor` can quickly exhaust this limit and crash your supervisor. **You must aggressively filter out huge dependencies.**
+
 **Solution**: Combine `events.WithFilter` on your Source with an `events.DebounceHandler` on your Router. This pattern offloads "project awareness" and "throttling" from your business logic directly into the Control Plane.
 
 ```go
