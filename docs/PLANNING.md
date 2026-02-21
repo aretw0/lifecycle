@@ -342,22 +342,30 @@
 
 ---
 
-### v1.7.0 (Minor): Advanced Watching, Throttling & Event Broker Delegation
+### v1.7.0 (Minor): Advanced Watching, Throttling & Event Broker Delegation ✅
 
 **Focus**: Evolve the Control Plane with robust watching patterns, generic event utilities, and event broker responsibilities to offload downstream projects (like Loam).
 
-- [ ] **Channel Subscriptions (Pub/Sub nativo no Router)**:
-  - [ ] Implement `control.NewChannelHandler(buffer int)` or `NewSubscription()`.
-  - [ ] Allow Router to return native Go channels (`<-chan Event`) instead of only pushing via callbacks, enabling synchronous iteration for clients.
-- [ ] **Generic Event Utilities (Debounce)**:
-  - [ ] Implement a generic **Debouncer** utility (`control.DebounceHandler(handler, window time.Duration, mergeFunc)`).
-  - [ ] Provide out-of-the-box noise dampening for high-frequency events (e.g., rapid FileSystem writes).
-- [ ] **DirectoryWatchSource (Recursive FS)**:
-  - [ ] Extract and evolve `FileWatchSource` into a robust `DirectoryWatchSource`.
-  - [ ] Add `WithRecursive(true)` and `WithFilter(func(path string) bool)` support.
-  - [ ] *Use Case*: Loam delegates directory watching and `index.lock` git-pause filtering natively without maintaining deep `fsnotify` boilerplate.
-- [ ] **Refinement**:
-  - [ ] Document "Inhibition Pattern" as a generic way to handle "Git-awareness" without hardcoding Git logic.
+> [!IMPORTANT]
+> **v1.7.0 Completed (2026-02-21)**: All advanced watching and delegation items below have been implemented, tested, and documented.
+>
+> - `events.Notify(ch)` pattern implemented for Pub/Sub and safe external channel integration.
+> - `events.DebounceHandler` implemented to throttle high-frequency burst events.
+> - `FileWatchSource` expanded with `WithRecursive(true)` and `WithFilter` options for deep, targeted file monitoring.
+> - `RECIPES.md` updated with the new "Inhibition Pattern" recipe.
+
+- [x] **Channel Subscriptions (Pub/Sub nativo no Router)**:
+  - [x] Implement `events.Notify(c chan<- Event)` (inspired by `signal.Notify`).
+  - [x] Allow Router to return native Go channels (`<-chan Event`) instead of only pushing via callbacks, enabling synchronous iteration for clients.
+- [x] **Generic Event Utilities (Debounce)**:
+  - [x] Implement a generic **Debouncer** utility (`events.DebounceHandler(handler, window time.Duration, mergeFunc)`).
+  - [x] Provide out-of-the-box noise dampening for high-frequency events (e.g., rapid FileSystem writes).
+- [x] **FileWatchSource Expansion (Recursive FS)**:
+  - [x] Extracted and evolved `FileWatchSource` to support deep monitoring.
+  - [x] Add `WithRecursive(true)` and `WithFilter(func(path string) bool)` support.
+  - [x] *Use Case*: Loam delegates directory watching and `index.lock` git-pause filtering natively without maintaining deep `fsnotify` boilerplate.
+- [x] **Refinement**:
+  - [x] Document "Inhibition Pattern" as a generic way to handle "Git-awareness" without hardcoding Git logic.
 
 ---
 
