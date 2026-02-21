@@ -1,6 +1,6 @@
 # Limitations & Known Issues
 
-> **Last Updated**: February 17, 2026 (v1.6.2)
+> **Last Updated**: February 20, 2026 (v1.6.5)
 >
 > This document lists known limitations, platform-specific constraints, and measured performance characteristics. **Transparency is a feature.**
 
@@ -222,8 +222,9 @@ BenchmarkGoVsRawGoroutine/LifecycleGo-8    500000    5234 ns/op    256 B/op    4
 
 ### Stable as of v1.6.5
 
+- ✅ `lifecycle.StopAndWait(ctx, worker)` — Generalized utility for robust worker termination
 - ✅ `pkg/events/filewatch.FileWatchSource` — Event-based file watching
-- ✅ `pkg/events/webhook.WebhookSource` — HTTP trigger source (1MB payload limit)
+- ✅ `pkg/events/webhook.WebhookSource` — HTTP trigger source (1MB default payload limit to prevent OOM)
 - ✅ `pkg/events/health.HealthCheckSource` — Health status source
 
 ### Not Yet Marked (Audit Pending)
@@ -239,11 +240,12 @@ BenchmarkGoVsRawGoroutine/LifecycleGo-8    500000    5234 ns/op    256 B/op    4
 ### High Coverage (>80%)
 
 ```log
-github.com/aretw0/lifecycle          85%
-github.com/aretw0/lifecycle/pkg/core/signal   92%
-github.com/aretw0/lifecycle/pkg/core/supervisor  88%
+github.com/aretw0/lifecycle                     85%
+github.com/aretw0/lifecycle/pkg/core/signal     92%
+github.com/aretw0/lifecycle/pkg/core/supervisor 88%
 github.com/aretw0/lifecycle/pkg/core/runtime    87%
-github.com/aretw0/lifecycle/pkg/events/router   81%
+github.com/aretw0/lifecycle/pkg/core/worker     84%
+github.com/aretw0/lifecycle/pkg/events          80%
 ```
 
 ### Low Coverage (Intentional Exclusions)
@@ -252,7 +254,6 @@ github.com/aretw0/lifecycle/pkg/events/router   81%
 |:--------|:---------|:-------|:---------|
 | `pkg/core/metrics` | ~40% | Interface definitions + no-op stubs | Compile check; tested in consuming packages |
 | `pkg/core/log` | ~30% | Wrapper around `slog` | Compile check; assumes slog stability |
-| `pkg/events/filewatch` | ~50% | FS race conditions too flaky for unit tests | Manual verification + integration tests |
 | `procio` (external) | Tested in `procio` repo | OS-dependent syscalls | Extracted to [procio](https://github.com/aretw0/procio) library |
 
 **Philosophy**: See [TESTING.md](TESTING.md) for "Honest Coverage" rationale.
