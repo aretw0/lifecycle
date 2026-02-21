@@ -33,5 +33,8 @@ changelog:
     - title: "Performance Improvements"
       regexp: "^.*perf((\\([\\w\\-\\.]+\\))?):"
       order: 2
+    - title: "Deprecated"
+      regexp: "^.*deprecate((\\([\\w\\-\\.]+\\))?):"
+      order: 3
     - title: "Others"
       order: 999
