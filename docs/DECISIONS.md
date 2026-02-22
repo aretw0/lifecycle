@@ -134,3 +134,17 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Decision**: Incorporate a concept of "Roles" into the `Supervisor`. e.g., `supervisor.AddWorker(w, role="background-sync")`.
 * **Rationale**: Required for declarative stability and leader election, allowing nodes to dynamically enable/disable specific roles based on cluster consensus.
 * **Consequences**: `lifecycle` steps closer to being a distributed control plane primitive rather than just a local process manager.
+
+## ADR-0016: Chained Contexts & Orphan Prevention
+
+**Date**: 2026-02-22
+
+* **Status**: Accepted
+* **Context**: Reviewing highly robust automation drivers like `go-rod/rod` reinforces the importance of "Chained Contexts" (contexts that intrinsically carry their own cancellation timeout/deadline specific to an action, without bleeding into parent lifecycles) and rigorous "Zombie Process Prevention" (cleaning up browser instances).
+* **Decision**:
+    1. **Strict Context Propagation**: `lifecycle` will enforce that all long-running or external processes MUST accept a context derived from the specific Action/Worker, rather than relying solely on the global `Router` context.
+    2. **Deep Process Hygiene (`procio` validation)**: We reaffirm ADR-0001, but extend it: `procio` integration MUST be routinely audited against "browser-like" or "daemon-like" child processes that actively try to detach. We will use `lifecycle` as the control plane to ensure even detached children created by WebDrivers or sub-shells are aggressively reaped upon lifecycle termination.
+* **Rationale**: Validating our architecture against community standards (like `go-rod`'s process management) proves our abstraction (`procio` + `lifecycle`) is correct, but requires explicit documentation that *context chaining* is the preferred pattern for fine-grained timeout control inside workers.
+* **Consequences**:
+  * No breaking changes. This serves as an architectural reinforcement.
+  * Future enhancements to `lifecycle.Go` or `procio` process execution may introduce explicit nested timeout helpers similar to `rod`'s `Timeout()` wrappers.

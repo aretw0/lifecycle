@@ -369,6 +369,17 @@
 
 ---
 
+### v1.7.1 (Patch): Pathological Context Enforcement
+
+**Focus**: Implementing hygiene rules defined by ADR-0016 to prevent zombie chains and enforce strict contextual control in child execution (borrowing lessons from Rod/Chrome DevTools patterns).
+
+- [ ] **ADR-0016 Propagation Audit**:
+  - [ ] Review all internal Gorotine spawning (`lifecycle.Go()`, Supervisors) to guarantee they are derived directly from the operation's context, never defaulting implicitly to `context.Background()` or global router contexts.
+- [ ] **Chained Cancels**:
+  - [ ] Document in Reference how downstream libraries (`trellis`, `loam` process runners) should enforce immediate process killing using cascaded cancellation over SIGKILL thresholds in deep hierarchies, leveraging the mechanics already provided by the *upstream* `procio` package.
+
+---
+
 ### v1.8.0: Advanced Stability & Shared State (Minor)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
