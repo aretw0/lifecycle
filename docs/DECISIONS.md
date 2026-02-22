@@ -118,3 +118,19 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Consequences**:
   * Users are responsible for "snapping together" pieces (e.g., combining `WithFilter` and `DebounceHandler`).
   * `lifecycle` remains a toolkit of orthogonal primitives rather than a rigid framework.
+
+## ADR-0014: Durable Extension for the Event Router (Planned)
+
+* **Status**: Proposed (Target: v1.8+)
+* **Context**: The `lifecycle` Event Router currently handles transient signals and memory-based callbacks. To serve as a robust Event Broker for ecosystem projects (like `loam` or `trellis`), it must support events that survive reboots.
+* **Decision**: Add extension points to the `Router` to support "Durable Sinks" without polluting the core API. The engine remains simple but allows state resumption from a persisted event stream.
+* **Rationale**: Inspired by distributed workflow engines, this allows temporal decoupling.
+* **Consequences**: Enables `lifecycle` to back orchestrators that require pause/resume semantics for long-running processes over days/weeks.
+
+## ADR-0015: Worker Role Grouping (Planned)
+
+* **Status**: Proposed (Target: v1.8+)
+* **Context**: Scaling workers currently treats all workers equally. In distributed environments, leader election or targeted scale-down requires identifying workers by their function.
+* **Decision**: Incorporate a concept of "Roles" into the `Supervisor`. e.g., `supervisor.AddWorker(w, role="background-sync")`.
+* **Rationale**: Required for declarative stability and leader election, allowing nodes to dynamically enable/disable specific roles based on cluster consensus.
+* **Consequences**: `lifecycle` steps closer to being a distributed control plane primitive rather than just a local process manager.

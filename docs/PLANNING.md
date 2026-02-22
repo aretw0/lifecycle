@@ -378,12 +378,14 @@
 - [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
 - [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
 - [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
+- [ ] **Worker Role Grouping** (ADR-0015): Add Role-based scheduling to Supervisor for targeted control and Leader Election awareness.
 
 #### **Coordinated Lifecycle & Shared State**: (v1.8+)
 
 - [ ] **Dependency Gates**: Block provider shutdown until all registered consumers have reached a safe state. (Shared State Quiescence)
 - [ ] **Barrier Patterns**: Primitives to ensure concurrent workers synchronize their lifecycle transitions.
 - [ ] **State Bridge**: Mechanism to hand over "hot" state (e.g., open file descriptors, active sessions) across restarts without serialization.
+- [ ] **Durable Event Router Extension** (ADR-0014): Capability to connect Router to durable sinks to support process pause/resume across reboots.
 
 ---
 
