@@ -280,6 +280,36 @@ Ensures child processes do not outlive the parent. This logic is delegated to th
 * **Windows**: Uses **Job Objects** (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) to ensure the OS terminates the child tree when the parent handle is closed.
 * **macOS**: Fallback to standard `exec.Cmd` (OS limitations prevent strict guarantees).
 
+#### 6.1. Chained Cancels & Orphan Prevention (ADR-0016)
+
+While `procio` provides OS-level guarantees, the **Control Plane** must enforce strict contextual control to prevent "Pathological Detachments" (where a worker spawns a process using `context.Background()`, losing all connection to the parent lifecycle).
+
+**The Rule**: Every child process or goroutine MUST accept a context derived from its immediate parent.
+
+```mermaid
+sequenceDiagram
+    participant Main as Main Context
+    participant Work as Worker Context
+    participant Timed as Chained Context (Timeout)
+    participant Child as Child Process (procio)
+
+    Main->>Work: Derived Cancel
+    Work->>Timed: context.WithTimeout(Work)
+    Timed->>Child: proc.NewCmd(Timed)
+
+    Note over Child: Running...
+
+    alt Parent Cancelled
+        Main--xTimed: Cancel Cascades
+        Timed-->>Child: SIGINT/SIGKILL (via procio)
+    else Timeout Expired
+        Timed--xTimed: Self-Cancel
+        Timed-->>Child: SIGINT/SIGKILL (via procio)
+    end
+```
+
+By chaining contexts, we ensure that software-level failsafes (deadlines) and lifecycle events (Ctrl+C) propagate instantly down the chain, with OS-level Job Objects/PDeathSig acting as the final safety net for hard crashes.
+
 ### 7. Reliability Primitives (v1.4)
 
 To support **Durable Execution** engines (like Trellis), we provide primitives that shield critical operations.
