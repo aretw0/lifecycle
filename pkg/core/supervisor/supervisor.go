@@ -87,6 +87,7 @@ type supervisor struct {
 	lastResults   map[string]worker.Status // Final status of finished workers
 	stopRequested map[string]bool          // Track workers asked to stop
 	eventChan     chan childExit           // Channel for child exit events
+	baseCtx       context.Context          // Main lifecycle context
 	cancel        context.CancelFunc       // To stop the monitor loop
 	waitChan      chan error
 
@@ -126,6 +127,7 @@ func (s *supervisor) Start(ctx context.Context) error {
 
 	// Create a context for the monitor loop.
 	// We derive it from the startup context to support "Context-Driven Shutdown".
+	s.baseCtx = ctx
 	monitorCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 	s.started = true
@@ -462,10 +464,10 @@ func (s *supervisor) handleOneForAll(exit childExit) {
 	metrics.GetProvider().IncSupervisorRestart(s.name, string(StrategyOneForAll))
 	// Stop all other children
 	log.Info("Restarting all children due to failure", "trigger", exit.name)
-	s.stopAll(context.Background()) // Synchronously stop others
+	s.stopAll(s.baseCtx) // Synchronously stop others
 
 	// Restart all
-	if err := s.startChildren(context.Background(), s.specs); err != nil {
+	if err := s.startChildren(s.baseCtx, s.specs); err != nil {
 		log.Error("failed to restart all children", "error", err)
 	} else {
 		// Re-guard all
@@ -496,8 +498,7 @@ func (s *supervisor) restartChildLocked(name string, spec Spec, prevErr error) {
 		return
 	}
 
-	restartCtx := context.Background()
-	if err := s.startChild(restartCtx, spec); err != nil {
+	if err := s.startChild(s.baseCtx, spec); err != nil {
 		log.Error("failed to restart child", "child", name, "error", err)
 	} else {
 		// Handover Protocol: Inject previous exit code
@@ -568,7 +569,7 @@ func (s *supervisor) Add(spec Spec) error {
 
 	if s.started {
 		// Start immediately
-		if err := s.startChild(context.Background(), spec); err != nil {
+		if err := s.startChild(s.baseCtx, spec); err != nil {
 			return err
 		}
 		// Guard
