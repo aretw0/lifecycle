@@ -380,6 +380,18 @@
 
 ---
 
+### v1.7.2 (Patch): Context Cancellation Coverage
+
+**Focus**: Close the testing blind spot exposed by the v1.7.1 audit. While the pathological `context.Background()` usages were fixed in `supervisor.go` and `task.go`, no test previously validated that cancelling the parent context **during a supervisor restart** would propagate and actually stop the operation. This patch adds that safety net and closes the remaining webhook detachment.
+
+- [ ] **Supervisor Cancellation Tests**:
+  - [ ] Add test: cancel parent `ctx` while a `StrategyOneForAll` restart is in progress → assert supervisor stops, children don't re-spawn.
+  - [ ] Add test: cancel parent `ctx` while `Add()` is dynamically starting a child → assert child start is aborted cleanly.
+- [ ] **Webhook Context Fix**:
+  - [ ] In `pkg/events/webhook.go`, replace `context.WithTimeout(context.Background(), 5*time.Second)` with `context.WithTimeout(ctx, 5*time.Second)` in the server shutdown path.
+
+---
+
 ### v1.8.0: Advanced Stability & Shared State (Minor)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
