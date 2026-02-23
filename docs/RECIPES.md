@@ -418,3 +418,37 @@ debouncedBuild := events.DebounceHandler(buildHandler, 500*time.Millisecond, nil
 router.AddSource(source)
 router.Handle("file/*", debouncedBuild)
 ```
+
+---
+
+## ⛓️ 12. The Chained Cancels Pattern (Orphan Prevention)
+
+**Problem**: You are spawning child goroutines or external processes from a worker, but you are using `context.Background()` or `context.TODO()` because you don't want them to be cancelled immediately when the *main* context is cancelled (e.g., they need their own timeout). This creates **Pathological Detachments** where the children become orphans if the application crashes or is force-killed.
+
+**Solution**: Always derive your child contexts from the provided worker `ctx`. If you need a specific timeout, use `context.WithTimeout(ctx, ...)`. If you need it to outlive a specific phase but still be tied to the app, use the Supervisor's base context or `signal.Context`.
+
+```go
+func (w *MyWorker) Start(ctx context.Context) error {
+    lifecycle.Go(ctx, func(taskCtx context.Context) error {
+        // ✅ GOOD: Derived from taskCtx (which is derived from ctx)
+        // If the main application cancels, this timeout is also cancelled.
+        childCtx, cancel := context.WithTimeout(taskCtx, 5*time.Second)
+        defer cancel()
+
+        cmd := exec.CommandContext(childCtx, "long-running-task")
+        return proc.Start(cmd)
+    })
+    
+    // ❌ BAD: Detached from lifecycle
+    // if the app shuts down, this process might become a zombie or hang the server.
+    // go func() {
+    //    cmd := exec.CommandContext(context.Background(), "task")
+    //    cmd.Run()
+    // }()
+
+    return nil
+}
+```
+
+> [!IMPORTANT]
+> **Zombie Prevention**: Combining **Chained Contexts** with `procio`'s hygiene guarantees (Job Objects/PDeathSig) ensures that orphans are reaped at both the software level (Go Context) and the OS level (Process Group/Job).
