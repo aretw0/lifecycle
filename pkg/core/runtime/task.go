@@ -81,7 +81,7 @@ func Go(ctx context.Context, fn func(context.Context) error, opts ...GoOption) T
 				// while enabling detailed diagnostics in development.
 				// See docs/LIMITATIONS.md for performance impact and behavior details.
 				logger := log.GetLogger()
-				debugEnabled := logger.Enabled(context.Background(), slog.LevelDebug)
+				debugEnabled := logger.Enabled(ctx, slog.LevelDebug)
 				capture := debugEnabled
 				if cfg.stackCapture != nil {
 					capture = *cfg.stackCapture
