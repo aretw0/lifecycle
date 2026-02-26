@@ -72,6 +72,30 @@ To resolve ambiguity between "finished" (success) and "stopped" (interruption), 
 * **Definition**: The worker failed to stop within the grace period and was forcefully terminated.
 * **Logic**: `Killed == true`.
 
+ ---
+
+## Orthogonal Dimension: Health (Active Probing)
+
+While `Status` describes the worker's position in the lifecycle, **Health** describes its internal operational viability. A worker in `StatusRunning` might be technically executing but logically "Broken" (e.g., disconnected from a database).
+
+### 1. Active Probing (`Prober` interface)
+
+Starting in v1.8, workers can implement `Probe(ctx) ProbeResult`.
+
+* **Healthy ❤️**: Internal invariants are met. System is proceeding normally.
+* **Unhealthy 💔**: Failures detected (timeouts, dependency loss).
+
+*
+
+The Supervisor actively triggers these probes during state inspection, enabling high-fidelity diagnostic dashboards and diagrams.
+
+### 2. Temporal Fields
+
+To support auditing, state transitions capture precise timestamps:
+
+* **StartedAt**: When the current instance reached `StatusRunning`.
+* **UpdatedAt**: When the last `SetStatus` or `Health` change occurred.
+
 ---
 
 ## Transition Matrix

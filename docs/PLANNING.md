@@ -392,15 +392,23 @@
 
 ---
 
-### v1.8.0: Advanced Stability & Shared State (Minor)
+### v1.8.0: Advanced Stability & Status Probing (Minor)
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
 
+> [!IMPORTANT]
+> **v1.8.0 Completed (2026-02-26)**: Advanced health monitoring and state promotion implemented.
+>
+> - **Status Probing**: Added `Prober` interface for active health diagnostics.
+> - **First-Class Fields**: Promoted `Type`, `Restarts`, `StartedAt`, `UpdatedAt`, and `Health` to `State` struct.
+> - **Hybrid Bridge**: Maintained backward compatibility via `Metadata` mirroring.
+> - **Visualization**: Integrated health icons (❤️/💔) into Mermaid diagrams and notes.
+
 #### **Declarative Stability (Self-Healing)**: (v1.8+)
 
-- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation.
-- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events.
-- [ ] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
+- [ ] **Topology Spec Enforcement**: Move from reactive restarts to periodic reconciliation. (v1.9+)
+- [ ] **Dynamic Scaling**: Allow supervisors to adjust child counts based on external events. (v1.9+)
+- [x] **Status Probing**: Add `Prober` interface to workers to go beyond simple "Process Alive" check.
 - [ ] **Worker Role Grouping** (ADR-0015): Add Role-based scheduling to Supervisor for targeted control and Leader Election awareness.
 
 #### **Coordinated Lifecycle & Shared State**: (v1.8+)
@@ -600,11 +608,15 @@
     - [ ] `StreamWorker` (Producer/Consumer with backpressure)
     - [ ] `StatefulWorker` (Standard state machine template)
 
-#### Ecosystem Integration
+#### Ecosystem Integration & Cleanup
 
 - [ ] **Universal Introspection**:
   - [ ] Public `Introspectable` interface (`State() any`)
   - [ ] Generic adapters for Trellis, Loam, Arbour
+- [ ] **Metadata Bridge Deprecation**:
+  - [ ] Once `introspection` v0.2.0 is released and adopted, move to remove redundant data from `Metadata`.
+  - [ ] Phase 1: Mark `worker.MetadataHealth` and friends as `@Deprecated` (v1.9).
+  - [ ] Phase 2: Remove mirroring from `supervisor.go` (v2.0).
   
 - [ ] **Visualization 2.0**:
   - [ ] Separate Topology (static) from Status (dynamic)

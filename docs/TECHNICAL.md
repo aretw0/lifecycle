@@ -792,6 +792,29 @@ This separation ensures that:
 * **Logic/FSM**: Rendered via `introspection.StateMachineDiagram` as `stateDiagram-v2`.
 * **Topology**: Rendered via `introspection.TreeDiagram` or `introspection.ComponentDiagram` as `graph TD`.
 
+#### 13.1. First-Class State Fields (v1.8)
+
+To support future reactive frontends and type-safe observation, high-value metadata and internal metrics have been promoted to first-class fields in the `worker.State` struct:
+
+* **`Type`**: Canonical worker category (Goroutine, Process, Supervisor, Container, Func).
+* **`Restarts`**: Total count of restart attempts.
+* **`StartedAt / UpdatedAt`**: Precise timestamps for uptime and transition auditing.
+* **`Health`**: Active diagnostic status (see Probing below).
+
+> **Hybrid Bridge**: For backward compatibility with reflection-based tools, these fields are mirrored in the `Metadata` map until the ecosystem fully transitions to typed state consumption.
+
+#### 13.2. Status Probing (Active Diagnostics)
+
+Beyond simple lifecycle status (Running/Stopped), workers can implement the `Prober` interface to expose deep internal health.
+
+```go
+type Prober interface {
+    Probe(ctx context.Context) ProbeResult
+}
+```
+
+The **Supervisor** automatically discovers `Prober` implementations in its children and triggers a probe during its own `State()` collection. This enables visual health indicators (❤️/💔) in Mermaid diagrams and real-time health monitoring in control planes.
+
 #### Unified System Diagram
 
 The `lifecycle.SystemDiagram(sig, work)` function synthesizes the **Control Plane** (Signal Context) and **Data Plane** (Worker Tree) into a single Mermaid diagram:
