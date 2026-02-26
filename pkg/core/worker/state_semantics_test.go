@@ -110,17 +110,14 @@ func TestProcessWorker_StateSemantics(t *testing.T) {
 
 	// 3. Forced Kill -> Killed (Mocking forced kill via short timeout on Stop)
 	t.Run("Forced Kill", func(t *testing.T) {
-		// Non-cooperative process (ping ignores SIGTERM on Windows? No, usually handles it or ignored.
-		// On Windows, Signal(SIGTERM) is not fully supported, so it might just force kill anyway?
-		// Actually ProcessWorker.Stop sends SIGTERM.
-		// If we set a super short timeout for Stop, it should trigger Kill.
-
 		var cmd string
 		var args []string
 		if os.PathSeparator == '\\' {
 			cmd, args = "ping", []string{"127.0.0.1", "-n", "20"}
 		} else {
-			cmd, args = "sleep", []string{"20"}
+			// On Linux, we use a shell to trap SIGINT so the process stays uncooperative
+			// and eventually gets force-killed when the timeout expires.
+			cmd, args = "sh", []string{"-c", "trap '' INT; sleep 20"}
 		}
 		w := worker.NewProcessWorker("proc-kill", cmd, args...)
 
@@ -128,17 +125,15 @@ func TestProcessWorker_StateSemantics(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Short timeout to force kill
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 
 		_ = w.Stop(ctx)
 		<-w.Wait()
 
 		state := w.State()
-		// On Windows, Stop might return immediately?
-		// We expect StatusKilled if the select hit ctx.Done()
 		if state.Status != worker.StatusKilled {
-			t.Errorf("expected Killed, got %s", state.Status)
+			t.Errorf("expected Killed, got %s (err: %v)", state.Status, state.Error)
 		}
 	})
 }

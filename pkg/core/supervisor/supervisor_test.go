@@ -639,3 +639,96 @@ func TestSupervisor_String(t *testing.T) {
 		t.Errorf("Expected %q, got %q", expected, str)
 	}
 }
+func TestSupervisor_ContextCancelDuringOneForAllRestart(t *testing.T) {
+	helper := newFactoryHelper()
+	restarting := make(chan struct{})
+
+	// Custom factory to signal when restart starts
+	specA := Spec{Name: "worker-A", Factory: helper.makeFactory("worker-A")}
+	specB := Spec{Name: "worker-B", Factory: func() (worker.Worker, error) {
+		count := helper.getCount("worker-B")
+		if count == 1 { // This is the restart call
+			close(restarting)
+		}
+		return helper.makeFactory("worker-B")()
+	}}
+
+	sup := New("cancel-during-restart", StrategyOneForAll, specA, specB)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	if err := sup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	// Fail worker-A to trigger OneForAll restart
+	wA := helper.getWorker("worker-A")
+	wA.WaitChan <- errors.New("trigger-restart")
+	close(wA.WaitChan)
+
+	// Wait for restart to hit the factory
+	select {
+	case <-restarting:
+		cancel() // Cancel EXACTLY when restarting
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for restart signal")
+	}
+
+	// Supervisor should stop
+	select {
+	case <-sup.Wait():
+		// OK
+	case <-time.After(2 * time.Second):
+		t.Fatal("Supervisor failed to stop after context cancellation during restart")
+	}
+
+	// Verify no more than 2 instances were created (initial + 1 attempt)
+	if count := helper.getCount("worker-A"); count > 2 {
+		t.Errorf("Worker-A should not have restarted after cancellation, got count %d", count)
+	}
+}
+
+func TestSupervisor_ContextCancelDuringAdd(t *testing.T) {
+	sup := New("cancel-during-add", StrategyOneForOne)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	if err := sup.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	started := make(chan struct{})
+	slowFactory := func() (worker.Worker, error) {
+		w := &MockWorker{
+			Name: "slow-worker",
+			StartFunc: func(ctx context.Context) error {
+				close(started)
+				<-ctx.Done() // Block until cancel
+				return ctx.Err()
+			},
+			WaitChan: make(chan error, 1),
+		}
+		return w, nil
+	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- sup.Add(Spec{Name: "slow", Factory: slowFactory})
+	}()
+
+	// Wait for worker to start (and block)
+	select {
+	case <-started:
+		cancel() // Cancel parent while Add is in progress
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for slow worker to start")
+	}
+
+	// Add should eventually return (either success or ctx error depending on exactly when cancel hits)
+	// But supervisor should definitely stop
+	select {
+	case <-sup.Wait():
+		// OK
+	case <-time.After(2 * time.Second):
+		t.Fatal("Supervisor failed to stop after cancel during Add")
+	}
+}
