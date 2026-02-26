@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aretw0/introspection"
 )
@@ -46,6 +47,19 @@ func MermaidState(s State) string {
 	}
 	if s.Error != nil {
 		sb.WriteString(fmt.Sprintf("        Error: %v\n", s.Error))
+	}
+	if s.Restarts > 0 {
+		sb.WriteString(fmt.Sprintf("        Restarts: %d\n", s.Restarts))
+	}
+	if !s.StartedAt.IsZero() {
+		sb.WriteString(fmt.Sprintf("        Uptime: %v\n", time.Since(s.StartedAt).Round(time.Second)))
+	}
+	if s.Health != nil {
+		healthIcon := "❤️"
+		if !s.Health.Healthy {
+			healthIcon = "💔"
+		}
+		sb.WriteString(fmt.Sprintf("        Health: %s %s\n", healthIcon, s.Health.Message))
 	}
 	sb.WriteString("    end note\n")
 
@@ -120,6 +134,19 @@ func NodeLabeler(name, status string, pid int, metadata map[string]string, icon 
 		}
 		if cb, ok := metadata["circuit_breaker"]; ok && cb == "triggered" {
 			labelParts = append(labelParts, "<b>🚫 CIRCUIT BREAKER</b>")
+		}
+
+		// Health Bridge (for compatibility with current reflection-based introspection)
+		if health, ok := metadata[MetadataHealth]; ok {
+			healthIcon := "❤️"
+			if health == "unhealthy" {
+				healthIcon = "💔"
+			}
+			msg := ""
+			if hmsg, ok := metadata[MetadataHealthMsg]; ok && hmsg != "" {
+				msg = ": " + hmsg
+			}
+			labelParts = append(labelParts, fmt.Sprintf("%s Health%s", healthIcon, msg))
 		}
 	}
 
