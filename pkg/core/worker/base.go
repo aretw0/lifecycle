@@ -77,10 +77,14 @@ func (b *BaseWorker) DeriveFinalStatus() Status {
 	if b.Killed {
 		return StatusKilled
 	}
-	if b.Err != nil && termio.IsInterrupted(b.Err) {
-		return StatusStopped
-	}
 	if b.Err != nil {
+		errMsg := b.Err.Error()
+		if termio.IsInterrupted(b.Err) || errMsg == "signal: interrupt" || errMsg == "signal: terminated" {
+			return StatusStopped
+		}
+		if errMsg == "signal: killed" {
+			return StatusKilled
+		}
 		return StatusFailed
 	}
 	if b.StopRequested {
@@ -100,6 +104,16 @@ func (b *BaseWorker) SetStatus(new Status) {
 	if old != new {
 		b.emitStateChange(State{Name: b.name, Status: old}, State{Name: b.name, Status: new})
 	}
+}
+
+// Lock satisfies the sync.Locker interface.
+func (b *BaseWorker) Lock() {
+	b.mu.Lock()
+}
+
+// Unlock satisfies the sync.Locker interface.
+func (b *BaseWorker) Unlock() {
+	b.mu.Unlock()
 }
 
 // Finish is the terminal checkpoint for a worker. It centralizes the final state

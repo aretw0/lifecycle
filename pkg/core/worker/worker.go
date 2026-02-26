@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 )
 
 // Worker defines the interface for a managed unit of work (process, goroutine, container).
@@ -176,4 +177,19 @@ func StopAndWait(ctx context.Context, w Worker) error {
 		}
 		return ctx.Err()
 	}
+}
+
+// Internal locking helpers to simplify code and ensure consistent use of mu.
+// These are not exported and use interface{} for results to allow any return type (since Go 1.18+).
+
+func withLock(l sync.Locker, fn func()) {
+	l.Lock()
+	defer l.Unlock()
+	fn()
+}
+
+func withLockResult[T any](l sync.Locker, fn func() T) T {
+	l.Lock()
+	defer l.Unlock()
+	return fn()
 }
