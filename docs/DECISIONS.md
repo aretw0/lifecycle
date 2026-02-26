@@ -148,3 +148,19 @@ This document logs significant architectural decisions for the `lifecycle` proje
 * **Consequences**:
   * No breaking changes. This serves as an architectural reinforcement.
   * Future enhancements to `lifecycle.Go` or `procio` process execution may introduce explicit nested timeout helpers similar to `rod`'s `Timeout()` wrappers.
+
+## ADR-0017: Optional Observer Feature Discovery
+
+**Date**: 2026-02-26
+
+* **Status**: Accepted
+* **Context**: `procio` introduced I/O-specific observer hooks (`OnIOError`, `OnScanError`). Adding these to the base `lifecycle.Observer` interface would force many users to implement methods they don't need (Process-only events) or break compatibility with existing implementations.
+* **Decision**: Implement an **Optional Interface Discovery** pattern via an internal `ProcioDiscoveryBridge`.
+* **Rationale**:
+    1. **Zero Bloat**: The base `lifecycle.Observer` remains focused on lifecycle events (Logs, Panics, Process Start/Fail).
+    2. **Structural Typing**: We use anonymous structural interfaces within the bridge to "discover" if a user-provided observer has the required I/O methods.
+    3. **Ergonomics**: If a user wants I/O events, they simply add the methods to their struct. `lifecycle` detects them and connects the plumbing automatically.
+* **Consequences**:
+  * Maintains Interface Segregation Principle (ISP).
+  * Eliminates semantic coupling between `lifecycle` contracts and `procio`'s low-level I/O mechanics.
+  * Allows `lifecycle` to act as a transparent proxy for `procio` without increasing the surface area of the core API.

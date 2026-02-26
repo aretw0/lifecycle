@@ -339,27 +339,33 @@ router.AddSource(source)
 
 **Problem**: You use both `lifecycle` workers and `procio` processes and want unified telemetry without duplicating observer setup.
 
-**Solution**: Create a single `ObserverBridge` adapter implementing both `lifecycle.Observer` (7 methods) and `procio.Observer` (5 methods). Since `lifecycle.Observer` is a superset of `procio.Observer` (adds `LogInfo` and `OnGoroutinePanicked`), a single struct satisfies both.
+**Solution**: Starting with `v1.7.2`, `lifecycle` automatically bridges its global observer to `procio` via the internal **`ProcioDiscoveryBridge`**.
+
+If you use both `lifecycle` workers and `procio` processes, you only need to:
+
+1. Implement a single struct that satisfies `lifecycle.Observer`.
+2. (Optional) Add `OnIOError(string, error)` and `OnScanError(error)` to that same struct.
+3. Call `lifecycle.SetObserver(myObserver)`.
+
+The `lifecycle` runtime will "discover" your I/O methods and automatically register them with `procio`.
 
 ```go
 import (
     "log/slog"
-    
     "github.com/aretw0/lifecycle"
-    "github.com/aretw0/procio"
 )
 
-bridge := &ObserverBridge{
-    Logger:   slog.Default(),
-    Provider: myMetricsProvider,
+// satisfies both lifecycle.Observer AND (dynamically) procio.IOObserver
+bridge := &MyObserver{
+    Logger: slog.Default(),
 }
 
 lifecycle.SetObserver(bridge)
-procio.SetObserver(bridge)
+// No need to call procio.SetObserver manually! 🚀
 ```
 
 > [!TIP]
-> For the full `ObserverBridge` type definition with compile-time interface checks and metric calls, see **[Global Overrides — Observer Bridge](CONFIGURATION.md#observer-bridge-lifecycle--procio)**.
+> For the full adapter pattern with metrics and compile-time checks, see **[Global Overrides — Observer Bridge](CONFIGURATION.md#observer-bridge-lifecycle--procio)**.
 
 ---
 
@@ -431,12 +437,13 @@ router.Handle("file/*", debouncedBuild)
 func (w *MyWorker) Start(ctx context.Context) error {
     lifecycle.Go(ctx, func(taskCtx context.Context) error {
         // ✅ GOOD: Derived from taskCtx (which is derived from ctx)
-        // If the main application cancels, this timeout is also cancelled.
+        // If the main application cancels, the process is reaped instantly.
         childCtx, cancel := context.WithTimeout(taskCtx, 5*time.Second)
         defer cancel()
 
-        cmd := exec.CommandContext(childCtx, "long-running-task")
-        return proc.Start(cmd)
+        // Use the lifecycle facade for ergonomic process creation
+        cmd := lifecycle.NewProcessCmd(childCtx, "long-running-task")
+        return cmd.Start()
     })
     
     // ❌ BAD: Detached from lifecycle

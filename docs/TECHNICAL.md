@@ -280,6 +280,17 @@ Ensures child processes do not outlive the parent. This logic is delegated to th
 * **Windows**: Uses **Job Objects** (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) to ensure the OS terminates the child tree when the parent handle is closed.
 * **macOS**: Fallback to standard `exec.Cmd` (OS limitations prevent strict guarantees).
 
+#### 6.0. Context-Linked Commands (`NewProcessCmd`)
+
+Starting with v1.7.2, the preferred way to create processes is `lifecycle.NewProcessCmd(ctx, name, args...)`.
+This function performs **Lazy Construction**: it stores the command parameters and only creates the underlying OS process when `.Start()` is called.
+This ensures that the `Context` passed at creation is the one actually used to monitor the process, preventing "Context Detachment" where a process is started with an expired or irrelevant context.
+
+It also automatically configures:
+
+* **Cancellation**: `cmd.Wait()` returns when the context is cancelled, and the process is signalled/killed based on platform hygiene.
+* **Hygiene**: PDeathSig (Linux) or Job Objects (Windows) are applied automatically.
+
 #### 6.1. Chained Cancels & Orphan Prevention (ADR-0016)
 
 While `procio` provides OS-level guarantees, the **Control Plane** must enforce strict contextual control to prevent "Pathological Detachments" (where a worker spawns a process using `context.Background()`, losing all connection to the parent lifecycle).
@@ -295,7 +306,7 @@ sequenceDiagram
 
     Main->>Work: Derived Cancel
     Work->>Timed: context.WithTimeout(Work)
-    Timed->>Child: proc.NewCmd(Timed)
+    Timed->>Child: lifecycle.NewProcessCmd(Timed)
 
     Note over Child: Running...
 
@@ -411,6 +422,27 @@ By default, an OS-level worker's `Stop` method sends a signal and waits using th
 To address race conditions in heavily coordinated systems (like executing tools strictly sequentially), the library provides a universal utility: `lifecycle.StopAndWait(ctx, worker)`.
 
 It internally calls `worker.Stop(ctx)` but firmly blocks return until `<-worker.Wait()` completely resolves, ensuring all background I/O or detached routines are cleanly closed before yielding control back to the caller.
+
+#### 8.3. Synchronization with Mutex
+
+Manual use of locks across multiple worker implementations creates high risk for deadlocks (especially during recursive state inspection) and repetitive boilerplate.
+
+Standard workers now satisfy the `sync.Locker` interface and leverage internal generic helpers to ensure atomic operations:
+
+* `withLock(w, fn)`: Standard mutex acquisition and deferred release.
+* `withLockResult(w, fn)`: Mutex acquisition for operations returning a value (State snapshots).
+
+#### 8.4. Worker Termination Status (Caveats)
+
+Determination of the final status code in `BaseWorker.DeriveFinalStatus` follows a strict precedence:
+
+1. **Killed**: If `ctx.Done()` was reached during `Stop()` or a force kill was explicitly triggered.
+2. **Stopped**: If the error returned by the operation matches `termio.IsInterrupted` or specific OS signal patterns.
+3. **Failed**: Any other non-nil error.
+4. **Finished**: Natural exit with `nil` error.
+
+> [!CAVEAT]
+> **Linux Signal Detection**: Since Go's `os.Process.Wait` returns string-based error patterns for signals on Linux, `lifecycle` performs explicit string matching for `"signal: interrupt"`, `"signal: terminated"`, and `"signal: killed"`. This ensures platform isolation without deep dependencies on `sys/unix`, but requires awareness if custom shells or non-standard exit patterns are used.
 
 ### 9. Supervision Tree
 
@@ -797,6 +829,17 @@ The library is instrumented via `pkg/metrics`, `pkg/log`, and the optional `Obse
 When a background task panics (`lifecycle.Go`), the runtime invokes:
 
 * `Observer.OnGoroutinePanicked(recovered, stack)`
+
+#### Optional Interface Discovery (Procio Bridge)
+
+To avoid breaking the base `Observer` contract while supporting extended observability from dependencies like `procio`, `lifecycle` uses an **Optional Interface Discovery** pattern via the `ProcioDiscoveryBridge`.
+
+When an observer is registered via `SetObserver(o)`, it is wrapped in an internal bridge that uses Go's structural typing (duck typing) to detect if `o` implements additional methods:
+
+* `OnIOError(op string, err error)`: Invoked when a low-level I/O operation (read/write/scan) fails.
+* `OnScanError(err error)`: Invoked specifically for terminal/buffer scanning failures.
+
+This allows users who need deep I/O observability to simply add these methods to their `Observer` implementation without `lifecycle` needing to know about `procio`'s specific interfaces at the API level.
 
 Stack capture is controlled by `WithStackCapture(bool)`:
 

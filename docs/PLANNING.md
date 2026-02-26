@@ -371,30 +371,24 @@
 
 ### v1.7.1 (Patch): Pathological Context Enforcement ✅
 
-**Focus**: Implementing hygiene rules defined by ADR-0016 to prevent zombie chains and enforce strict contextual control in child execution (borrowing lessons from Rod/Chrome DevTools patterns).
+**Focus**: Implementing hygiene rules defined by ADR-0016 to prevent zombie chains and enforce strict contextual control in child execution.
 
-- [x] **ADR-0016 Propagation Audit**:
-  - [x] Review all internal Gorotine spawning (`lifecycle.Go()`, Supervisors) to guarantee they are derived directly from the operation's context, never defaulting implicitly to `context.Background()` or global router contexts.
-- [x] **Chained Cancels**:
-  - [x] Document in Reference how downstream libraries (`trellis`, `loam` process runners) should enforce immediate process killing using cascaded cancellation over SIGKILL thresholds in deep hierarchies, leveraging the mechanics already provided by the *upstream* `procio` package.
+- [x] **ADR-0016 Propagation Audit**: Fixed `supervisor.go` and `task.go` to derives all internal goroutines from the operation's context.
+- [x] **Chained Cancels**: Documented context propagation for deep hierarchies.
 
 ---
 
-### v1.7.2 (Patch): Context Cancellation Coverage
+### v1.7.2 (Patch): Context Cancellation Coverage ✅
 
-**Focus**: Close the testing blind spot exposed by the v1.7.1 audit. While the pathological `context.Background()` usages were fixed in `supervisor.go` and `task.go`, no test previously validated that cancelling the parent context **during a supervisor restart** would propagate and actually stop the operation. This patch adds that safety net and closes the remaining webhook detachment.
+**Focus**: Testing blind spots and achieving cross-platform signal robustness.
 
-- [ ] **Supervisor Cancellation Tests**:
-  - [ ] Add test: cancel parent `ctx` while a `StrategyOneForAll` restart is in progress → assert supervisor stops, children don't re-spawn.
-  - [ ] Add test: cancel parent `ctx` while `Add()` is dynamically starting a child → assert child start is aborted cleanly.
-- [ ] **Webhook Context Fix**:
-  - [ ] In `pkg/events/webhook.go`, replace `context.WithTimeout(context.Background(), 5*time.Second)` with `context.WithTimeout(ctx, 5*time.Second)` in the server shutdown path.
-- [ ] **procio v0.4.x Adoption** (dependency upgrade with breaking changes):
-  - [ ] Bump `go.mod` to `procio v0.4.1` (latest stable).
-  - [ ] Migrate `pkg/core/worker/process.go`: replace `exec.CommandContext(ctx, ...) + proc.Start(cmd)` with `proc.NewCmd(ctx, ...)` — which now returns `*proc.Cmd` (not `*exec.Cmd`); adjust all call sites that reference `*exec.Cmd` fields directly.
-  - [ ] Evaluate `ObserverBridge` pattern from procio v0.4.0: `lifecycle.Observer` already satisfies `procio.Observer` directly (aligned in v0.4.1 by removing `LogInfo` from the interface) — verify no adapter is needed.
-  - [ ] Refactor `examples/chained_cancels/main.go`: replace two-step `exec.CommandContext + proc.Start` with single `proc.NewCmd(ctx, ...)` call.
-  - [ ] Update `examples/zombie/main.go` similarly if applicable.
+- [x] **Supervisor Cancellation Tests**: Added deterministic tests for context cancellation during restarts and dynamic adds.
+- [x] **Webhook Context Fix**: Resolved context leak in `Shutdown`.
+- [x] **Procio v0.5.0 Integration**:
+  - [x] Adopted `proc.NewCmd` for lazy command creation and hygiene.
+  - [x] Patched `IsInterrupted` (upstreamed to v0.5.0) to handle Linux-specific signal errors (`signal: interrupt`).
+- [x] **Internal Hygiene**: Purged ad-hoc locking in favor of `withLock` and `sync.Locker` on `BaseWorker`.
+- [x] **Deadlock Fix**: Resolved recursion in `funcWorker.State`.
 
 ---
 

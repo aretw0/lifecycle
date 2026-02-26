@@ -143,7 +143,7 @@ When using both `lifecycle` workers and `procio` processes, you can unify teleme
 
 > [!NOTE]
 > The observer affects **log routing**, **process events**, and **panic callbacks**.
-> Metrics are configured independently via `SetMetricsProvider`.
+> Starting with **v1.7.2**, `lifecycle` automatically bridges its observer to `procio`. You do **not** need to call `procio.SetObserver` manually if your observer implements the I/O hooks.
 > For behavior and stack capture semantics, see [docs/TECHNICAL.md](TECHNICAL.md#14-observability).
 
 **Type definition:**
@@ -164,9 +164,13 @@ type ObserverBridge struct {
 	Provider metrics.Provider
 }
 
-// Compile-time interface checks.
+// Compile-time interface checks (Recommended).
 var _ lifecycle.Observer = (*ObserverBridge)(nil)
-var _ procio.Observer    = (*ObserverBridge)(nil)
+
+// Optional: Implement these to receive low-level I/O events from procio.
+// lifecycle's Discovery Bridge will auto-detect these methods.
+func (b *ObserverBridge) OnIOError(op string, err error) { ... }
+func (b *ObserverBridge) OnScanError(err error)           { ... }
 
 func (b *ObserverBridge) OnProcessStarted(pid int) {
 	b.Logger.Info("process started", "pid", pid)
@@ -199,9 +203,10 @@ func (b *ObserverBridge) LogError(msg string, args ...any) { b.Logger.Error(msg,
 ```go
 bridge := &ObserverBridge{
 	Logger:   slog.Default(),
-	Provider: myMetricsProvider, // or metrics.GetProvider()
+	Provider: myMetricsProvider,
 }
 
+// 1. Set the lifecycle observer.
+// 2. That's it! The internal Discovery Bridge handles procio integration.
 lifecycle.SetObserver(bridge)
-procio.SetObserver(bridge)
 ```
