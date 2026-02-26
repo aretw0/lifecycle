@@ -27,7 +27,7 @@ type funcWorker struct {
 func (w *funcWorker) Start(ctx context.Context) error {
 	var fnCtx context.Context
 	var cancel context.CancelFunc
-	err := withLockResultAny(&w.BaseWorker.mu, func() error {
+	err := withLockResult(w.BaseWorker, func() error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -61,7 +61,7 @@ func (w *funcWorker) Start(ctx context.Context) error {
 }
 
 func (w *funcWorker) Stop(ctx context.Context) error {
-	withLockAny(&w.BaseWorker.mu, func() {
+	withLock(&w.BaseWorker.mu, func() {
 		if w.cancel != nil {
 			w.StopRequested = true
 			w.cancel()
