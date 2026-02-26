@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/aretw0/introspection"
 	"github.com/aretw0/procio/termio"
@@ -13,7 +14,7 @@ import (
 //
 // **Concurrency Pattern:**
 // All critical state changes use the internal mutex (`mu sync.RWMutex`).
-// For custom state manipulations, always use the exposed `mu` field with generic locking helpers (`withLockAny`, `withLockResultAny`).
+// For custom state manipulations, always use the exposed `mu` field with generic locking helpers (`withLock`, `withLockResult`).
 //
 // Example of safe custom state mutation:
 //
@@ -23,11 +24,11 @@ import (
 //	}
 //
 //	func (w *MyWorker) SetMyField(val int) {
-//	    withLockAny(&w.mu, func() { w.myField = val })
+//	    withLock(&w.mu, func() { w.myField = val })
 //	}
 //
 //	func (w *MyWorker) GetMyField() int {
-//	    return withLockResultAny(&w.mu, func() int { return w.myField })
+//	    return withLockResult(&w.mu, func() int { return w.myField })
 //	}
 //
 // The embedding pattern provides default implementations for:
@@ -54,16 +55,26 @@ type BaseWorker struct {
 	Killed        bool
 	ExitCode      int
 	Err           error
+
+	// Promoted Fields
+	restarts   int
+	startedAt  time.Time
+	updatedAt  time.Time
+	workerType Type
 }
 
 // NewBaseWorker creates a new BaseWorker with the given name.
 // The name is immutable after creation (construct a new worker to change it).
 func NewBaseWorker(name string) *BaseWorker {
+	now := time.Now()
 	return &BaseWorker{
-		name:     name,
-		done:     make(chan error, 1),
-		finished: make(chan struct{}),
-		status:   StatusCreated,
+		name:       name,
+		done:       make(chan error, 1),
+		finished:   make(chan struct{}),
+		status:     StatusCreated,
+		startedAt:  now,
+		updatedAt:  now,
+		workerType: TypeProcess, // Default to process, can be overridden
 	}
 }
 
@@ -99,10 +110,11 @@ func (b *BaseWorker) SetStatus(new Status) {
 	b.mu.Lock()
 	old := b.status
 	b.status = new
+	b.updatedAt = time.Now()
 	b.mu.Unlock()
 
 	if old != new {
-		b.emitStateChange(State{Name: b.name, Status: old}, State{Name: b.name, Status: new})
+		b.emitStateChange(b.ExportStateFrom(old), b.ExportStateFrom(new))
 	}
 }
 
@@ -127,10 +139,11 @@ func (b *BaseWorker) Finish(err error) {
 	oldStatus := b.status
 	b.status = b.DeriveFinalStatus()
 	newStatus := b.status
+	b.updatedAt = time.Now()
 	b.mu.Unlock()
 
 	// Emit state change for the terminal transition
-	b.emitStateChange(State{Name: b.name, Status: oldStatus}, State{Name: b.name, Status: newStatus})
+	b.emitStateChange(b.ExportStateFrom(oldStatus), b.ExportStateFrom(newStatus))
 
 	// Signal completion
 	// 1. Send error to buffered channel (single-result observer)
@@ -190,8 +203,12 @@ func (b *BaseWorker) ExportState(fn func(*State)) State {
 	defer b.mu.RUnlock()
 
 	s := State{
-		Name:   b.name,
-		Status: b.status,
+		Name:      b.name,
+		Status:    b.status,
+		Type:      b.workerType,
+		Restarts:  b.restarts,
+		StartedAt: b.startedAt,
+		UpdatedAt: b.updatedAt,
 	}
 
 	if fn != nil {
@@ -199,6 +216,36 @@ func (b *BaseWorker) ExportState(fn func(*State)) State {
 	}
 
 	return s
+}
+
+// ExportStateFrom creates a State snapshot for a specific status,
+// ensuring metadata consistency during transitions.
+func (b *BaseWorker) ExportStateFrom(status Status) State {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return State{
+		Name:      b.name,
+		Status:    status,
+		Type:      b.workerType,
+		Restarts:  b.restarts,
+		StartedAt: b.startedAt,
+		UpdatedAt: b.updatedAt,
+	}
+}
+
+// SetType sets the worker type.
+func (b *BaseWorker) SetType(t Type) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.workerType = t
+}
+
+// SetRestarts sets the restart count.
+func (b *BaseWorker) SetRestarts(count int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.restarts = count
 }
 
 // StartFunc is a helper that runs fn in a goroutine and manages the done channel.

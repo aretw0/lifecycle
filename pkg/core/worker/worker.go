@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Worker defines the interface for a managed unit of work (process, goroutine, container).
@@ -50,6 +51,20 @@ type Suspendable interface {
 	Suspend(context.Context) error
 	// Resume restarts the worker's processing.
 	Resume(context.Context) error
+}
+
+// Prober is an optional interface for workers that support internal health probing.
+type Prober interface {
+	// Probe returns the current internal health status of the worker.
+	// It should be non-blocking or respect the provided context.
+	Probe(context.Context) ProbeResult
+}
+
+// ProbeResult represents the result of a health probe.
+type ProbeResult struct {
+	Healthy   bool      `json:"healthy"`
+	Message   string    `json:"message,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // Status represents the lifecycle state of a worker.
@@ -146,18 +161,33 @@ const (
 	MetadataWindowStart = "window_start"
 	// MetadataCircuitBreaker indicates if the circuit breaker has been triggered.
 	MetadataCircuitBreaker = "circuit_breaker"
+
+	// MetadataHealth identifies if the worker is healthy or unhealthy.
+	MetadataHealth = "health"
+	// MetadataHealthMsg provides a human-readable health status message.
+	MetadataHealthMsg = "health_msg"
 )
 
 // State represents a snapshot of the worker's status.
 type State struct {
-	Name        string
-	Status      Status
-	PID         int
-	ExitCode    int
-	Error       error
-	ResumeToken string
-	Metadata    map[string]string
-	Children    []State
+	Name     string `json:"name"`
+	Status   Status `json:"status"`
+	Type     Type   `json:"type"`     // Promoted from metadata
+	Restarts int    `json:"restarts"` // Promoted from metadata
+
+	PID      int   `json:"pid,omitempty"`
+	ExitCode int   `json:"exit_code,omitempty"`
+	Error    error `json:"error,omitempty"`
+
+	StartedAt time.Time `json:"started_at,omitempty"` // Promoted from metadata
+	UpdatedAt time.Time `json:"updated_at,omitempty"` // Promoted from metadata
+
+	ResumeToken string `json:"resume_token,omitempty"`
+
+	Health *ProbeResult `json:"health,omitempty"` // First-class health status
+
+	Metadata map[string]string `json:"metadata,omitempty"`
+	Children []State           `json:"children,omitempty"`
 }
 
 // StopAndWait is a utility that requests a worker to stop and blocks until
