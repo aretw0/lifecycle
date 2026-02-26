@@ -1,13 +1,3 @@
-// PADRÃO DE SINCRONIZAÇÃO
-//
-// Utilize withLock para alterações rápidas e atômicas sob o mutex.
-// Utilize withLockResult para leituras atômicas que retornam valor.
-// Exemplo:
-//   valor := withLockResult(p, func() int { return p.meuCampo })
-//   withLock(p, func() { p.meuCampo = 42 })
-//
-// Isso reduz boilerplate, previne unlocks indevidos e facilita manutenção.
-
 package worker
 
 import (
@@ -16,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/aretw0/procio/proc"
@@ -26,39 +15,35 @@ import (
 	"github.com/aretw0/lifecycle/pkg/core/observe"
 )
 
-// withLockAny executa uma função sob o mutex de qualquer struct que tenha mu sync.Locker.
-type locker interface {
-	Lock()
-	Unlock()
+// ProcessWorker is a Worker that manages an OS process.
+//
+// Concorrência: Todos os métodos que alteram estado interno usam mutex.
+// Após o processo ser iniciado, SetEnv e SetOutput não têm efeito e retornam erro.
+// O ciclo de vida do processo é Start -> (Stop|Finish) -> State.
+// O método Stop pode retornar múltiplos erros combinados via errors.Join.
+//
+// State.Metadata inclui os campos "startedAt" e "stoppedAt" (RFC3339Nano) para rastreabilidade.
+type ProcessWorker struct {
+	*BaseWorker
+	nameCmd string
+	args    []string
+	cmd     *proc.Cmd
+
+	startedAt time.Time
+	stoppedAt time.Time
+	env       map[string]string
+	stdout    io.Writer
+	stderr    io.Writer
 }
 
-func withLockAny(l locker, fn func()) {
-	l.Lock()
-	defer l.Unlock()
-	fn()
-}
-
-// withLockResultAny executa uma função sob o mutex e retorna um valor, para qualquer struct com mu sync.Locker.
-func withLockResultAny[T any](l locker, fn func() T) T {
-	l.Lock()
-	defer l.Unlock()
-	return fn()
-}
-
-// withLock executa uma função sob o mutex do worker.
-// Use para leituras/alterações rápidas e atômicas.
-func withLock(p *ProcessWorker, fn func()) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	fn()
-}
-
-// withLockResult executa uma função sob o mutex e retorna um valor.
-// Útil para leituras atômicas que retornam resultado.
-func withLockResult[T any](p *ProcessWorker, fn func() T) T {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return fn()
+// NewProcessWorker creates a new ProcessWorker for the given command.
+func NewProcessWorker(name string, nameCmd string, args ...string) *ProcessWorker {
+	return &ProcessWorker{
+		BaseWorker: NewBaseWorker(name),
+		nameCmd:    nameCmd,
+		args:       args,
+		env:        make(map[string]string),
+	}
 }
 
 // isMutable retorna true se o worker está em estado que permite alteração de configuração.
@@ -68,61 +53,33 @@ func (p *ProcessWorker) isMutable() bool {
 	})
 }
 
-// ProcessWorker is a Worker that manages an OS process.
-//
-// Concorrência: Todos os métodos que alteram estado interno usam mutex.
-// Após o processo ser iniciado, SetEnv e SetOutput não têm efeito e retornam erro.
-// O ciclo de vida do processo é Start -> (Stop|Finish) -> State.
-// O método Stop pode retornar múltiplos erros combinados via errors.Join (veja documentação).
-//
-// State.Metadata inclui os campos "startedAt" e "stoppedAt" (RFC3339Nano) para rastreabilidade.
-type ProcessWorker struct {
-	*BaseWorker
-	cmd *exec.Cmd
-
-	startedAt time.Time
-	stoppedAt time.Time
-	env       map[string]string
-}
-
-// NewProcessWorker creates a new ProcessWorker for the given command.
-func NewProcessWorker(name string, nameCmd string, args ...string) *ProcessWorker {
-	cmd := exec.Command(nameCmd, args...)
-
-	return &ProcessWorker{
-		BaseWorker: NewBaseWorker(name),
-		cmd:        cmd,
-		env:        make(map[string]string),
-	}
-}
-
-// Start starts the OS process.
+// Start initiates the OS process.
 func (p *ProcessWorker) Start(ctx context.Context) error {
-	if !p.isMutable() {
-		return fmt.Errorf("worker %s already started (status: %s)", p.String(), p.status)
-	}
+	p.SetStatus(StatusStarting)
 
-	log.Info("starting process worker", "name", p.String(), "cmd", p.cmd.Path, "args", p.cmd.Args)
+	// Lazy command construction ensures context is linked and hygiene is applied.
+	p.cmd = proc.NewCmd(ctx, p.nameCmd, p.args...)
 
 	withLock(p, func() {
+		p.cmd.Stdout = p.stdout
+		p.cmd.Stderr = p.stderr
+
 		// Inject environment variables
 		if len(p.env) > 0 {
-			if p.cmd.Env == nil {
-				p.cmd.Env = p.cmd.Environ()
-			}
+			p.cmd.Env = p.cmd.Environ()
 			for k, v := range p.env {
 				p.cmd.Env = append(p.cmd.Env, fmt.Sprintf("%s=%s", k, v))
 			}
 		}
 	})
 
-	// Use pkg/proc to start with hygiene guarantees
-	if err := proc.Start(p.cmd); err != nil {
+	// Start with hygiene guarantees already configured by NewCmd
+	if err := p.cmd.Start(); err != nil {
 		if obs := observe.GetObserver(); obs != nil {
 			obs.OnProcessFailed(err)
 		}
-		withLock(p, func() { p.Err = err })
-		p.SetStatus(StatusFailed)
+		// Failure path: ensure Wait() channels are closed and status is terminal.
+		p.Finish(err)
 		metrics.GetProvider().IncWorkerFailed("process")
 		return fmt.Errorf("failed to start worker %s: %w", p.String(), err)
 	}
@@ -134,7 +91,7 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 
 	p.SetStatus(StatusRunning)
 	metrics.GetProvider().IncWorkerStarted("process")
-	log.Info("process worker started", "name", p.String(), "cmd", p.cmd.Path)
+	log.Info("process worker started", "name", p.String(), "pid", p.cmd.Process.Pid)
 
 	// Monitor in background
 	go func() {
@@ -168,7 +125,6 @@ func (p *ProcessWorker) Start(ctx context.Context) error {
 // Stop sends a signal to the process to terminate.
 // Pode retornar erro composto (errors.Join) contendo erros de sinalização e kill.
 // Use errors.Is/As para inspecionar causas individuais.
-
 func (p *ProcessWorker) Stop(ctx context.Context) error {
 	notRunning := withLockResult(p, func() bool {
 		if p.status != StatusRunning {
@@ -188,17 +144,17 @@ func (p *ProcessWorker) Stop(ctx context.Context) error {
 
 	log.Debug("stopping process worker", "name", p.String(), "pid", process.Pid)
 
-	// First try graceful storage (SIGINT/SIGTERM depending on platform/app)
-	// On Windows, os.Interrupt é o único sinal capturável via os.Process.Signal
-	sigErr := process.Signal(os.Interrupt)
+	// First try graceful shutdown (SIGINT/SIGTERM depending on platform/app)
+	// On Windows, os.Interrupt is the only catchable signal via os.Process.Signal
+	sigErr := p.cmd.Process.Signal(os.Interrupt)
 
 	// Wait for quiescence or timeout using Base implementation
 	err := p.BaseWorker.Stop(ctx)
 	if err != nil && (errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
 		withLock(p, func() { p.Killed = true })
-		log.Warn("force killing process worker", "name", p.String(), "pid", process.Pid)
-		killErr := process.Kill()
-		// Retorna todos os erros relevantes para o chamador analisar.
+		log.Warn("force killing process worker", "name", p.String(), "pid", p.cmd.Process.Pid)
+		killErr := p.cmd.Process.Kill()
+		// Return joined errors for inspection
 		return errors.Join(err, sigErr, killErr)
 	}
 
@@ -231,15 +187,15 @@ func (p *ProcessWorker) SetEnv(key, value string) error {
 func (p *ProcessWorker) State() State {
 	// Não usar withLockResult aqui, pois ExportState já faz lock internamente.
 	return p.ExportState(func(s *State) {
-		if p.cmd.Process != nil {
+		if p.cmd != nil && p.cmd.Process != nil {
 			s.PID = p.cmd.Process.Pid
 		}
 		s.ExitCode = p.ExitCode
 		s.Error = p.Err
 		s.Metadata = map[string]string{
 			"type":      "process",
-			"path":      p.cmd.Path,
-			"args":      fmt.Sprintf("%v", p.cmd.Args),
+			"path":      p.nameCmd,
+			"args":      fmt.Sprintf("%v", p.args),
 			"startedAt": p.startedAt.Format(time.RFC3339Nano),
 			"stoppedAt": p.stoppedAt.Format(time.RFC3339Nano),
 		}
@@ -252,8 +208,8 @@ func (p *ProcessWorker) SetOutput(stdout, stderr io.Writer) error {
 	allowed := p.isMutable()
 	if allowed {
 		withLock(p, func() {
-			p.cmd.Stdout = stdout
-			p.cmd.Stderr = stderr
+			p.stdout = stdout
+			p.stderr = stderr
 		})
 	}
 	if !allowed {

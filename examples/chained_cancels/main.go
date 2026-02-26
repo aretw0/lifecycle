@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/aretw0/lifecycle"
-	"github.com/aretw0/procio/proc"
 )
 
 // This example demonstrates "Chained Cancels" (ADR-0016).
@@ -32,29 +30,33 @@ func main() {
 
 			slog.Info("Starting child process with a 2-second 'Self-Destruct' timeout...")
 
-			// 4. Spawn child via standard exec with chainedCtx
-			// We use 'ping' or 'timeout' as a dummy long-running process
-			var cmd *exec.Cmd
+			// 4. Spawn child via lifecycle.NewProcessCmd with chainedCtx
+			// This automatically handles hygiene and context-linked cancellation.
+			var name string
+			var args []string
 			if os.Getenv("OS") == "Windows_NT" {
-				cmd = exec.CommandContext(chainedCtx, "timeout", "10")
+				name = "timeout"
+				args = []string{"/t", "10"}
 			} else {
-				cmd = exec.CommandContext(chainedCtx, "sleep", "10")
+				name = "sleep"
+				args = []string{"10"}
 			}
 
-			// Use proc.Start to ensure process hygiene (PDeathSig/Job Objects)
-			if err := proc.Start(cmd); err != nil {
+			cmd := lifecycle.NewProcessCmd(chainedCtx, name, args...)
+
+			if err := cmd.Start(); err != nil {
 				return fmt.Errorf("failed to start child: %w", err)
 			}
 
 			slog.Info("Child started", "pid", cmd.Process.Pid)
 
 			// 5. Wait for child to finish
-			// Because we used exec.CommandContext(chainedCtx), the OS process
-			// will be signalled/killed by the Go runtime when chainedCtx expires or is cancelled.
+			// Because we used NewProcessCmd(chainedCtx), the OS process
+			// will be reaped automatically when chainedCtx expires or is cancelled.
 			err := cmd.Wait()
 
 			if err != nil {
-				slog.Warn("Child process finished with error (expected due to timeout)", "error", err)
+				slog.Warn("Child process finished (expected error due to timeout)", "error", err)
 			} else {
 				slog.Info("Child process finished cleanly")
 			}
