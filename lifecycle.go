@@ -822,6 +822,14 @@ func StartProcess(cmd *exec.Cmd) error {
 	return proc.Start(cmd)
 }
 
+// NewProcessCmd creates a proc.Cmd pre-configured with context-linked cancellation
+// and platform process hygiene (PDeathSig / Job Objects).
+// Use cmd.Start() / cmd.Wait() / cmd.Run() directly.
+// Alias for procio/proc.NewCmd.
+func NewProcessCmd(ctx context.Context, name string, args ...string) *proc.Cmd {
+	return proc.NewCmd(ctx, name, args...)
+}
+
 // SetStrictMode sets whether to block on unsupported platforms for process hygiene.
 // Alias for pkg/proc.StrictMode.
 func SetStrictMode(strict bool) {

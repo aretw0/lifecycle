@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/aretw0/introspection v0.1.3
-	github.com/aretw0/procio v0.1.2
+	github.com/aretw0/procio v0.5.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/uuid v1.6.0
 	golang.org/x/sync v0.19.0

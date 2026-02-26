@@ -1,6 +1,10 @@
 package observe
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/aretw0/procio"
+)
 
 // Observer allows external packages to plug in observability (logs and process events)
 // without coupling to specific implementations.
@@ -22,6 +26,28 @@ type Observer interface {
 	LogError(msg string, args ...any)
 }
 
+// ProcioDiscoveryBridge adapts a lifecycle.Observer to procio.Observer
+// by dynamically discovering extended capabilities via type assertions.
+type ProcioDiscoveryBridge struct {
+	inner Observer
+}
+
+func (b *ProcioDiscoveryBridge) OnProcessStarted(pid int)         { b.inner.OnProcessStarted(pid) }
+func (b *ProcioDiscoveryBridge) OnProcessFailed(err error)        { b.inner.OnProcessFailed(err) }
+func (b *ProcioDiscoveryBridge) LogDebug(msg string, args ...any) { b.inner.LogDebug(msg, args...) }
+func (b *ProcioDiscoveryBridge) LogWarn(msg string, args ...any)  { b.inner.LogWarn(msg, args...) }
+func (b *ProcioDiscoveryBridge) LogError(msg string, args ...any) { b.inner.LogError(msg, args...) }
+func (b *ProcioDiscoveryBridge) OnIOError(op string, err error) {
+	if ioo, ok := b.inner.(interface{ OnIOError(string, error) }); ok {
+		ioo.OnIOError(op, err)
+	}
+}
+func (b *ProcioDiscoveryBridge) OnScanError(err error) {
+	if ioo, ok := b.inner.(interface{ OnScanError(error) }); ok {
+		ioo.OnScanError(err)
+	}
+}
+
 var (
 	observerMu sync.RWMutex
 	observer   Observer
@@ -34,6 +60,11 @@ func SetObserver(o Observer) {
 	observerMu.Lock()
 	defer observerMu.Unlock()
 	observer = o
+	if o != nil {
+		procio.SetObserver(&ProcioDiscoveryBridge{inner: o})
+	} else {
+		procio.SetObserver(nil)
+	}
 }
 
 // GetObserver returns the current global observer, if any.
