@@ -389,6 +389,12 @@
   - [ ] Add test: cancel parent `ctx` while `Add()` is dynamically starting a child → assert child start is aborted cleanly.
 - [ ] **Webhook Context Fix**:
   - [ ] In `pkg/events/webhook.go`, replace `context.WithTimeout(context.Background(), 5*time.Second)` with `context.WithTimeout(ctx, 5*time.Second)` in the server shutdown path.
+- [ ] **procio v0.4.x Adoption** (dependency upgrade with breaking changes):
+  - [ ] Bump `go.mod` to `procio v0.4.1` (latest stable).
+  - [ ] Migrate `pkg/core/worker/process.go`: replace `exec.CommandContext(ctx, ...) + proc.Start(cmd)` with `proc.NewCmd(ctx, ...)` — which now returns `*proc.Cmd` (not `*exec.Cmd`); adjust all call sites that reference `*exec.Cmd` fields directly.
+  - [ ] Evaluate `ObserverBridge` pattern from procio v0.4.0: `lifecycle.Observer` already satisfies `procio.Observer` directly (aligned in v0.4.1 by removing `LogInfo` from the interface) — verify no adapter is needed.
+  - [ ] Refactor `examples/chained_cancels/main.go`: replace two-step `exec.CommandContext + proc.Start` with single `proc.NewCmd(ctx, ...)` call.
+  - [ ] Update `examples/zombie/main.go` similarly if applicable.
 
 ---
 
