@@ -766,35 +766,50 @@ func (s *supervisor) stateLocked() worker.State {
 		}
 	}
 
+	// 1. Snapshot basic worker states and collect probers
 	childrenState := make([]worker.State, 0, len(s.specs))
-	for _, spec := range s.specs {
+	type probeTarget struct {
+		index  int
+		prober worker.Prober
+	}
+	var probers []probeTarget
+
+	for i, spec := range s.specs {
+		// Initialize with default spec info
 		childState := worker.State{
 			Name: spec.Name,
+			Type: worker.Type(spec.Type),
 			Metadata: map[string]string{
 				worker.MetadataType: spec.Type,
 			},
 		}
 
+		// If the worker is actively running/tracked, get its current state
 		if child, ok := s.children[spec.Name]; ok {
 			st := child.State()
 			childState.Status = st.Status
 			childState.PID = st.PID
 			childState.ExitCode = st.ExitCode
 			childState.Error = st.Error
-			childState.Children = st.Children // ← Add recursive children!
-			// Merge metadata
+			childState.Children = st.Children
+			childState.StartedAt = st.StartedAt
+			childState.UpdatedAt = st.UpdatedAt
+			childState.Type = st.Type
+
+			// Check if worker supports probing
+			if prober, ok := child.(worker.Prober); ok {
+				probers = append(probers, probeTarget{index: i, prober: prober})
+			}
+
+			// Merge child-provided metadata
 			for k, v := range st.Metadata {
 				childState.Metadata[k] = v
 			}
 			// Only override status to Stopping if child is still actively Running
-			// If child is already Stopped/Finished/Failed, preserve that terminal state
 			if s.stopping && childState.Status == worker.StatusRunning {
 				childState.Status = worker.StatusStopping
 			}
 		} else if result, ok := s.lastResults[spec.Name]; ok {
-			// It finished. Should it restart?
-			// Only show Pending if the supervisor is actually running.
-			// If supervisor is stopped, we treat the result as final for this lifecycle.
 			should := s.shouldRestart(spec, result)
 			if should && s.started {
 				childState.Status = worker.StatusPending
@@ -809,6 +824,10 @@ func (s *supervisor) stateLocked() worker.State {
 
 		// Reliability Metadata
 		if bs, ok := s.backoffStates[spec.Name]; ok {
+			childState.Restarts = bs.restarts // PROMOTED
+			if childState.Metadata == nil {
+				childState.Metadata = make(map[string]string)
+			}
 			childState.Metadata[worker.MetadataRestarts] = fmt.Sprintf("%d", bs.restarts)
 			if !bs.windowStart.IsZero() {
 				childState.Metadata[worker.MetadataWindowStart] = bs.windowStart.Format(time.RFC3339)
@@ -822,13 +841,62 @@ func (s *supervisor) stateLocked() worker.State {
 
 		childrenState = append(childrenState, childState)
 	}
+	// 2. Perform Active Probing in parallel
+	if len(probers) > 0 {
+		var wg sync.WaitGroup
+		results := make(chan struct {
+			index  int
+			result worker.ProbeResult
+		}, len(probers))
+
+		for _, p := range probers {
+			wg.Add(1)
+			go func(target probeTarget) {
+				defer wg.Done()
+				// Use a short timeout for probing.
+				// We use s.baseCtx as parent to respect supervisor shutdown.
+				probeCtx, probeCancel := context.WithTimeout(s.baseCtx, 100*time.Millisecond)
+				defer probeCancel()
+				results <- struct {
+					index  int
+					result worker.ProbeResult
+				}{target.index, target.prober.Probe(probeCtx)}
+			}(p)
+		}
+
+		// Wait for all probes or a small safety margin?
+		// Since we hold the lock, we must wait but we know the timeout is 100ms.
+		wg.Wait()
+		close(results)
+
+		// 3. Merge health results back into the states
+		for res := range results {
+			st := &childrenState[res.index]
+			st.Health = &res.result
+
+			// Maintenance Bridge: Mirror health to metadata for legacy introspection tools
+			healthStatus := "healthy"
+			if !res.result.Healthy {
+				healthStatus = "unhealthy"
+			}
+			if st.Metadata == nil {
+				st.Metadata = make(map[string]string)
+			}
+			st.Metadata[worker.MetadataHealth] = healthStatus
+			if res.result.Message != "" {
+				st.Metadata[worker.MetadataHealthMsg] = res.result.Message
+			}
+		}
+	}
 
 	return worker.State{
-		Name:     s.name,
-		Status:   status,
-		Children: childrenState,
+		Name:      s.name,
+		Status:    status,
+		Type:      worker.TypeSupervisor, // PROMOTED
+		UpdatedAt: time.Now(),            // PROMOTED
+		Children:  childrenState,
 		Metadata: map[string]string{
-			worker.MetadataType: "supervisor",
+			worker.MetadataType: string(worker.TypeSupervisor),
 		},
 	}
 }
