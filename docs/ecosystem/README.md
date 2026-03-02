@@ -173,7 +173,7 @@ docs/
 
 ### For Contributors
 
-1. Review [**trellis_refactoring_handoff.md**](trellis_refactoring_handoff.md) — refactoring roadmap & preserved insights
+1. Review [**Trellis Refactoring Guide**](https://github.com/aretw0/trellis/blob/main/docs/REFACTORING_GUIDE.md) — refactoring roadmap & preserved insights
 2. Follow **Phase 2a** roadmap if contributing to Trellis
 3. Use [**ECOSYSTEM_INTEGRATION.md**](../ECOSYSTEM_INTEGRATION.md) as template for new projects
 
