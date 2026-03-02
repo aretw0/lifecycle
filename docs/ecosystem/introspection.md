@@ -1,5 +1,10 @@
 # Ecosystem Analysis: Introspection (Visualization Primitives)
 
+> **Pattern**: [Serve Sozinho → Converge Emergentemente](pattern.md)  
+> **Version**: v0.1.3  
+> **Status**: Universal Primitive for Observability  
+> **Repository**: [github.com/aretw0/introspection](https://github.com/aretw0/introspection)
+
 **Introspection** is a standalone Go library that provides generic primitives for visualizing application state using Mermaid diagrams. It was extracted from `lifecycle` to serve as a reusable foundation for any Go project requiring runtime introspection and topology visualization.
 
 ## Purpose

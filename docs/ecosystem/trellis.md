@@ -1,79 +1,284 @@
-# Ecosystem Integration: Trellis (Durable Execution)
+# Ecosystem Evolution: Trellis (Engine Abstraction Pioneer)
 
-This case study explores how **Trellis**, a durable execution engine for Go, uses `lifecycle` as its foundational control plane to ensure zero-loss operations and state-machine integrity.
+> **Status**: Strategic Refactoring in Progress  
+> **Last Updated**: 2026-03-02
 
-## The Challenge
+## Historical Context
 
-Durable execution requires that a process state can be suspended, moved, or restarted without losing the current progress of a workflow. Traditional signal handling (`SIGTERM`) is too binary for this: it usually leads to a hard shutdown, which might corrupt in-flight state-machine transitions if not handled with extreme care.
+**Trellis** (v0.7.1) is currently a **monolithic framework** that combines:
 
-## The Lifecycle Solution
+- **DSL**: Flow definitions, state machines, transitions (domain-specific)
+- **Engine**: Graph execution, state persistence, durability (generic)
 
-::: warning
-**Version Discrepancy**: The patterns described below represent the **Target Architecture** for Trellis v1.0.
-Currently, `trellis` (v0.7.1) depends on `lifecycle` v0.1.1 (legacy) and uses `lifecycle.NewSignalContext` mostly for basic interruption.
-The full "Suspend/Resume" integration described here is the roadmap for the next Trellis iteration.
-:::
+This coupling was pragmatic for initial development, but now limits reuse across domains.
 
-Trellis integrates with `lifecycle` using three primary pillars: **Managed Suspension**, **Detached Execution**, and **Hierarchical Signaling**.
+## Strategic Vision: Engine Abstraction
 
-### 1. Robust Suspension (The Pause Button)
+Trellis is evolving into the **first realization** of the Abstract Execution Engine vision (see [engine_abstraction.md](./engine_abstraction.md)).
 
-Trellis uses the `SuspendHandler` to coordinate state checkpointing. When a `SuspendEvent` is received (triggered via a Control API or a specific OS signal), Trellis pauses its task dispatchers.
+### The Transformation
 
-```go
-// Trellis Worker Integration
-handler := lifecycle.NewRouter()
-suspend := lifecycle.NewSuspendHandler()
+```
+┌─────────────────────────────────────────────────┐
+│ Before: Trellis (Monolith)                      │
+│ ─────────────────────────────────────────────── │
+│ • DSL (flows, states, transitions)              │
+│ • Engine (graph execution, persistence)         │
+│ • Lifecycle integration (basic)                 │
+└─────────────────────────────────────────────────┘
 
-// Register Trellis dispatchers
-suspend.OnSuspend(func(ctx context.Context) error {
-    log.Info("Trellis: Suspending dispatchers for checkpointing...")
-    return engine.Checkpoint(ctx)
-})
+                      ↓ Refactor
 
-suspend.OnResume(func(ctx context.Context) error {
-    log.Info("Trellis: Resuming dispatchers...")
-    return engine.Resume()
-})
+┌─────────────────────────────────────────────────┐
+│ After: Separated Architecture                   │
+└─────────────────────────────────────────────────┘
 
-handler.AddSource(lifecycle.NewOSSignalSource()) // Or custom control source
+┌──────────────────┐  ┌───────────────────────────┐
+│ flow-dsl         │  │ trellis-engine            │
+│ (Domain Syntax)  │  │ (Generic Execution)       │
+│ ──────────────── │  │ ─────────────────────────│
+│ • Parse flows    │→ │ • Node abstraction        │
+│ • Compile to IR  │  │ • Scheduler interface     │
+│ • State machine  │  │ • State store             │
+│   semantics      │  │ • Lifecycle integration   │
+└──────────────────┘  └───────────────────────────┘
+         ↓                        ↑
+    ┌────┴────────────────────────┴──────┐
+    │ trellis (Facade - Backward Compat) │
+    └────────────────────────────────────┘
 ```
 
-### 2. Durable Shutdowns with `DoDetached`
+### Why Separate?
 
-Some Trellis operations, like committing a transaction to the event store, **must not be interrupted** even if the main application logic has received a shutdown signal.
+**Problem**: If we want "Life as Code" or "WebScrape as Code", we must rebuild everything.
 
-Trellis uses `lifecycle.DoDetached` for these "indiscriminate" operations:
+**Solution**: Extract generic execution primitives. DSLs become thin layers that compile to the same engine.
+
+**Benefit**: Write engine once, N DSLs benefit (reuse scheduler, state store, durability, lifecycle integration).
+
+## Current Lifecycle Integration (v0.7.1)
+
+::: warning
+**Version Discrepancy**: Trellis currently depends on **lifecycle v0.1.1** (legacy).
+
+The patterns described below represent the **Target Architecture** for Trellis post-refactor.
+Full "Suspend/Resume" and Control Plane integration will happen during Phase 2 (Engine Extraction).
+:::
+
+### Today's Integration
+
+- Uses `lifecycle.NewSignalContext` for basic cancellation
+- No suspend/resume support
+- No control plane routing
+
+### Post-Refactor Integration (Phase 2)
+
+Trellis-engine will **deeply integrate** lifecycle:
 
 ```go
-func (e *Engine) CommitState(ctx context.Context) error {
-    // This work will continue even if the parent ctx is cancelled,
-    // as long as the process is still running (within the ForceExit timeout).
-    return lifecycle.DoDetached(ctx, func(detachedCtx context.Context) error {
-        return e.store.Save(detachedCtx, e.currentState)
-    })
+// Deep lifecycle integration in trellis-engine
+type Engine struct {
+    router     *lifecycle.Router      // Control plane events
+    supervisor *lifecycle.Supervisor  // Worker orchestration
+    store      StateStore             // Persistence
+}
+
+func (e *Engine) Run(ctx context.Context, nodes []Executable) error {
+    // Integrate with lifecycle for signals
+    ctx = lifecycle.Attach(ctx, e.router)
+    
+    // Use supervisor for node execution
+    for _, node := range nodes {
+        worker := e.supervisor.Add(node.ID(), node.Execute)
+        worker.RestartPolicy = lifecycle.Always
+    }
+    
+    return lifecycle.Run(ctx, e.supervisor)
 }
 ```
 
-### 3. Hierarchical Signals
+**Key Features**:
 
-Trellis workers often run as children of a supervisor. By using `lifecycle.Run`, Trellis ensures that:
+1. **Suspend/Resume**: Engine responds to `SuspendEvent` for checkpointing
+2. **Graceful Shutdown**: Uses `lifecycle.DoDetached` for critical state transitions
+3. **Health Checks**: Exposes node health via `lifecycle.HealthCheckSource`
+4. **File Watch**: Reload flow definitions via `lifecycle.FileWatchSource`
 
-- `SIGTERM` initiates a graceful drain.
-- `SIGINT` (User Interrupt) can be differentiated to allow for local debugging/restarts.
-- Child processes (if any) are cleaned up via Job Objects (Windows) or Subreapers (Linux).
+## Refactoring Roadmap (Phase 2)
 
-## Key Patterns for Durable Workers
+### Week 1-2: Design & Prototype
 
-1. **Fail-Closed by default**: Assume the process can die at any time. Use `lifecycle` to maximize the "Grace Period".
-2. **Idempotent Suspension**: Ensure `OnSuspend` can be called multiple times without side effects (guaranteed by `lifecycle.SuspendHandler` v1.5+).
-3. **Observability**: Use `router.State()` to expose whether the durable worker is currently `suspended` or `running` to external monitoring tools.
+- [ ] **Node Abstraction Decision** (Critical Blocker)
+  - Options: Function-based, Interface-based, Hybrid
+  - Recommendation: Hybrid (see [engine_abstraction.md](./engine_abstraction.md))
+  - Owner: Trellis maintainer
+  - **ETA**: This week (2026-03-08)
 
-## Conclusion
+- [ ] **Package Structure**
 
-By offloading the "dirty work" of signal management and I/O coordination to `lifecycle`, Trellis can focus on its core value: **reliable state machines**.
+  ```
+  trellis/
+  ├── engine/          ← New: Generic execution
+  │   ├── node.go
+  │   ├── scheduler.go
+  │   ├── store.go
+  │   └── lifecycle_integration.go
+  ├── dsl/             ← Refactored: Flow-specific
+  │   ├── parser.go
+  │   ├── compiler.go
+  │   └── flow_types.go
+  └── trellis.go       ← Facade: Backward compat
+  ```
+
+### Week 3-4: Implementation
+
+- [ ] Extract `engine/` package with:
+  - `Node` interface (or hybrid struct)
+  - `Scheduler` interface (StateMachineScheduler, CronScheduler, etc.)
+  - `StateStore` interface (SQLite, Redis, Memory, Loam)
+  - Deep lifecycle integration (Router, Supervisor, Context)
+
+- [ ] Refactor Trellis to use `engine/` internally
+- [ ] Maintain 100% backward compatibility via facade
+
+### Week 5: Validation
+
+- [ ] Run existing Trellis tests (should pass unchanged)
+- [ ] Run Arbour (indirect consumer) to validate
+- [ ] Performance benchmarks (ensure no regression)
+
+### Week 6: Lifecycle Upgrade
+
+- [ ] Upgrade from lifecycle v0.1.1 → v1.5
+- [ ] Implement suspend/resume handlers
+- [ ] Add control plane examples
+
+**Total ETA**: 4-6 weeks from node decision
+
+## Integration with Other DSLs (Phase 3+)
+
+Once trellis-engine exists, new DSLs can emerge:
+
+### life-dsl (Life as Code)
+
+```go
+import "github.com/aretw0/trellis/engine"
+
+// Life workers compile to same engine
+func (w *LifeWorker) Compile() engine.Executable {
+    return engine.NewNode(w.ID).
+        Execute(w.ActionFunc()).
+        Schedule(engine.CronScheduler(w.Schedule)).
+        Build()
+}
+```
+
+### scrape-dsl (Web Automation)
+
+```go
+import "github.com/aretw0/trellis/engine"
+
+// Scrape selectors compile to same engine
+func (s *Selector) Compile() engine.Executable {
+    return engine.NewNode(s.ID).
+        Execute(s.BrowserFunc()).
+        Schedule(engine.SelectorScheduler(s.Steps)).
+        Build()
+}
+```
+
+**All use the same**:
+
+- State persistence
+- Lifecycle integration
+- Durability primitives
+- Error handling
+
+## Key Design Principles
+
+### 1. Backward Compatibility First
+
+Existing Trellis users must not break. Facade pattern ensures:
+
+```go
+import "github.com/aretw0/trellis"
+
+// Still works
+engine := trellis.New(path)
+engine.Run(ctx)
+```
+
+### 2. Progressive Migration
+
+Users can opt-in to advanced features:
+
+```go
+import "github.com/aretw0/trellis/engine"
+
+// Advanced: Direct engine usage
+eng := engine.New(
+    engine.WithLifecycle(router),
+    engine.WithStore(sqlite),
+)
+```
+
+### 3. Separation of Concerns
+
+- **DSL**: Syntax, domain concepts, compilation
+- **Engine**: Execution, scheduling, persistence
+- **Lifecycle**: Signals, I/O, control plane
+
+No circular dependencies.
+
+### 4. Composition Over Inheritance
+
+DSLs **compose** with engine primitives, not subclass them.
+
+## Blockers & Dependencies
+
+### Critical Blocker
+
+**Node Abstraction Design** (Waiting on Decision)
+
+- **Impact**: Blocks all of Phase 2
+- **Owner**: Trellis maintainer
+- **Options**: See [engine_abstraction.md](./engine_abstraction.md)
+- **Recommendation**: Hybrid (function + interface)
+- **ETA**: This week
+
+### Dependencies
+
+- ✅ Lifecycle v1.5 (stable, ready)
+- ✅ Loam v0.10 (stable, ready)
+- ⏳ Node design decision (blocking)
+
+## Success Criteria
+
+- [ ] `trellis-engine` package extracts successfully
+- [ ] Existing Trellis tests pass unchanged
+- [ ] Arbour continues working (indirect consumer)
+- [ ] `life-dsl` POC compiles to engine (Phase 3 validation)
+- [ ] Performance within 5% of monolithic version
+
+## For Chat Session Continuity
+
+When resuming Trellis development:
+
+1. **Check Blocker**: Node abstraction decided?
+2. **Current Phase**: Week 1 (Design) blocked
+3. **Next Steps**: Once unblocked, create `engine/` package structure
+4. **Documentation**: Update `trellis/docs/ECOSYSTEM_INTEGRATION.md` (needs creation)
 
 ---
-::: tip
-See `examples/suspend` for a runnable demonstration of the suspension pattern used in Trellis.
-:::
+
+**Last Updated**: 2026-03-02  
+**Next Review**: After node abstraction decision (this week)
+
+---
+
+## Related Documents
+
+- [engine_abstraction.md](./engine_abstraction.md) - Full vision & design options
+- [Trellis Refactoring Guide](https://github.com/aretw0/trellis/blob/main/docs/REFACTORING_GUIDE.md) - Refactoring roadmap & preserved insights
+- [README.md](./README.md) - Lifecycle ecosystem status and component index
+- [trellis/docs/ECOSYSTEM_INTEGRATION.md](https://github.com/aretw0/trellis/blob/main/docs/ECOSYSTEM_INTEGRATION.md) - Trellis-side integration map

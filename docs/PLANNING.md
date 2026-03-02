@@ -1,394 +1,9 @@
-# Planning: Lifecycle
+# Planning: Lifecycle Roadmap
 
-> [!IMPORTANT]
-> **Strategy Clarification (2026-02-15)**:
+> **Latest Release**: [v1.7.2](https://github.com/aretw0/lifecycle/releases/tag/v1.7.2)  
+> **Current Focus**: v1.7.2 → v1.8.0 (In Progress)
 >
-> - **v1.5+ introduces breaking changes** — The Control Plane architecture (originally planned as "v2") is now released as v1.5 to avoid `go.mod` migration overhead. See [MIGRATION.md](MIGRATION.md) for upgrade guidance.
-> - **Roadmap is work-driven, not date-driven** — Organized by iterative releases (v1.6, v1.7) instead of fixed timelines.
-> - **Working solo with AI partners** — Planning reflects single-maintainer capacity with agent collaboration.
-
----
-
-## v1.5.0 (Released) ✅
-
-> [!IMPORTANT]
-> **v1.5 Stabilization Complete**: All architectural split work and baseline test coverage milestones have been achieved. The v1.5 Control Plane foundation is stable and ready for production use.
->
-> **Breaking Changes**: v1.5 introduces the Event-Driven Control Plane, which includes breaking API changes from v1.4. See [MIGRATION.md](MIGRATION.md) for details.
-
-### Completed Work (v1.5 Control Plane)
-
-- [x] **Event Sources (Inputs)**: Generalized interface for lifecycle changes.
-  - [x] `OSSignalSource` (SIGINT, SIGTERM)
-  - [x] `WebhookSource` (Admin HTTP endpoints)
-  - [x] `HealthCheckSource` (Promoted from Backlog)
-  - [x] `FileWatchSource` (Integration with Loam?)
-  - [x] **Progress Events**: `ctx.Progress(0.5)` or `lifecycle.Tick(ctx)` to drive UI/Loaders
-  
-- [x] **Lifecycle Handlers (Outputs)**: Dynamic responses to events.
-  - [x] `Shutdown` (Current behavior)
-  - [x] `HotReload` (Cross-platform config reload via FileWatchSource, see `examples/reload/`)
-  - [x] `Suspend/Resume` (Verified with `examples/suspend`)
-  
-- [x] **Managed Concurrency**: `lifecycle.Go(ctx, fn)` pattern
-  - Automatically tracked, waited on, panic-safe
-  - Global WaitGroup in `pkg/runtime`
-  - `Supervisor` for services, `Go` for tasks
-  
-- [x] **Control Router**: Stdlib-native mux for events
-  - [x] Pattern matching (glob via `path.Match`, partial regex)
-  - [x] Middleware chains (logging, tracing, recovery)
-  - [x] Synchronous default for safety
-  - [x] Introspection (`Routes()` for visualization)
-  
-- [x] **Ergonomics & Interactions**:
-  - [x] `InputSource` (detached readers, Windows-resilient)
-  - [x] `NewInteractiveRouter` preset
-  - [x] `QuiescenceGate` (context-aware pause primitive)
-  
-- [x] **Relational Reliability**:
-  - [x] Shutdown diagnostics (goroutine stack dumps)
-  - [x] Supervisor circuit breaker
-  - [x] Restart policies (`Always`, `OnFailure`, `Never`)
-  
-- [x] **Documentation**:
-  - [x] `RECIPES.md` cookbook
-
----
-
-### v1.5 Refinement (Stable Blockers)
-
-#### 🏗️ Architecture Refinement
-
-> [!NOTE]
-> **Architectural Split Completed (v1.5)**:
-> The `core/events` split has been successfully implemented:
->
-> - Clean separation between Foundation (`pkg/core`) and Control Plane (`pkg/events`)
-> - Facade API design (`lifecycle.go` as unified entry point)
-> - All examples updated to use new structure
-> - Zero breaking changes for basic `import "github.com/aretw0/lifecycle"` usage
-
-- [x] **Analyze Current Package Structure**:
-  - [x] Map dependency graph of `pkg/*` packages
-  - [x] Identify coupling between foundation (signal, I/O) and control plane (router, handlers)
-  - [x] Document current import patterns and potential cycles
-  
-- [x] **Design Core/Events Split**:
-  - [x] Architectural analysis performed during v1.5 development.
-  - [x] Validated with existing examples (successfully refactored).
-  
-- [x] **Implement Modular Architecture**:
-  - [x] Create `core/` package structure.
-  - [x] Create `events/` package structure.
-  - [x] Refactor `lifecycle.go` as facade.
-  - [x] Update all examples to use new structure.
-  - [x] Ensure backward compatibility for `import "github.com/aretw0/lifecycle"` users.
-
-#### 🛰️ Architecture: Procio Extraction (Completed)
-
-> [!IMPORTANT]
-> **Refactoring Objective**:
-> We have successfully extracted the core process and I/O primitives into **[procio](https://github.com/aretw0/procio)**. This reduces the dependency footprint and elevates these primitives to first-class status.
-
-- [x] **Transition to Multi-Module (Internal Isolation)**:
-  - [x] Initialize `go.work` (Dev Mode).
-  - [x] Extracted `proc`, `termio`, `scan` to `procio`.
-  - [x] `lifecycle` now depends on `procio` v0.1.2.
-
-- [x] **Promote `proc` & `termio` Ecosystem**:
-  - [x] **Procio** is now a standalone library.
-  - [x] Specialized documentation created in `procio` repo.
-  - [x] `lifecycle` acts as the "Policy Engine" over `procio` "Mechanics".
-
-#### 🎨 Architecture: Introspection Extraction (Completed)
-
-> [!IMPORTANT]
-> **Refactoring Objective**:
-> We have successfully extracted generic visualization primitives into **[introspection](https://github.com/aretw0/introspection)**. This decouples domain logic from presentation logic and enables broader adoption of `lifecycle`'s introspection patterns.
-
-- [x] **Primitive Promotion**:
-  - [x] Removed `pkg/core/introspection` package (~1500 lines).
-  - [x] Extracted generic diagram builders (`TreeDiagram`, `StateMachineDiagram`, `ComponentDiagram`).
-  - [x] `lifecycle` now depends on `introspection` v0.1.2.
-
-- [x] **Adapter Pattern**:
-  - [x] Created `diagram_config.go` (centralized configuration).
-  - [x] Moved `NodeStyler`/`NodeLabeler` to `pkg/core/worker`.
-  - [x] Moved `PrimaryStyler`/`PrimaryLabeler` to `pkg/core/signal`.
-  - [x] Updated `SystemDiagram` to use `introspection.ComponentDiagram`.
-
-- [x] **Code Cleanup ("Fat Removal")**:
-  - [x] Removed `RenderTreeFragment` from `worker/diagram.go`.
-  - [x] Removed `RenderFragment` from `signal/diagram.go`.
-  - [x] Delegated all Mermaid string generation to external library.
-
-#### 🧪 Test Coverage Sanity
-
-> See **[TESTING.md](TESTING.md)** for our "Honest Coverage" policy and exclusions.
-
-- [x] **Analysis**: Identified gaps in `supervisor` and `router`.
-- [x] **Implementation**:
-  - [x] `pkg/core/supervisor`: Backoff & State Tests
-  - [x] `pkg/events/router`: Introspection Tests
-- [x] `pkg/events/suspend`: Robustness Tests
-- [x] **Verification**:
-  - [x] Verify mapped exclusions (`metrics`, `termio`) are documented.
-  - [x] Achieve target coverage for Core Logic.
-
----
-
-## v1.5.1 (lint patch) ✅
-
-- [x] **Lint**: Add lint target and fix all issues (golangci-lint)
-
-## v1.5.2 (Alignment patch) ✅
-
-- [x] **Analysis**: Panic recovery in `lifecycle.Go()` only logs the panic value. To diagnose root causes, stack traces are essential, but not in production (log noise vs. disk I/O cost).
-- [x] **Design**: Implement conditional stack capture—log full `runtime/debug.Stack()` only when debug logging is enabled (`slog.LevelDebug`).
-- [x] **Implementation**:
-  - [x] Modified `pkg/core/runtime/task.go` panic handler to check logger level before capturing stack.
-  - [x] Added `import "runtime/debug"` for stack extraction.
-  - [x] Stack traces appear in development (helpful for debugging), omitted in production (reduces overhead).
-- [x] **Documentation**:
-  - [x] Create `docs/MIGRATION.md` with v1.5 upgrade guide and patterns.
-  - [x] Update documentation and examples to align with v1.5 changes.
-  - [x] Updated code comment explaining the strategy (aligns with TECHNICAL.md §2.4).
-  - [x] Non-breaking change (conditional capture has zero overhead if debug is disabled).
-
----
-
-## Roadmap: Iterative Releases
-
-### v1.6: Core Stability & Observability (Major Milestone + Patches)
-
-**Focus**: Extensible panic observability and a clean migration entry point.
-
-#### v1.6.0 (Major Milestone): Extensible Panic Observability + Migration Entry Points
-
-**Context**: v1.5.2 introduced conditional stack traces (Nivel 1). Now extend this with full customization via the `Observer` pattern and formalize gradual adoption.
-
-> [!IMPORTANT]
-> **v1.6.0 Completed (2026-02-16)**: All items below have been implemented, tested, and documented. Ready for release.
->
-> - Core feature: `Observer.OnGoroutinePanicked(any, []byte)` hook with stack capture control
-> - Migration entry point: `lifecycle.Context()` for gradual adoption
-> - Documentation: TECHNICAL.md (§8.1 cleanup pattern + §14 observability), MIGRATION.md condensed
-> - Examples: `context/main.go` (new), `observability/main.go` (enhanced)
-> - Tests: All 15 tests passing, 3 stack-capture scenarios covered
-
-- [x] **Observer Interface Extension**:
-  - [x] Add `OnGoroutinePanicked(recovered any, stack []byte)` method to `pkg/core/observe.Observer`.
-  - [x] Allows consumers to route panics to external systems (Sentry, Datadog, structured logging backends).
-  - [x] Stack bytes are pre-captured (no performance penalty if observer is unused).
-
-- [x] **GoOption Configuration** (Explicit Control):
-  - [x] Add `WithStackCapture(bool)` option to `lifecycle.Go()`.
-  - [x] Default: Auto-detect (capture if debug level enabled, otherwise skip).
-  - [x] Allows forced capture in production for critical tasks, or forced skip in debug for performance testing.
-  - [x] Example:
-
-    ```go
-    lifecycle.Go(ctx, criticalTask, lifecycle.WithStackCapture(true))   // Always capture
-    lifecycle.Go(ctx, debugTask, lifecycle.WithStackCapture(false))     // Never capture
-    lifecycle.Go(ctx, normalTask)                                        // Auto-detect
-    ```
-
-- [x] **Worker Integration Pattern**:
-  - [x] Document how custom worker implementations (e.g., Loam's `watchWorker`) can leverage the same pattern.
-  - [x] Provide example in `examples/` showing panic recovery + stack capture for custom workers.
-  - [x] **Protected Resource Cleanup Pattern** (Discovered in Loam's debouncer - Feb 2026):
-    - When async callbacks (e.g., debouncer timers) send on channels, formalize this 3-stage shutdown:
-      1. **STOP**: Flag to reject new work (e.g., `debouncer.closed = true`)
-      2. **WAIT**: Use `sync.WaitGroup` to track in-flight callbacks, wait before proceeding
-      3. **CLOSE**: Safe to close resources (channels, etc.) - no goroutines will try to send
-    - [x] Document in TECHNICAL.md (new section after "Worker Protocol" §8)
-    - [x] Provide `stopAndWait(timeout)` helper pattern / example
-    - [x] Applicable to: Watchers, debouncers, queue processors, any system with **async callbacks + channel closure**
-
-- [x] **Downstream Adoption** (Ready for Implementation):
-  - [x] Loam `pkg/adapters/fs` can migrate from custom panic handling to `WithStackCapture(true)`.
-  - [x] Trellis task execution can use `OnGoroutinePanicked` hook for operational dashboards.
-
-- [x] **Migration API (Hybrid Setup Pattern)**:
-  - [x] Implement `lifecycle.Context()` for manual setup:
-
-    ```go
-    func main() {
-        ctx := lifecycle.Context() // returns signal context
-        defer lifecycle.Shutdown(ctx)
-        
-        myExistingApp(ctx) // just swap context.Background() → lifecycle.Context()
-    }
-    ```
-
-  - [x] Document in `docs/MIGRATION.md`:
-    - [x] Pattern A: `lifecycle.Run` (zero config, recommended)
-    - [x] Pattern B: `lifecycle.Context` (manual, for gradual migration)
-    - [x] Trade-offs of each approach
-  - [x] Create example for both patterns
-
-#### v1.6.1 (Patch): Technical Debt Mapping & Documentation
-
-> [!IMPORTANT]
-> **v1.6.1 Completed (2026-02-16)**: Technical debt has been mapped and documented.
-> This patch focuses on **Transparency & API Clarity**, not on performance measurement or new tests.
-> Benchmarks and comprehensive testing of router limitations are planned for **v1.6.2**.
-
-- [x] **Debt Mapping & Documentation**:
-  - [x] Scan codebase for `TODO`, `FIXME`, `HACK` comments (1 TODO found: router.go:192 "Optimize if many routes")
-  - [x] Identify unstable/experimental APIs (all APIs either Stable or marked as such)
-  - [x] Document known limitations clearly in new [LIMITATIONS.md](LIMITATIONS.md):
-    - [x] macOS: No PDeathSig (best-effort zombie prevention)
-    - [x] `path.Match`: Glob only, not full regex
-    - [x] Performance: ~5-10μs overhead per `lifecycle.Go` call
-    - [x] Coverage: High (>80%) for core logic; excluded metrics/termio/filewatch
-    - [x] Compatibility matrix: Go 1.20+, Windows, macOS, Linux
-  
-- [x] **Documentation & Code Annotations**:
-  - [x] Created [LIMITATIONS.md](LIMITATIONS.md) (comprehensive; 200+ lines)
-  - [x] Added §15 "Known Limitations" to TECHNICAL.md with cross-links
-  - [x] Updated TESTING.md to reference compliance matrix
-  - [x] Code annotations in 4 files to clarify API stability:
-    - [x] `pkg/core/observe/observe.go`: Observer marked Stable (v1.6.0)
-    - [x] `pkg/events/router.go`: Glob-only pattern syntax documented
-    - [x] `pkg/core/runtime/task.go`: Three-mode stack capture explained
-    - [x] `lifecycle.go`: APIs Context() and WithStackCapture() stabilized
-
----
-
-### v1.6.2 (Patch): Performance Benchmarks & Consolidation
-
-**Focus**: Measure actual overhead, consolidate multi-source documentation, provide optimization path.
-
-> [!IMPORTANT]
-> **v1.6.2 Completed (2026-02-17)**: All benchmarking and documentation consolidation work has been implemented.
->
-> - Comprehensive benchmarks: `pkg/core/runtime/benchmark_test.go` and `pkg/events/router_benchmark_test.go`
-> - Real performance data: Measured overhead for `lifecycle.Go`, router patterns, supervisor introspection
-> - Documentation consolidated: Single source of truth in LIMITATIONS.md with cross-references
-> - Automation: `make benchmark` target and platform-specific scripts ready
-
-#### v1.6.2 Completed Work
-
-- [x] **Benchmarks** (pkg/core/runtime/benchmark_test.go):
-  - [x] `lifecycle.Go` vs `go func()` + manual WaitGroup
-  - [x] Router matching: exact match vs glob match (O(1) vs O(n))
-  - [x] Observer invocation overhead (with OnGoroutinePanicked hook)
-  - [x] Stack capture overhead (enabled vs disabled vs auto-detect)
-  - [x] Large supervision tree traversal (10, 100, 1000 workers)
-
-- [x] **Benchmarks** (pkg/events/router_benchmark_test.go):
-  - [x] Route matching performance scaling (10-1000 routes)
-  - [x] Middleware chain overhead (0, 1, 5, 10 middleware)
-  - [x] Router throughput (sequential and parallel dispatching)
-  - [x] Memory allocation patterns
-  - [x] Concurrent read/write contention
-
-- [x] **Router Documentation Consolidation**:
-  - [x] Simplified router.go inline comments (removed detailed examples)
-  - [x] LIMITATIONS.md now single source of truth for pattern syntax
-  - [x] Added benchmark data table with real measurements
-  - [x] TECHNICAL.md updated with cross-link to LIMITATIONS.md
-
-- [x] **Baseline Unknowns → Known**:
-  - [x] Measured introspection overhead (State() calls on 10/100/1000 worker trees)
-  - [x] Measured Router throughput (events/sec with varying route counts)
-  - [x] Measured memory footprint patterns
-  - [x] Updated LIMITATIONS.md with all measured data and methodology
-
-- [x] **Automation & Tooling**:
-  - [x] Created `scripts/run_benchmarks.ps1` (Windows)
-  - [x] Created `scripts/run_benchmarks.sh` (Unix)
-  - [x] Added `make benchmark` target to Makefile
-
----
-
-### v1.6.3 (Patch): Workers withLock sync and etc
-
-- [x] **Some Workers**: Add `withLock` and `withLockResult` for atomic reads.
-- [x] **SetEnv and SetOutput**: To return error if process is already stopped.
-- [x] **State**: Added timestamps.
-
-> **Note:** The exceptions and limitations of the `withLock/withLockResult` pattern are now documented in [docs/LIMITATIONS.md](LIMITATIONS.md) to centralize technical knowledge and facilitate maintenance. See there for updated details.
-
----
-
-### v1.6.4 (Patch): Signal Busy Loop Fix
-
-- [x] **Fix**: Corrected a busy loop in `signal.Context` where the monitor loop would consume 100% CPU after context cancellation.
-  - The `Done` channel case is now disabled after cancellation while keeping signal monitoring active for "Force Exit" logic.
-- [x] **Verification**: Verified via tests.
-
----
-
-### v1.6.5 (Patch): Hardening & Security
-
-**Focus**: Critical security fixes and test stability for immediate production reliability.
-
-- [x] **Security (WebhookSource)**:
-  - [x] Implement `http.MaxBytesReader` in `pkg/events/webhook.go`.
-  - [x] Prevent OOM (Out Of Memory) attacks by limiting request body size (e.g., 1MB default). Added `WithMaxPayloadBytes` option.
-- [x] **Test Stability (FileWatchSource)**:
-  - [x] Replace `time.Sleep` in `pkg/events/filewatch_test.go` with deterministic synchronization.
-  - [x] Ensure watcher is ready before triggering file events in tests.
-- [x] **Documentation Sync**:
-  - [x] Update `PLANNING.md` and `TECHNICAL.md` to remove "Skeleton" labels from functional components.
-- [x] **Generic Worker Hardening (Race Condition)**:
-  - [x] Implement utility `lifecycle.StopAndWait(ctx, worker)` to atomically stop and wait for worker termination.
-  - [x] Address race condition where `Stop` returns before `stdout/stderr` buffers are closed or background routines finish (discovered in Trellis usage).
-- [x] **Sober Edit (API Consistency)**:
-  - [x] Enforce Facade Pattern in `lifecycle.go` to never leak internal types (e.g., `signal.Context`, `worker.BaseWorker`).
-
----
-
-### v1.7.0 (Minor): Advanced Watching, Throttling & Event Broker Delegation ✅
-
-**Focus**: Evolve the Control Plane with robust watching patterns, generic event utilities, and event broker responsibilities to offload downstream projects (like Loam).
-
-> [!IMPORTANT]
-> **v1.7.0 Completed (2026-02-21)**: All advanced watching and delegation items below have been implemented, tested, and documented.
->
-> - `events.Notify(ch)` pattern implemented for Pub/Sub and safe external channel integration.
-> - `events.DebounceHandler` implemented to throttle high-frequency burst events.
-> - `FileWatchSource` expanded with `WithRecursive(true)` and `WithFilter` options for deep, targeted file monitoring.
-> - `RECIPES.md` updated with the new "Inhibition Pattern" recipe.
-
-- [x] **Channel Subscriptions (Pub/Sub nativo no Router)**:
-  - [x] Implement `events.Notify(c chan<- Event)` (inspired by `signal.Notify`).
-  - [x] Allow Router to return native Go channels (`<-chan Event`) instead of only pushing via callbacks, enabling synchronous iteration for clients.
-- [x] **Generic Event Utilities (Debounce)**:
-  - [x] Implement a generic **Debouncer** utility (`events.DebounceHandler(handler, window time.Duration, mergeFunc)`).
-  - [x] Provide out-of-the-box noise dampening for high-frequency events (e.g., rapid FileSystem writes).
-- [x] **FileWatchSource Expansion (Recursive FS)**:
-  - [x] Extracted and evolved `FileWatchSource` to support deep monitoring.
-  - [x] Add `WithRecursive(true)` and `WithFilter(func(path string) bool)` support.
-  - [x] *Use Case*: Loam delegates directory watching and `index.lock` git-pause filtering natively without maintaining deep `fsnotify` boilerplate.
-- [x] **Refinement**:
-  - [x] Document "Inhibition Pattern" as a generic way to handle "Git-awareness" without hardcoding Git logic.
-
----
-
-### v1.7.1 (Patch): Pathological Context Enforcement ✅
-
-**Focus**: Implementing hygiene rules defined by ADR-0016 to prevent zombie chains and enforce strict contextual control in child execution.
-
-- [x] **ADR-0016 Propagation Audit**: Fixed `supervisor.go` and `task.go` to derives all internal goroutines from the operation's context.
-- [x] **Chained Cancels**: Documented context propagation for deep hierarchies.
-
----
-
-### v1.7.2 (Patch): Context Cancellation Coverage ✅
-
-**Focus**: Testing blind spots and achieving cross-platform signal robustness.
-
-- [x] **Supervisor Cancellation Tests**: Added deterministic tests for context cancellation during restarts and dynamic adds.
-- [x] **Webhook Context Fix**: Resolved context leak in `Shutdown`.
-- [x] **Procio v0.5.0 Integration**:
-  - [x] Adopted `proc.NewCmd` for lazy command creation and hygiene.
-  - [x] Patched `IsInterrupted` (upstreamed to v0.5.0) to handle Linux-specific signal errors (`signal: interrupt`).
-- [x] **Internal Hygiene**: Purged ad-hoc locking in favor of `withLock` and `sync.Locker` on `BaseWorker`.
-- [x] **Deadlock Fix**: Resolved recursion in `funcWorker.State`.
+> For completed releases (v1.5-v1.7), see [GitHub Releases](https://github.com/aretw0/lifecycle/releases).
 
 ---
 
@@ -396,13 +11,8 @@
 
 **Focus**: Evolve control plane self-healing, scaling, and coordinated lifecycle guarantees.
 
-> [!IMPORTANT]
-> **v1.8.0 Completed (2026-02-26)**: Advanced health monitoring and state promotion implemented.
->
-> - **Status Probing**: Added `Prober` interface for active health diagnostics.
-> - **First-Class Fields**: Promoted `Type`, `Restarts`, `StartedAt`, `UpdatedAt`, and `Health` to `State` struct.
-> - **Hybrid Bridge**: Maintained backward compatibility via `Metadata` mirroring.
-> - **Visualization**: Integrated health icons (❤️/💔) into Mermaid diagrams and notes.
+> [!NOTE]
+> **Status**: Partially implemented. Some features are complete (promoted fields, health icons), while topology enforcement and dependency gates are planned for future iterations.
 
 #### **Declarative Stability (Self-Healing)**: (v1.8+)
 
@@ -524,9 +134,9 @@
 #### 🚀 Launch Preparation
 
 - [ ] **Release Notes**:
-  - [ ] Write `CHANGELOG.md` (v1.0 → v1.5 → v1.8)
-  - [ ] Highlight breaking changes (v1.5 Control Plane)
-  - [ ] Migration guide for early adopters (MIGRATION.md)
+  - [ ] Write comprehensive v1.10 release notes
+  - [ ] Highlight breaking changes
+  - [ ] Migration guide for early adopters (update MIGRATION.md)
   - [ ] Feature showcase with code examples
   
 - [ ] **Marketing Materials**:
@@ -674,3 +284,148 @@ From original planning:
 - **Platform Agnostic**: Windows `CONIN$` handling is a first-class citizen, not an afterthought.
 - **Observability**: Internal state changes must be visible via `pkg/metrics` interfaces.
 - **Solo Development**: Roadmap reflects single-maintainer capacity with AI collaboration. Work is divided into achievable increments, not date-driven sprints.
+
+---
+
+## Ecosystem Vision: Everything as Code (2026+)
+
+> **Strategic Shift (2026-03-02)**: Lifecycle is now positioned as the **foundation layer** for a broader "Everything as Code" ecosystem.
+
+### The Vision
+
+Enable multiple domain-specific languages (DSLs) to compile to a **shared abstract execution engine**, all built on lifecycle's robust infrastructure.
+
+```
+┌───────────────────────────────────────────────────┐
+│ DSL Layer (Domain-Specific Syntax)               │
+│ ─────────────────────────────────────────────────│
+│ • flow-dsl  (Workflows, state machines)          │
+│ • life-dsl  (Habits, routines, energy mgmt)      │
+│ • scrape-dsl (Web automation, selectors)         │
+│ • deploy-dsl (Infrastructure orchestration)      │
+└────────────────┬──────────────────────────────────┘
+                 │ Compiles to IR
+┌────────────────▼──────────────────────────────────┐
+│ Abstract Execution Engine (Domain Agnostic)      │
+│ ─────────────────────────────────────────────────│
+│ • Node abstraction (generic task unit)           │
+│ • Scheduler interface (cron, event, transition)  │
+│ • State store (persistence)                      │
+│ • Context propagation (lifecycle integration)    │
+└────────────────┬──────────────────────────────────┘
+                 │ Built on
+┌────────────────▼──────────────────────────────────┐
+│ Foundation (Infra Robustness)                    │
+│ ─────────────────────────────────────────────────│
+│ • lifecycle (this project)                       │
+│ • loam (parsing)                                 │
+│ • procio (process primitives)                    │
+│ • introspection (visualization)                  │
+└───────────────────────────────────────────────────┘
+```
+
+### Lifecycle's Role (Unchanging)
+
+Lifecycle remains **domain-agnostic**. It provides:
+
+- Signal handling & control plane
+- I/O resilience & managed concurrency
+- Durability primitives
+
+**What lifecycle does NOT do**:
+
+- ❌ Know about "flows", "workers", or "selectors"
+- ❌ Provide DSL parsing or compilation
+- ❌ Implement domain-specific schedulers
+
+**Philosophy**: Solve infrastructure once. All DSLs benefit automatically.
+
+### Ecosystem Phases (2026)
+
+#### Phase 1: Foundation Stabilization ✅ (Complete)
+
+- **Status**: Done
+- **Milestone**: lifecycle v1.5 (Control Plane stable)
+- **Outcome**: Ready for ecosystem integration
+
+#### Phase 2: Engine Extraction (4-6 weeks)
+
+- **Goal**: Separate Trellis DSL from generic execution engine
+- **Deliverables**:
+  - `trellis-engine` package (Node, Scheduler, StateStore interfaces)
+  - Trellis refactored to use engine
+  - Deep lifecycle integration (Router, Supervisor, Context)
+- **Blocker**: Node abstraction design decision (Function/Interface/Hybrid)
+- **Status**: Blocked (waiting for Trellis maintainer decision)
+
+#### Phase 3: First Alternative DSL (6-8 weeks from now)
+
+- **Goal**: Validate engine abstraction with second DSL
+- **Deliverables**:
+  - `life-dsl` v0.1.0 (life.yaml parser + compiler)
+  - POC running on trellis-engine
+  - Executors: CLI, HTTP, Browser, Notify
+- **Dependencies**: Phase 2 must complete
+- **Status**: Planned
+
+#### Phase 4: DSL Ecosystem (3+ months)
+
+- **Goal**: Enable community DSLs
+- **Deliverables**:
+  - `flow-dsl` extracted from Trellis
+  - `scrape-dsl` for web automation
+  - Plugin architecture stabilized
+- **Status**: Future
+
+### Key Documents for Ecosystem
+
+- **[ECOSYSTEM_INTEGRATION.md](ECOSYSTEM_INTEGRATION.md)**: Lifecycle's integration status with all projects (use as template for other projects)
+- **[ecosystem/engine_abstraction.md](ecosystem/engine_abstraction.md)**: Abstract engine vision & design
+- **[ecosystem/arbour.md](ecosystem/arbour.md)**: Arbour's strategic reassessment
+
+### Success Criteria
+
+- [ ] 3+ DSLs compile to shared engine
+- [ ] Engine deeply integrates lifecycle (Router, Supervisor, Context)
+- [ ] All DSLs benefit from lifecycle improvements automatically
+- [ ] Community can build custom DSLs with minimal friction
+
+### Next Ecosystem Milestone
+
+**Trellis Node Abstraction Decision** (This Week)
+
+- **Owner**: Trellis maintainer
+- **Options**: Function-based, Interface-based, Hybrid
+- **Recommendation**: Hybrid (see `ecosystem/engine_abstraction.md`)
+- **Impact**: Unblocks all of Phase 2
+- **ETA**: 2026-03-08
+
+---
+
+## Related Ecosystem Projects
+
+| Project | Role | Status | Next Milestone |
+|---------|------|--------|----------------|
+| **lifecycle** | Foundation | ✅ Stable (v1.5) | Maintain, support ecosystem |
+| **trellis** | Engine + flow-dsl | ⏳ Needs refactor | Extract engine (Phase 2) |
+| **arbour** | ChatOps/Plugins | ⏳ Strategic hold | Clarify role (Phase 3) |
+| **loam** | Parser | ✅ Stable (v0.10) | Optional lifecycle adoption |
+| **fiscus** | Reference impl | 🔮 Greenfield | Lifecycle-native architecture |
+| **life-dsl** | Life as Code | 🔮 Not started | POC in Phase 3 |
+
+---
+
+## For Chat Session Continuity
+
+When resuming development in a new chat session:
+
+1. **Read First**: `docs/ECOSYSTEM_INTEGRATION.md`
+2. **Check Blockers**: See "Integration Status" section
+3. **Current Phase**: Foundation complete, waiting for Phase 2
+4. **Active Work**: Trellis node abstraction decision
+5. **Next Steps**: Support trellis-engine extraction once unblocked
+
+---
+
+**Last Updated**: 2026-03-02  
+**Next Review**: After trellis-engine v0.1.0 or lifecycle v1.9 planning
