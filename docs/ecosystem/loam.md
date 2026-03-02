@@ -7,7 +7,7 @@
 
 **Loam** is the data persistence layer for the "Everything as Code" ecosystem. It provides embedded reactive & transactional engine for content & metadata with Git audit trail built-in.
 
-See [ADR 013 (Demand-Driven Adapters)](https://github.com/aretw0/loam/blob/main/docs/architecture/013-demand-driven-adapter-strategy.md) and [ADR 014 (Autonomy with Synergies)](https://github.com/aretw0/loam/blob/main/docs/architecture/014-trellis-as-primary-stakeholder.md) for the design philosophy.
+See [ADR 013 (Demand-Driven Adapters)](https://github.com/aretw0/loam/blob/main/docs/architecture/013-demand-driven-adapter-strategy.md) and [ADR 014 (Autonomy with Synergies)](https://github.com/aretw0/loam/blob/main/docs/architecture/014-understanding-trellis-loam-symbiosis.md) for the design philosophy.
 
 ## Original Analysis (Pre-Feb 2026)
 

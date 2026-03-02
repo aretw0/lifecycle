@@ -116,7 +116,7 @@
 
 **Papel**: Data Layer (Parsing & Configuration)  
 **Versão**: v0.10+ (stable)  
-**Status**: ⚠️ **Independent (Sem lifecycle integration)**
+**Status**: ✅ **Integrated with lifecycle v1.7.2**
 
 #### O Que Foi Deixado
 
@@ -124,26 +124,34 @@
 - ✅ YAML/JSON/Markdown parsing
 - ✅ Git audit trail integration
 - ✅ Obsidian compatibility
+- ✅ **lifecycle.Run() integration** in CLI entrypoint
 
-#### Oportunidade: Retroactive Adoption
+#### Integração Atual
 
-**Problema**: Manual signal handling, sem graceful shutdown guarantees.
+**Loam já usa lifecycle**:
 
-**Solução Documentada**:
+1. Direct dependency: `lifecycle v1.7.2` in go.mod
+2. CLI entry: `lifecycle.Run(lifecycle.Job(...))` in cmd/loam/main.go
+3. Graceful shutdown: Signals handled by lifecycle
+4. Automatic watcher cleanup on shutdown
 
-1. Wrap `cmd/loam/main.go` com `lifecycle.Run`
-2. Proteger writes com `lifecycle.DoDetached`
-3. Garantir `fsnotify` watcher cleanup
+#### Próximos Passos Opcionais
 
-**Prioridade**: Baixa (opcional — funciona bem hoje)
+**Oportunidades futuras** (low priority):
+
+- Deeper Router integration (file watch events → Router)
+- Supervisor for long-running watchers
+- Suspend/Resume for interactive mode
+
+**Prioridade**: Baixa (já funciona bem com básico lifecycle)
 
 #### Objetivos de Longo Prazo
 
 1. **ADR 013/014**: Demand-Driven Adapters (autonomia + sinergias)
 2. Trellis como **primary stakeholder** (consume loam para parsing)
-3. Manter **independência** (não forçar lifecycle dependency)
+3. Continue benefiting from lifecycle improvements automatically
 
-**Próxima Ação**: Aguardar sinal do mantenedor Loam
+**Próxima Ação**: Monitor lifecycle upgrades, adopt new features as needed
 
 ---
 
