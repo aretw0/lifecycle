@@ -402,6 +402,61 @@ type Engine struct {
 
 ---
 
+### 🔟 **refarm** (Browser-First Personal OS)
+
+**Papel**: Personal Operating System for Sovereign Data (browser-first, offline-first)  
+**Versão**: v0.0.x (active R&D)  
+**Stack**: TypeScript, Astro, SQLite/OPFS, WASM Component Model, Nostr  
+**Status**: 🧪 **First Non-Go Project in the Ecosystem**
+
+#### O Que Foi Decidido
+
+**Technology Boundary** ([Refarm ADR-008](https://github.com/aretw0/refarm/blob/main/specs/ADRs/ADR-008-ecosystem-technology-boundary.md)):
+
+- ✅ **TS/JS para browser**: Kernel, Studio, plugins, storage — nativos TypeScript
+- ✅ **Go para OS**: Futuro daemon usando lifecycle + procio para acesso nativo
+- ✅ **Conceitos exportam, código não**: Arquitetura do trellis, introspection e lifecycle informam design do Refarm — mas não via WASM
+- ❌ **Go compilado para WASM no browser**: Descartado (runtime pesado, WIT imaturo, goroutines vs Event Loop)
+
+#### Concept Transfer Map
+
+| Go Source | Conceito | Destino no Refarm |
+|---|---|---|
+| trellis (engine) | DAG execution, state machines | `apps/kernel` — Plugin orchestration |
+| introspection | State visualization, observers | ADR-007 — Observer plugin interface |
+| lifecycle | Control plane, graceful shutdown | Futuro Refarm Daemon (Go binary) |
+| procio | Process hygiene, platform-specific | Futuro Refarm Daemon (Go binary) |
+| loam | Reactive stores, parser composition | `packages/storage-sqlite` design |
+
+#### Integração com Lifecycle
+
+**Atual**: Concept transfer (ativo) — arquitetura e patterns  
+**Futuro**: Refarm Daemon (Go) usando `lifecycle.Run()` para acesso OS nativo
+
+```
+Browser Domain (TS)          OS Domain (Go)
+┌──────────────────┐    ┌──────────────────────┐
+│ Refarm Kernel    │    │ Refarm Daemon        │
+│ Refarm Studio    │◄──►│ lifecycle + procio   │
+│ @refarm/storage  │    │ File indexing        │
+│ @refarm/sync     │    │ Native automations   │
+└──────────────────┘    └──────────────────────┘
+     WebSocket / Local HTTP (future)
+```
+
+#### Objetivos de Longo Prazo
+
+1. Validar conceitos do ecossistema Go em **ambiente web** (browser)
+2. Servir como **first non-Go project** que se beneficia da fundação lifecycle
+3. Futuro Daemon amplia alcance do lifecycle para **Personal OS** territory
+4. Cross-reference documentation mantém ambos ecossistemas cientes
+
+**Próxima Ação**: Continuar R&D do Refarm v0.1.0 — concept transfer é ongoing
+
+**Docs**: [ecosystem/refarm.md](refarm.md)
+
+---
+
 ## 📋 Ecosystem Phases Overview
 
 ### ✅ Phase 1: Foundation Stabilization (Complete)
@@ -540,6 +595,6 @@ Mudanças arquiteturais maiores documentadas em `docs/ecosystem/` **antes** de i
 
 ---
 
-**Last Updated**: 2026-03-02  
+**Last Updated**: 2026-03-05  
 **Next Review**: After Trellis Node Abstraction decision  
 **Maintainer**: lifecycle team (use as coordination hub)

@@ -102,6 +102,14 @@
 - **Repo**: `github.com/aretw0/introspection` (v0.1.3)
 - **Status**: ✅ Integrated with lifecycle, ready for Trellis/Arbour adoption
 
+#### 🌾 **Refarm** (Browser-First Personal OS)
+
+- **Purpose**: Sovereign data ownership — offline-first, plugin-driven, browser-based
+- **Pattern**: [Concept Export](refarm.md) — TS/JS for browser, Go for future OS daemon
+- **Docs**: [refarm.md](refarm.md) — Ecosystem synergy analysis
+- **Repo**: `github.com/aretw0/refarm` (v0.0.x)
+- **Status**: 🧪 Active R&D — first non-Go project in the ecosystem
+
 ---
 
 ## 🎯 Key Decisions (2026-03-02)
@@ -142,7 +150,8 @@ ecosystem/
 ├── trellis.md                        (State machines)
 ├── arbour.md                         (ChatOps/Plugins)
 ├── fiscus.md                         (Experimental)
-└── introspection.md                  (Observability)
+├── introspection.md                  (Observability)
+└── refarm.md                         (Browser-first Personal OS)
 ```
 
 ### By Topic
@@ -218,6 +227,7 @@ docs/
 | **Arbour** | 0.1+ | 🧪 Pivot | Phase 1 Package Mgr |
 | **Life-DSL** | — | 🔮 Planned | Phase 2b |
 | **Fiscus** | — | 📋 Experimental | — |
+| **Refarm** | 0.0.x | 🧪 R&D | Browser-First (TS) |
 | **Procio** | 0.4+ | ✅ Stable | OS Mechanics |
 | **Introspection** | 0.1.3 | ✅ Integrated | — |
 
@@ -281,11 +291,12 @@ A: No. Pick what you need: lifecycle (always), loam (if parsing data), introspec
 - **Procio Repo**: [github.com/aretw0/procio](https://github.com/aretw0/procio)
 - **Arbour Repo**: [github.com/aretw0/arbour](https://github.com/aretw0/arbour)
 - **Introspection Repo**: [github.com/aretw0/introspection](https://github.com/aretw0/introspection)
+- **Refarm Repo**: [github.com/aretw0/refarm](https://github.com/aretw0/refarm)
 
 ---
 
-**Last Updated**: 2026-03-02  
-**Curated By**: Ecosystem Analysis Session (2026-03-02)  
+**Last Updated**: 2026-03-05  
+**Curated By**: Ecosystem Analysis Session (2026-03-05)  
 **Primary Maintainer**: @aretw0
 
 ---

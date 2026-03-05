@@ -76,6 +76,12 @@ Lifecycle is designed to be **imported** by:
 │ - loam (parsing)                     │
 │ - procio (process primitives)        │
 └──────────────────────────────────────┘
+
+┌──────────────────────────────────────┐
+│ Browser Domain (TS/JS)               │
+│ - refarm (concept transfer only)     │
+│ - Future: Daemon uses lifecycle      │
+└──────────────────────────────────────┘
 ```
 
 ## Integration Status (Per Project)
@@ -111,6 +117,16 @@ Lifecycle is designed to be **imported** by:
 - **Next Steps**: Use as reference implementation
 - **Blocker**: None
 - **ETA**: When development starts
+
+### 🌾 Refarm (v0.0.x)
+
+- **Status**: Concept transfer (first non-Go project)
+- **Usage**: Architectural patterns from lifecycle ecosystem inform TS/JS design
+- **Integration**: Future Refarm Daemon (Go) will use `lifecycle.Run()` for OS-level access
+- **Key Decision**: [ADR-008](https://github.com/aretw0/refarm/blob/main/specs/ADRs/ADR-008-ecosystem-technology-boundary.md) — TS for browser, Go for OS daemon
+- **Blocker**: None (concept transfer is active, code integration is future)
+- **ETA**: Daemon development TBD (after Refarm v0.1.0)
+- **Docs**: [ecosystem/refarm.md](ecosystem/refarm.md)
 
 ### 🔮 Life-DSL (v0.0.x)
 
@@ -283,5 +299,5 @@ This document will be updated as the ecosystem evolves.
 
 ---
 
-**Last Updated**: 2026-03-02  
-**Next Review**: After trellis-engine v0.1.0 release
+**Last Updated**: 2026-03-05  
+**Next Review**: After trellis-engine v0.1.0 release or Refarm Daemon development begins
